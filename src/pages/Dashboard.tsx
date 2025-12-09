@@ -1,8 +1,7 @@
 import { useTranslation } from 'react-i18next';
-import { Navigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
-import { LanguageSwitcher } from '@/components/LanguageSwitcher';
-import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
@@ -12,25 +11,15 @@ import {
   DollarSign, 
   Wrench, 
   MessageSquare,
-  LogOut,
   TrendingUp,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  ArrowRight
 } from 'lucide-react';
-import { toast } from 'sonner';
 
 export default function Dashboard() {
   const { t } = useTranslation();
-  const { user, logout, isAuthenticated } = useAuth();
-
-  if (!isAuthenticated) {
-    return <Navigate to="/auth" replace />;
-  }
-
-  const handleLogout = async () => {
-    await logout();
-    toast.success(t('auth.logoutSuccess'));
-  };
+  const { user } = useAuth();
 
   const stats = [
     {
@@ -40,6 +29,7 @@ export default function Dashboard() {
       trend: '+2 this month',
       color: 'text-primary',
       bgColor: 'bg-primary/10',
+      href: '/properties',
     },
     {
       title: t('dashboard.totalUnits'),
@@ -48,6 +38,7 @@ export default function Dashboard() {
       trend: '94% occupied',
       color: 'text-success',
       bgColor: 'bg-success/10',
+      href: '/units',
     },
     {
       title: t('dashboard.rentCollected'),
@@ -56,6 +47,7 @@ export default function Dashboard() {
       trend: '+15% from last month',
       color: 'text-warning',
       bgColor: 'bg-warning/10',
+      href: '/billing',
     },
     {
       title: t('dashboard.maintenanceRequests'),
@@ -64,6 +56,7 @@ export default function Dashboard() {
       trend: '3 urgent',
       color: 'text-destructive',
       bgColor: 'bg-destructive/10',
+      href: '/maintenance',
     },
   ];
 
@@ -75,47 +68,22 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary rounded-lg">
-              <Building2 className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="font-bold text-xl">{t('common.appName')}</span>
-          </div>
+    <DashboardLayout
+      breadcrumbs={[{ label: t('navigation.dashboard') }]}
+    >
+      {/* Welcome Section */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold">
+          {t('dashboard.welcome', { name: user?.firstName || user?.email?.split('@')[0] })}
+        </h1>
+        <p className="text-muted-foreground mt-1">{t('dashboard.overview')}</p>
+      </div>
 
-          <div className="flex items-center gap-4">
-            <LanguageSwitcher />
-            <ThemeSwitcher />
-            <div className="hidden sm:flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">{user?.email}</span>
-              <span className="px-2 py-1 bg-primary/10 text-primary rounded-full text-xs font-medium">
-                {t(`roles.${user?.role}`)}
-              </span>
-            </div>
-            <Button variant="ghost" size="icon" onClick={handleLogout}>
-              <LogOut className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="container py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold">
-            {t('dashboard.welcome', { name: user?.firstName || user?.email?.split('@')[0] })}
-          </h1>
-          <p className="text-muted-foreground mt-1">{t('dashboard.overview')}</p>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
-          {stats.map((stat) => (
-            <Card key={stat.title} className="relative overflow-hidden">
+      {/* Stats Grid */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
+        {stats.map((stat) => (
+          <Link key={stat.title} to={stat.href}>
+            <Card className="relative overflow-hidden hover:shadow-md transition-shadow cursor-pointer">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   {stat.title}
@@ -132,81 +100,92 @@ export default function Dashboard() {
                 </p>
               </CardContent>
             </Card>
-          ))}
-        </div>
+          </Link>
+        ))}
+      </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Recent Activity */}
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('dashboard.recentActivity')}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {recentActivity.map((activity, index) => (
-                  <div key={index} className="flex items-start gap-4">
-                    <div className={`p-2 rounded-full ${
-                      activity.type === 'payment' ? 'bg-success/10 text-success' :
-                      activity.type === 'maintenance' ? 'bg-warning/10 text-warning' :
-                      activity.type === 'tenant' ? 'bg-info/10 text-info' :
-                      'bg-muted text-muted-foreground'
-                    }`}>
-                      <activity.icon className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm">{activity.message}</p>
-                      <p className="text-xs text-muted-foreground">{activity.time}</p>
-                    </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Recent Activity */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>{t('dashboard.recentActivity')}</CardTitle>
+            <Button variant="ghost" size="sm" className="gap-1">
+              View all <ArrowRight className="h-4 w-4" />
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {recentActivity.map((activity, index) => (
+                <div key={index} className="flex items-start gap-4">
+                  <div className={`p-2 rounded-full ${
+                    activity.type === 'payment' ? 'bg-success/10 text-success' :
+                    activity.type === 'maintenance' ? 'bg-warning/10 text-warning' :
+                    activity.type === 'tenant' ? 'bg-info/10 text-info' :
+                    'bg-muted text-muted-foreground'
+                  }`}>
+                    <activity.icon className="h-4 w-4" />
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('dashboard.quickActions')}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-3">
-                <Button variant="outline" className="h-auto py-4 flex flex-col items-center gap-2">
-                  <Home className="h-5 w-5" />
-                  <span className="text-sm">{t('properties.addProperty')}</span>
-                </Button>
-                <Button variant="outline" className="h-auto py-4 flex flex-col items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  <span className="text-sm">{t('tenants.addTenant')}</span>
-                </Button>
-                <Button variant="outline" className="h-auto py-4 flex flex-col items-center gap-2">
-                  <DollarSign className="h-5 w-5" />
-                  <span className="text-sm">{t('billing.createInvoice')}</span>
-                </Button>
-                <Button variant="outline" className="h-auto py-4 flex flex-col items-center gap-2">
-                  <MessageSquare className="h-5 w-5" />
-                  <span className="text-sm">{t('messages.newMessage')}</span>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Supabase Setup Notice */}
-        <Card className="mt-6 border-warning/50 bg-warning/5">
-          <CardContent className="flex items-start gap-4 pt-6">
-            <div className="p-2 rounded-full bg-warning/10">
-              <AlertCircle className="h-5 w-5 text-warning" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-warning">Backend Not Connected</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                This is a demo with mock data. To enable real authentication, database, and all features,
-                please enable Lovable Cloud from the Cloud tab in the left panel.
-              </p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm">{activity.message}</p>
+                    <p className="text-xs text-muted-foreground">{activity.time}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
-      </main>
-    </div>
+
+        {/* Quick Actions */}
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('dashboard.quickActions')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3">
+              <Button asChild variant="outline" className="h-auto py-4 flex flex-col items-center gap-2">
+                <Link to="/properties">
+                  <Building2 className="h-5 w-5" />
+                  <span className="text-sm">{t('properties.addProperty')}</span>
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="h-auto py-4 flex flex-col items-center gap-2">
+                <Link to="/units">
+                  <Home className="h-5 w-5" />
+                  <span className="text-sm">{t('units.addUnit')}</span>
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="h-auto py-4 flex flex-col items-center gap-2">
+                <Link to="/tenants">
+                  <Users className="h-5 w-5" />
+                  <span className="text-sm">{t('tenants.addTenant')}</span>
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="h-auto py-4 flex flex-col items-center gap-2">
+                <Link to="/messages">
+                  <MessageSquare className="h-5 w-5" />
+                  <span className="text-sm">{t('messages.newMessage')}</span>
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Supabase Setup Notice */}
+      <Card className="mt-6 border-warning/50 bg-warning/5">
+        <CardContent className="flex items-start gap-4 pt-6">
+          <div className="p-2 rounded-full bg-warning/10">
+            <AlertCircle className="h-5 w-5 text-warning" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-warning">Backend Not Connected</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              This is a demo with mock data. To enable real authentication, database, and all features,
+              please enable Lovable Cloud from the Cloud tab in the left panel.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    </DashboardLayout>
   );
 }
