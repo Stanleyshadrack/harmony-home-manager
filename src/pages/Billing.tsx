@@ -10,6 +10,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import {
   Select,
@@ -18,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Droplets, FileText, Filter, Zap } from 'lucide-react';
+import { Plus, Search, Droplets, FileText, Filter, Zap, Download, CheckCircle } from 'lucide-react';
 import { useBilling } from '@/hooks/useBilling';
 import { useAutoInvoice } from '@/hooks/useAutoInvoice';
 import { BillingStats } from '@/components/billing/BillingStats';
@@ -28,7 +29,8 @@ import { InvoiceForm } from '@/components/billing/InvoiceForm';
 import { PaymentForm } from '@/components/billing/PaymentForm';
 import { WaterReadingForm } from '@/components/billing/WaterReadingForm';
 import { useToast } from '@/hooks/use-toast';
-import type { Invoice, InvoiceStatus } from '@/types/billing';
+import { downloadPaymentReceiptPDF } from '@/utils/paymentReceiptPdf';
+import type { Invoice, InvoiceStatus, Payment } from '@/types/billing';
 
 export default function Billing() {
   const { t } = useTranslation();
@@ -53,7 +55,9 @@ export default function Billing() {
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [showWaterForm, setShowWaterForm] = useState(false);
+  const [showReceiptDialog, setShowReceiptDialog] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | undefined>();
+  const [lastPayment, setLastPayment] = useState<{ payment: Payment; invoice: Invoice } | null>(null);
 
   const filteredInvoices = invoices.filter((invoice) => {
     const matchesSearch =
@@ -82,12 +86,38 @@ export default function Billing() {
   };
 
   const handleRecordPayment = (data: any) => {
-    recordPayment(data);
+    const payment = recordPayment(data);
+    const invoice = selectedInvoice;
     setShowPaymentForm(false);
     setSelectedInvoice(undefined);
+    
+    if (invoice && payment) {
+      setLastPayment({ payment, invoice });
+      setShowReceiptDialog(true);
+    }
+    
     toast({
       title: 'Payment Recorded',
       description: 'The payment has been recorded successfully.',
+    });
+  };
+
+  const handleDownloadReceipt = () => {
+    if (!lastPayment) return;
+    
+    downloadPaymentReceiptPDF({
+      payment: lastPayment.payment,
+      invoice: lastPayment.invoice,
+      propertyName: lastPayment.invoice.propertyName,
+      propertyAddress: '123 Main Street, Nairobi', // Mock address
+      landlordName: 'Property Management Co.',
+      landlordPhone: '+254 700 123 456',
+      landlordEmail: 'billing@property.co.ke',
+    });
+    
+    toast({
+      title: 'Receipt Downloaded',
+      description: 'Your payment receipt has been downloaded.',
     });
   };
 
@@ -296,6 +326,43 @@ export default function Billing() {
             onCancel={() => setShowWaterForm(false)}
             isLoading={isLoading}
           />
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Success & Receipt Dialog */}
+      <Dialog open={showReceiptDialog} onOpenChange={setShowReceiptDialog}>
+        <DialogContent className="max-w-sm text-center">
+          <div className="flex flex-col items-center py-4">
+            <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-full mb-4">
+              <CheckCircle className="h-10 w-10 text-green-600 dark:text-green-400" />
+            </div>
+            <DialogHeader className="text-center">
+              <DialogTitle className="text-xl">Payment Successful!</DialogTitle>
+              <DialogDescription className="mt-2">
+                {lastPayment && (
+                  <>
+                    Payment of <span className="font-semibold">KES {lastPayment.payment.amount.toLocaleString()}</span> has been recorded for invoice <span className="font-semibold">{lastPayment.invoice.invoiceNumber}</span>.
+                  </>
+                )}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex gap-3 mt-6 w-full">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setShowReceiptDialog(false)}
+              >
+                Close
+              </Button>
+              <Button
+                className="flex-1 gap-2"
+                onClick={handleDownloadReceipt}
+              >
+                <Download className="h-4 w-4" />
+                Download Receipt
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </DashboardLayout>
