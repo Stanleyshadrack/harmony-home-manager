@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -10,13 +10,21 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Loader2, LogIn, UserCheck } from 'lucide-react';
+import { Eye, EyeOff, Loader2, LogIn, UserCheck, Lock } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  isAccountLocked,
+  recordFailedAttempt,
+  resetAttempts,
+  formatRemainingTime,
+  getMaxAttempts,
+} from '@/services/loginSecurityService';
 
 const demoAccounts = [
   { label: 'Super Admin', email: 'admin@demo.com', password: 'admin123' },
@@ -43,11 +51,14 @@ export function LoginForm({ onSwitchToRegister, onForgotPassword }: LoginFormPro
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [lockoutInfo, setLockoutInfo] = useState<{ locked: boolean; remainingMs: number }>({ locked: false, remainingMs: 0 });
+  const [attemptsWarning, setAttemptsWarning] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -58,18 +69,63 @@ export function LoginForm({ onSwitchToRegister, onForgotPassword }: LoginFormPro
     },
   });
 
+  const emailValue = watch('email');
+
+  // Check lockout status when email changes
+  useEffect(() => {
+    if (emailValue) {
+      const status = isAccountLocked(emailValue);
+      setLockoutInfo(status);
+      if (!status.locked) {
+        setAttemptsWarning(null);
+      }
+    }
+  }, [emailValue]);
+
+  // Update countdown timer
+  useEffect(() => {
+    if (lockoutInfo.locked && lockoutInfo.remainingMs > 0) {
+      const interval = setInterval(() => {
+        const status = isAccountLocked(emailValue);
+        setLockoutInfo(status);
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [lockoutInfo.locked, emailValue]);
+
   const fillDemoCredentials = (email: string, password: string) => {
     setValue('email', email);
     setValue('password', password);
+    setAttemptsWarning(null);
     toast.success('Demo credentials filled');
   };
 
   const onSubmit = async (data: LoginFormData) => {
+    // Check if account is locked
+    const lockStatus = isAccountLocked(data.email);
+    if (lockStatus.locked) {
+      setLockoutInfo(lockStatus);
+      toast.error(`Account locked. Try again in ${formatRemainingTime(lockStatus.remainingMs)}`);
+      return;
+    }
+
     const { error, redirect } = await login(data.email, data.password);
     
     if (error) {
-      toast.error(error);
+      // Record failed attempt
+      const result = recordFailedAttempt(data.email);
+      
+      if (result.locked) {
+        setLockoutInfo({ locked: true, remainingMs: 15 * 60 * 1000 });
+        toast.error(`Too many failed attempts. Account locked for 15 minutes.`);
+      } else {
+        setAttemptsWarning(`${result.attemptsRemaining} attempt${result.attemptsRemaining !== 1 ? 's' : ''} remaining before lockout`);
+        toast.error(error);
+      }
     } else {
+      // Reset attempts on successful login
+      resetAttempts(data.email);
+      setAttemptsWarning(null);
       toast.success(t('auth.loginSuccess'));
       navigate(redirect || '/dashboard');
     }
@@ -77,6 +133,25 @@ export function LoginForm({ onSwitchToRegister, onForgotPassword }: LoginFormPro
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      {/* Lockout Alert */}
+      {lockoutInfo.locked && (
+        <Alert variant="destructive">
+          <Lock className="h-4 w-4" />
+          <AlertDescription>
+            Account temporarily locked due to too many failed attempts. 
+            Try again in {formatRemainingTime(lockoutInfo.remainingMs)}.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Attempts Warning */}
+      {attemptsWarning && !lockoutInfo.locked && (
+        <Alert>
+          <AlertDescription className="text-warning">
+            {attemptsWarning}
+          </AlertDescription>
+        </Alert>
+      )}
       <div className="space-y-2">
         <Label htmlFor="email">{t('auth.email')}</Label>
         <Input
@@ -138,7 +213,7 @@ export function LoginForm({ onSwitchToRegister, onForgotPassword }: LoginFormPro
       </div>
 
       <div className="flex gap-2">
-        <Button type="submit" className="flex-1" disabled={isLoading}>
+        <Button type="submit" className="flex-1" disabled={isLoading || lockoutInfo.locked}>
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

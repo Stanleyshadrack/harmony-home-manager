@@ -6,17 +6,19 @@ import { LoginForm } from '@/components/auth/LoginForm';
 import { RegisterForm } from '@/components/auth/RegisterForm';
 import { ForgotPasswordForm } from '@/components/auth/ForgotPasswordForm';
 import { ResetPasswordForm } from '@/components/auth/ResetPasswordForm';
+import { EmailVerificationForm } from '@/components/auth/EmailVerificationForm';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Building2 } from 'lucide-react';
 
-type AuthView = 'login' | 'register' | 'forgot-password' | 'reset-password';
+type AuthView = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'email-verification';
 
 export default function Auth() {
   const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
   const [authView, setAuthView] = useState<AuthView>('login');
   const [resetEmail, setResetEmail] = useState('');
+  const [verificationEmail, setVerificationEmail] = useState('');
 
   // Redirect if already authenticated
   if (isAuthenticated) {
@@ -104,7 +106,13 @@ export default function Auth() {
                 />
               )}
               {authView === 'register' && (
-                <RegisterForm onSwitchToLogin={() => setAuthView('login')} />
+                <RegisterForm 
+                  onSwitchToLogin={() => setAuthView('login')}
+                  onEmailVerification={(email) => {
+                    setVerificationEmail(email);
+                    setAuthView('email-verification');
+                  }}
+                />
               )}
               {authView === 'forgot-password' && (
                 <ForgotPasswordForm 
@@ -119,6 +127,13 @@ export default function Auth() {
                 <ResetPasswordForm 
                   email={resetEmail}
                   onBack={() => setAuthView('forgot-password')}
+                  onSuccess={() => setAuthView('login')}
+                />
+              )}
+              {authView === 'email-verification' && (
+                <EmailVerificationForm
+                  email={verificationEmail}
+                  onBack={() => setAuthView('login')}
                   onSuccess={() => setAuthView('login')}
                 />
               )}

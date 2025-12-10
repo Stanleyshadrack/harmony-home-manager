@@ -28,6 +28,7 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 
 interface RegisterFormProps {
   onSwitchToLogin: () => void;
+  onEmailVerification?: (email: string) => void;
 }
 
 const roleOptions: { value: UserRole; label: string; icon: React.ReactNode; description: string; requiresApproval: boolean }[] = [
@@ -54,7 +55,7 @@ const roleOptions: { value: UserRole; label: string; icon: React.ReactNode; desc
   },
 ];
 
-export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
+export function RegisterForm({ onSwitchToLogin, onEmailVerification }: RegisterFormProps) {
   const { t } = useTranslation();
   const { submitRegistration } = usePendingRegistrations();
   const [showPassword, setShowPassword] = useState(false);
@@ -84,7 +85,23 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
         requestedRole: selectedRole,
       });
 
-      if (selectedRoleConfig?.requiresApproval) {
+      // Generate email verification code
+      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const verificationData = {
+        email: data.email,
+        code: verificationCode,
+        expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
+      };
+      localStorage.setItem('emailVerificationPending', JSON.stringify(verificationData));
+
+      // Trigger email verification flow
+      if (onEmailVerification) {
+        toast.success('Registration submitted! Please verify your email.', {
+          description: `Demo verification code: ${verificationCode}`,
+          duration: 15000,
+        });
+        onEmailVerification(data.email);
+      } else if (selectedRoleConfig?.requiresApproval) {
         setIsSubmitted(true);
       } else {
         toast.success(t('auth.registrationSuccess'));
