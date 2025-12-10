@@ -4,14 +4,19 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { RegisterForm } from '@/components/auth/RegisterForm';
+import { ForgotPasswordForm } from '@/components/auth/ForgotPasswordForm';
+import { ResetPasswordForm } from '@/components/auth/ResetPasswordForm';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Building2 } from 'lucide-react';
 
+type AuthView = 'login' | 'register' | 'forgot-password' | 'reset-password';
+
 export default function Auth() {
   const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
-  const [isLogin, setIsLogin] = useState(true);
+  const [authView, setAuthView] = useState<AuthView>('login');
+  const [resetEmail, setResetEmail] = useState('');
 
   // Redirect if already authenticated
   if (isAuthenticated) {
@@ -80,20 +85,42 @@ export default function Auth() {
         {/* Form Container */}
         <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8">
           <div className="w-full max-w-md space-y-8">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold tracking-tight">
-                {isLogin ? t('auth.loginTitle') : t('auth.registerTitle')}
-              </h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {isLogin ? t('auth.loginSubtitle') : t('auth.registerSubtitle')}
-              </p>
-            </div>
+            {(authView === 'login' || authView === 'register') && (
+              <div className="text-center">
+                <h2 className="text-2xl font-bold tracking-tight">
+                  {authView === 'login' ? t('auth.loginTitle') : t('auth.registerTitle')}
+                </h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {authView === 'login' ? t('auth.loginSubtitle') : t('auth.registerSubtitle')}
+                </p>
+              </div>
+            )}
 
             <div className="bg-card p-6 sm:p-8 rounded-xl shadow-lg border">
-              {isLogin ? (
-                <LoginForm onSwitchToRegister={() => setIsLogin(false)} />
-              ) : (
-                <RegisterForm onSwitchToLogin={() => setIsLogin(true)} />
+              {authView === 'login' && (
+                <LoginForm 
+                  onSwitchToRegister={() => setAuthView('register')} 
+                  onForgotPassword={() => setAuthView('forgot-password')}
+                />
+              )}
+              {authView === 'register' && (
+                <RegisterForm onSwitchToLogin={() => setAuthView('login')} />
+              )}
+              {authView === 'forgot-password' && (
+                <ForgotPasswordForm 
+                  onBack={() => setAuthView('login')}
+                  onCodeSent={(email) => {
+                    setResetEmail(email);
+                    setAuthView('reset-password');
+                  }}
+                />
+              )}
+              {authView === 'reset-password' && (
+                <ResetPasswordForm 
+                  email={resetEmail}
+                  onBack={() => setAuthView('forgot-password')}
+                  onSuccess={() => setAuthView('login')}
+                />
               )}
             </div>
           </div>

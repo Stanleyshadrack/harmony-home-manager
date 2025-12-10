@@ -35,9 +35,10 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 interface LoginFormProps {
   onSwitchToRegister: () => void;
+  onForgotPassword: () => void;
 }
 
-export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
+export function LoginForm({ onSwitchToRegister, onForgotPassword }: LoginFormProps) {
   const { t } = useTranslation();
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -97,6 +98,7 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
             type="button"
             variant="link"
             className="px-0 font-normal text-muted-foreground"
+            onClick={onForgotPassword}
           >
             {t('auth.forgotPassword')}
           </Button>
