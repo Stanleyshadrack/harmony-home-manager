@@ -24,6 +24,7 @@ import {
   Sparkles,
   HelpCircle,
 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import type { MaintenanceRequest } from '@/types/maintenance';
 
 interface MaintenanceCardProps {
@@ -61,6 +62,10 @@ const categoryIcons: Record<MaintenanceRequest['category'], React.ReactNode> = {
 
 export function MaintenanceCard({ request, onView, onAssign, onUpdateStatus }: MaintenanceCardProps) {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  
+  // Only landlords and super_admin can assign tasks
+  const canAssign = user?.role === 'landlord' || user?.role === 'super_admin';
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -98,7 +103,8 @@ export function MaintenanceCard({ request, onView, onAssign, onUpdateStatus }: M
                   <Eye className="h-4 w-4 mr-2" />
                   View Details
                 </DropdownMenuItem>
-                {request.status === 'pending' && (
+                {/* Only show assign option for landlords/super_admin */}
+                {request.status === 'pending' && canAssign && (
                   <DropdownMenuItem onClick={() => onAssign?.(request)}>
                     <UserPlus className="h-4 w-4 mr-2" />
                     Assign
@@ -117,7 +123,7 @@ export function MaintenanceCard({ request, onView, onAssign, onUpdateStatus }: M
                     Mark Resolved
                   </DropdownMenuItem>
                 )}
-                {request.status !== 'resolved' && request.status !== 'cancelled' && (
+                {request.status !== 'resolved' && request.status !== 'cancelled' && canAssign && (
                   <DropdownMenuItem
                     onClick={() => onUpdateStatus?.(request, 'cancelled')}
                     className="text-destructive"

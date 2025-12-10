@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -24,8 +25,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Filter, Wrench } from 'lucide-react';
+import { Plus, Search, Filter, Wrench, AlertCircle } from 'lucide-react';
 import { useMaintenance } from '@/hooks/useMaintenance';
+import { useAuth } from '@/contexts/AuthContext';
 import { MaintenanceStats } from '@/components/maintenance/MaintenanceStats';
 import { MaintenanceCard } from '@/components/maintenance/MaintenanceCard';
 import { MaintenanceForm } from '@/components/maintenance/MaintenanceForm';
@@ -37,6 +39,7 @@ import type { MaintenanceRequest, MaintenanceStatus } from '@/types/maintenance'
 export default function Maintenance() {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const { user } = useAuth();
   const {
     requests,
     isLoading,
@@ -54,6 +57,9 @@ export default function Maintenance() {
   const [showAssignForm, setShowAssignForm] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<MaintenanceRequest | undefined>();
+
+  // Only landlords and super_admin can assign tasks
+  const canAssign = user?.role === 'landlord' || user?.role === 'super_admin';
 
   const filteredRequests = requests.filter((request) => {
     const matchesSearch =
@@ -80,6 +86,14 @@ export default function Maintenance() {
   };
 
   const handleAssign = (data: any) => {
+    if (!canAssign) {
+      toast({
+        title: 'Permission Denied',
+        description: 'Only landlords can assign maintenance tasks.',
+        variant: 'destructive',
+      });
+      return;
+    }
     assignRequest(data);
     setShowAssignForm(false);
     setSelectedRequest(undefined);
@@ -103,13 +117,24 @@ export default function Maintenance() {
   };
 
   const handleAssignClick = (request: MaintenanceRequest) => {
+    if (!canAssign) {
+      toast({
+        title: 'Permission Denied',
+        description: 'Only landlords can assign maintenance tasks.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setSelectedRequest(request);
     setShowAssignForm(true);
   };
 
   const handleAddNote = (content: string) => {
     if (selectedRequest) {
-      addNote(selectedRequest.id, content, 'landlord', 'Property Manager', 'landlord');
+      const userRole = user?.role === 'super_admin' ? 'landlord' : (user?.role || 'landlord');
+      const userName = (user?.firstName && user?.lastName) ? `${user.firstName} ${user.lastName}` : 'Property Manager';
+      
+      addNote(selectedRequest.id, content, user?.id || 'user', userName, userRole as 'employee' | 'landlord' | 'tenant');
       setSelectedRequest({
         ...selectedRequest,
         notes: [
@@ -117,9 +142,9 @@ export default function Maintenance() {
           {
             id: `note-${Date.now()}`,
             requestId: selectedRequest.id,
-            userId: 'landlord',
-            userName: 'Property Manager',
-            userRole: 'landlord',
+            userId: user?.id || 'user',
+            userName,
+            userRole: userRole as 'employee' | 'landlord' | 'tenant',
             content,
             createdAt: new Date().toISOString(),
           },
@@ -138,6 +163,18 @@ export default function Maintenance() {
     >
       <div className="space-y-6">
         <MaintenanceStats requests={requests} />
+
+        {/* Role-based info banner for employees */}
+        {user?.role === 'employee' && (
+          <Card className="border-info/50 bg-info/5">
+            <CardContent className="py-3 flex items-center gap-3">
+              <AlertCircle className="h-5 w-5 text-info" />
+              <p className="text-sm">
+                You can view and update the status of assigned tasks. Contact your landlord to have tasks assigned to you.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
           <div className="flex flex-1 gap-3 w-full sm:w-auto">
@@ -167,10 +204,12 @@ export default function Maintenance() {
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={() => setShowRequestForm(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            {t('maintenance.newRequest')}
-          </Button>
+          {canAssign && (
+            <Button onClick={() => setShowRequestForm(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              {t('maintenance.newRequest')}
+            </Button>
+          )}
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -202,10 +241,12 @@ export default function Maintenance() {
                       ? 'Try adjusting your search or filter criteria.'
                       : 'No maintenance requests have been submitted yet.'}
                   </p>
-                  <Button onClick={() => setShowRequestForm(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    {t('maintenance.newRequest')}
-                  </Button>
+                  {canAssign && (
+                    <Button onClick={() => setShowRequestForm(true)}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      {t('maintenance.newRequest')}
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ) : (
@@ -215,7 +256,7 @@ export default function Maintenance() {
                     key={request.id}
                     request={request}
                     onView={handleViewRequest}
-                    onAssign={handleAssignClick}
+                    onAssign={canAssign ? handleAssignClick : undefined}
                     onUpdateStatus={handleUpdateStatus}
                   />
                 ))}
