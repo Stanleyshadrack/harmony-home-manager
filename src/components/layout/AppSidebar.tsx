@@ -29,6 +29,7 @@ import {
   HelpCircle,
   LogOut,
   Bell,
+  UserCircle,
   Shield,
   ChevronUp,
 } from 'lucide-react';
@@ -47,6 +48,7 @@ const mainNavItems = [
   { title: 'navigation.units', url: '/units', icon: Home },
   { title: 'navigation.tenants', url: '/tenants', icon: Users },
   { title: 'navigation.billing', url: '/billing', icon: CreditCard },
+  { title: 'navigation.tenantPortal', url: '/tenant-portal', icon: UserCircle },
   { title: 'navigation.maintenance', url: '/maintenance', icon: Wrench },
   { title: 'navigation.messages', url: '/messages', icon: MessageSquare },
 ];
