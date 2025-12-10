@@ -21,11 +21,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Users, Plus, Search, UserCheck, UserX, Clock } from 'lucide-react';
+import { Users, Plus, Search, UserCheck, UserX, Clock, UserPlus } from 'lucide-react';
 import { useTenants } from '@/hooks/useTenants';
+import { usePendingRegistrations } from '@/hooks/useRegistrations';
+import { useAuth } from '@/contexts/AuthContext';
 import { TenantCard } from '@/components/tenants/TenantCard';
 import { TenantForm } from '@/components/tenants/TenantForm';
 import { TenantDetail } from '@/components/tenants/TenantDetail';
+import { TenantApprovals } from '@/components/tenants/TenantApprovals';
 import { Tenant, TenantFormData } from '@/types/tenant';
 import { useToast } from '@/hooks/use-toast';
 
@@ -33,6 +36,13 @@ export default function Tenants() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { tenants, isLoading, addTenant, updateTenant, deleteTenant } = useTenants();
+  const { registrations } = usePendingRegistrations();
+  const { user } = useAuth();
+
+  const pendingTenantRegistrations = registrations.filter(
+    r => r.requestedRole === 'tenant' && r.status === 'pending'
+  );
+  const isLandlordOrAdmin = user?.role === 'landlord' || user?.role === 'super_admin';
 
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState('all');
@@ -186,10 +196,23 @@ export default function Tenants() {
           <TabsTrigger value="active">{t('tenants.active')} ({stats.active})</TabsTrigger>
           <TabsTrigger value="pending">{t('tenants.pending')} ({stats.pending})</TabsTrigger>
           <TabsTrigger value="inactive">{t('tenants.inactive')} ({stats.inactive})</TabsTrigger>
+          {isLandlordOrAdmin && (
+            <TabsTrigger value="approvals" className="flex items-center gap-2">
+              <UserPlus className="h-4 w-4" />
+              Approvals
+              {pendingTenantRegistrations.length > 0 && (
+                <span className="ml-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center">
+                  {pendingTenantRegistrations.length}
+                </span>
+              )}
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value={activeTab} className="mt-6">
-          {isLoading ? (
+          {activeTab === 'approvals' ? (
+            <TenantApprovals />
+          ) : isLoading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             </div>

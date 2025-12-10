@@ -82,16 +82,10 @@ export function EmployeeManagement() {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
 
-  // Filter employee and tenant registrations
+  // Filter employee registrations only (tenant approvals moved to Tenants module)
   const pendingEmployeeRegistrations = registrations.filter(
     r => r.requestedRole === 'employee' && r.status === 'pending'
   );
-  
-  const pendingTenantRegistrations = registrations.filter(
-    r => r.requestedRole === 'tenant' && r.status === 'pending'
-  );
-  
-  const totalPendingApprovals = pendingEmployeeRegistrations.length + pendingTenantRegistrations.length;
 
   const filteredEmployees = employees.filter(emp =>
     emp.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -216,20 +210,6 @@ export function EmployeeManagement() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-info/10">
-                <User className="h-5 w-5 text-info" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Pending Tenants</p>
-                <p className="text-2xl font-bold">{pendingTenantRegistrations.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
               <div className="p-2 rounded-full bg-warning/10">
                 <Clock className="h-5 w-5 text-warning" />
               </div>
@@ -254,15 +234,6 @@ export function EmployeeManagement() {
             {pendingEmployeeRegistrations.length > 0 && (
               <span className="ml-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center">
                 {pendingEmployeeRegistrations.length}
-              </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="tenant-approvals" className="flex items-center gap-2 relative">
-            <User className="h-4 w-4" />
-            Tenant Approvals
-            {pendingTenantRegistrations.length > 0 && (
-              <span className="ml-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center">
-                {pendingTenantRegistrations.length}
               </span>
             )}
           </TabsTrigger>
@@ -476,87 +447,6 @@ export function EmployeeManagement() {
           </Card>
         </TabsContent>
 
-        {/* Tenant Approvals Tab */}
-        <TabsContent value="tenant-approvals" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Pending Tenant Applications
-              </CardTitle>
-              <CardDescription>
-                Review and approve tenant registration requests
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {pendingTenantRegistrations.length === 0 ? (
-                <div className="text-center py-12">
-                  <CheckCircle className="h-12 w-12 mx-auto text-success mb-4" />
-                  <h3 className="font-semibold mb-2">All caught up!</h3>
-                  <p className="text-sm text-muted-foreground">
-                    No pending tenant applications to review
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {pendingTenantRegistrations.map((registration) => (
-                    <div
-                      key={registration.id}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border bg-card gap-4"
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className="p-2 rounded-full bg-info/10">
-                          <Home className="h-5 w-5 text-info" />
-                        </div>
-                        <div>
-                          <p className="font-medium">
-                            {registration.firstName} {registration.lastName}
-                          </p>
-                          <div className="flex flex-col gap-1 mt-1 text-sm text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Mail className="h-3 w-3" />
-                              {registration.email}
-                            </span>
-                            {registration.phone && (
-                              <span className="flex items-center gap-1">
-                                <Phone className="h-3 w-3" />
-                                {registration.phone}
-                              </span>
-                            )}
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              Applied {formatDistanceToNow(new Date(registration.submittedAt), { addSuffix: true })}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex gap-2 sm:flex-shrink-0">
-                        <Button
-                          size="sm"
-                          onClick={() => handleApproveRegistration(registration)}
-                        >
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setSelectedRegistration(registration);
-                            setShowRejectDialog(true);
-                          }}
-                        >
-                          <XCircle className="h-4 w-4 mr-1" />
-                          Reject
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
 
       {/* Assign Property Dialog */}
