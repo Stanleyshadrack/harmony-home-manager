@@ -23,12 +23,19 @@ import {
 import type { InvoiceFormData, InvoiceType } from '@/types/billing';
 
 const invoiceSchema = z.object({
-  tenantId: z.string().min(1, 'Tenant is required'),
-  unitId: z.string().min(1, 'Unit is required'),
-  type: z.enum(['rent', 'water', 'utilities', 'late_fee', 'other']),
-  description: z.string().min(1, 'Description is required').max(200),
-  amount: z.number().min(0.01, 'Amount must be greater than 0'),
-  dueDate: z.string().min(1, 'Due date is required'),
+  tenantId: z.string().min(1, 'Please select a tenant'),
+  unitId: z.string().min(1, 'Please select a unit'),
+  type: z.enum(['rent', 'water', 'utilities', 'late_fee', 'other'], {
+    required_error: 'Please select an invoice type',
+  }),
+  description: z.string()
+    .min(1, 'Description is required')
+    .max(200, 'Description must be less than 200 characters'),
+  amount: z.number({
+    required_error: 'Amount is required',
+    invalid_type_error: 'Please enter a valid amount',
+  }).min(0.01, 'Amount must be at least 0.01'),
+  dueDate: z.string().min(1, 'Please select a due date'),
 });
 
 interface InvoiceFormProps {
