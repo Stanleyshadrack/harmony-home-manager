@@ -210,6 +210,8 @@
     "maintenance": "Maintenance",
     "messages": "Messages",
     "reports": "Reports",
+    "notifications": "Notifications",
+    "auditLogs": "Audit Logs",
     "settings": "Settings",
     "help": "Help & Support"
   },

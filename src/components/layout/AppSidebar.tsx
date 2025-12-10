@@ -28,6 +28,8 @@ import {
   Settings,
   HelpCircle,
   LogOut,
+  Bell,
+  Shield,
   ChevronUp,
 } from 'lucide-react';
 import {
@@ -51,6 +53,8 @@ const mainNavItems = [
 
 const secondaryNavItems = [
   { title: 'navigation.reports', url: '/reports', icon: BarChart3 },
+  { title: 'navigation.notifications', url: '/notifications', icon: Bell },
+  { title: 'navigation.auditLogs', url: '/audit-logs', icon: Shield },
   { title: 'navigation.settings', url: '/settings', icon: Settings },
   { title: 'navigation.help', url: '/help', icon: HelpCircle },
 ];
