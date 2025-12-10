@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/dialog';
 import { Loader2, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const propertySchema = z.object({
   name: z.string().min(1, 'Property name is required'),
@@ -81,6 +81,23 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isLoading
       amenities: property?.amenities || [],
     },
   });
+
+  // Reset form when property changes (for edit mode)
+  useEffect(() => {
+    if (open) {
+      reset({
+        name: property?.name || '',
+        address: property?.address || '',
+        city: property?.city || '',
+        state: property?.state || '',
+        country: property?.country || 'Kenya',
+        postalCode: property?.postalCode || '',
+        propertyType: property?.propertyType || 'apartment',
+        amenities: property?.amenities || [],
+      });
+      setAmenities(property?.amenities || []);
+    }
+  }, [property, open, reset]);
 
   const propertyType = watch('propertyType');
 

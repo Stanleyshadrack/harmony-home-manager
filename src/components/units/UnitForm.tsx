@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useEffect } from 'react';
 import { Unit, UnitFormData, Property } from '@/types/property';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -80,6 +81,25 @@ export function UnitForm({
       amenities: unit?.amenities || [],
     },
   });
+
+  // Reset form when unit changes (for edit mode)
+  useEffect(() => {
+    if (open) {
+      reset({
+        propertyId: unit?.propertyId || defaultPropertyId || '',
+        unitNumber: unit?.unitNumber || '',
+        unitType: unit?.unitType || 'one_bedroom',
+        bedrooms: unit?.bedrooms || 1,
+        bathrooms: unit?.bathrooms || 1,
+        squareFeet: unit?.squareFeet || 500,
+        monthlyRent: unit?.monthlyRent || 0,
+        deposit: unit?.deposit || 0,
+        status: unit?.status || 'vacant',
+        meterId: unit?.meterId || '',
+        amenities: unit?.amenities || [],
+      });
+    }
+  }, [unit, open, defaultPropertyId, reset]);
 
   const propertyId = watch('propertyId');
   const unitType = watch('unitType');

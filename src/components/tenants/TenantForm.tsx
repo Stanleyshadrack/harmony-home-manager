@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form';
+import { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useTranslation } from 'react-i18next';
@@ -61,6 +62,19 @@ export function TenantForm({ tenant, onSubmit, onCancel, isLoading }: TenantForm
       unitId: tenant?.unitId || '',
     },
   });
+
+  // Reset form when tenant changes (for edit mode)
+  useEffect(() => {
+    form.reset({
+      firstName: tenant?.firstName || '',
+      lastName: tenant?.lastName || '',
+      email: tenant?.email || '',
+      phone: tenant?.phone || '',
+      emergencyContact: tenant?.emergencyContact || '',
+      emergencyPhone: tenant?.emergencyPhone || '',
+      unitId: tenant?.unitId || '',
+    });
+  }, [tenant, form]);
 
   return (
     <Form {...form}>
