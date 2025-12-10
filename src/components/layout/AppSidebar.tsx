@@ -32,6 +32,8 @@ import {
   UserCircle,
   Shield,
   ChevronUp,
+  Briefcase,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -48,9 +50,11 @@ const mainNavItems = [
   { title: 'navigation.units', url: '/units', icon: Home },
   { title: 'navigation.tenants', url: '/tenants', icon: Users },
   { title: 'navigation.billing', url: '/billing', icon: CreditCard },
-  { title: 'navigation.tenantPortal', url: '/tenant-portal', icon: UserCircle },
   { title: 'navigation.maintenance', url: '/maintenance', icon: Wrench },
   { title: 'navigation.messages', url: '/messages', icon: MessageSquare },
+  { title: 'navigation.tenantPortal', url: '/tenant-portal', icon: UserCircle },
+  { title: 'navigation.employeePortal', url: '/employee-portal', icon: Briefcase },
+  { title: 'navigation.adminPortal', url: '/admin-portal', icon: ShieldCheck },
 ];
 
 const secondaryNavItems = [

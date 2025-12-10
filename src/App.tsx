@@ -23,6 +23,8 @@ import Help from "./pages/Help";
 import Notifications from "./pages/Notifications";
 import AuditLogs from "./pages/AuditLogs";
 import TenantPortal from "./pages/TenantPortal";
+import EmployeePortal from "./pages/EmployeePortal";
+import AdminPortal from "./pages/AdminPortal";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -50,6 +52,8 @@ const App = () => (
                 <Route path="/notifications" element={<Notifications />} />
                 <Route path="/audit-logs" element={<AuditLogs />} />
                 <Route path="/tenant-portal" element={<TenantPortal />} />
+                <Route path="/employee-portal" element={<EmployeePortal />} />
+                <Route path="/admin-portal" element={<AdminPortal />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/help" element={<Help />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
