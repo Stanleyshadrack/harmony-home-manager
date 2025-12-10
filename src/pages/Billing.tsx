@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Droplets, FileText, Filter, Zap, Download, CheckCircle } from 'lucide-react';
+import { Plus, Search, Droplets, FileText, Filter, Zap, Download, CheckCircle, Mail, Loader2 } from 'lucide-react';
 import { useBilling } from '@/hooks/useBilling';
 import { useAutoInvoice } from '@/hooks/useAutoInvoice';
 import { BillingStats } from '@/components/billing/BillingStats';
@@ -30,6 +30,7 @@ import { PaymentForm } from '@/components/billing/PaymentForm';
 import { WaterReadingForm } from '@/components/billing/WaterReadingForm';
 import { useToast } from '@/hooks/use-toast';
 import { downloadPaymentReceiptPDF } from '@/utils/paymentReceiptPdf';
+import { sendPaymentReceiptEmail } from '@/services/emailService';
 import type { Invoice, InvoiceStatus, Payment } from '@/types/billing';
 
 export default function Billing() {
@@ -58,6 +59,7 @@ export default function Billing() {
   const [showReceiptDialog, setShowReceiptDialog] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | undefined>();
   const [lastPayment, setLastPayment] = useState<{ payment: Payment; invoice: Invoice } | null>(null);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   const filteredInvoices = invoices.filter((invoice) => {
     const matchesSearch =
@@ -119,6 +121,37 @@ export default function Billing() {
       title: 'Receipt Downloaded',
       description: 'Your payment receipt has been downloaded.',
     });
+  };
+
+  const handleSendReceiptEmail = async () => {
+    if (!lastPayment) return;
+    
+    setIsSendingEmail(true);
+    try {
+      await sendPaymentReceiptEmail({
+        payment: lastPayment.payment,
+        invoice: lastPayment.invoice,
+        recipient: {
+          name: lastPayment.payment.tenantName,
+          email: `${lastPayment.payment.tenantName.toLowerCase().replace(' ', '.')}@email.com`,
+        },
+        propertyName: lastPayment.invoice.propertyName,
+        landlordName: 'Property Management Co.',
+      });
+      
+      toast({
+        title: 'Email Sent',
+        description: `Receipt emailed to ${lastPayment.payment.tenantName}.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Email Failed',
+        description: 'Could not send receipt email. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSendingEmail(false);
+    }
   };
 
   const handleCreateWaterBill = (data: any) => {
@@ -346,20 +379,35 @@ export default function Billing() {
                 )}
               </DialogDescription>
             </DialogHeader>
-            <div className="flex gap-3 mt-6 w-full">
+            <div className="flex flex-col gap-3 mt-6 w-full">
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1 gap-2"
+                  onClick={handleDownloadReceipt}
+                >
+                  <Download className="h-4 w-4" />
+                  Download
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1 gap-2"
+                  onClick={handleSendReceiptEmail}
+                  disabled={isSendingEmail}
+                >
+                  {isSendingEmail ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Mail className="h-4 w-4" />
+                  )}
+                  Email Tenant
+                </Button>
+              </div>
               <Button
-                variant="outline"
-                className="flex-1"
+                className="w-full"
                 onClick={() => setShowReceiptDialog(false)}
               >
-                Close
-              </Button>
-              <Button
-                className="flex-1 gap-2"
-                onClick={handleDownloadReceipt}
-              >
-                <Download className="h-4 w-4" />
-                Download Receipt
+                Done
               </Button>
             </div>
           </div>
