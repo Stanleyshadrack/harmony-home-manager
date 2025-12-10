@@ -24,6 +24,7 @@ import { useBilling } from '@/hooks/useBilling';
 import { useAutoInvoice } from '@/hooks/useAutoInvoice';
 import { BillingStats } from '@/components/billing/BillingStats';
 import { InvoiceCard } from '@/components/billing/InvoiceCard';
+import { InvoiceDetail } from '@/components/billing/InvoiceDetail';
 import { PaymentCard } from '@/components/billing/PaymentCard';
 import { InvoiceForm } from '@/components/billing/InvoiceForm';
 import { PaymentForm } from '@/components/billing/PaymentForm';
@@ -58,6 +59,7 @@ export default function Billing() {
   const [showWaterForm, setShowWaterForm] = useState(false);
   const [showReceiptDialog, setShowReceiptDialog] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | undefined>();
+  const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
   const [lastPayment, setLastPayment] = useState<{ payment: Payment; invoice: Invoice } | null>(null);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
 
@@ -172,8 +174,13 @@ export default function Billing() {
   };
 
   const handleViewInvoice = (invoice: Invoice) => {
-    // TODO: Implement invoice detail view
-    console.log('View invoice:', invoice);
+    setViewingInvoice(invoice);
+  };
+
+  const handleRecordPaymentFromDetail = (invoice: Invoice) => {
+    setViewingInvoice(null);
+    setSelectedInvoice(invoice);
+    setShowPaymentForm(true);
   };
 
   const handleRecordPaymentClick = (invoice: Invoice) => {
@@ -413,6 +420,15 @@ export default function Billing() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Invoice Detail Dialog */}
+      <InvoiceDetail
+        invoice={viewingInvoice}
+        payments={payments}
+        open={!!viewingInvoice}
+        onOpenChange={(open) => !open && setViewingInvoice(null)}
+        onRecordPayment={handleRecordPaymentFromDetail}
+      />
     </DashboardLayout>
   );
 }
