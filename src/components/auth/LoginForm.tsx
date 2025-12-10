@@ -4,13 +4,20 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth, UserRole } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Shield, Building2, Wrench, User } from 'lucide-react';
 
 const loginSchema = z.object({
   email: z.string().email('auth.emailInvalid'),
@@ -24,11 +31,19 @@ interface LoginFormProps {
   onSwitchToRegister: () => void;
 }
 
+const roleOptions: { value: UserRole; label: string; icon: React.ReactNode; redirect: string }[] = [
+  { value: 'super_admin', label: 'Super Admin', icon: <Shield className="h-4 w-4" />, redirect: '/admin-portal' },
+  { value: 'landlord', label: 'Landlord', icon: <Building2 className="h-4 w-4" />, redirect: '/dashboard' },
+  { value: 'employee', label: 'Employee', icon: <Wrench className="h-4 w-4" />, redirect: '/employee-portal' },
+  { value: 'tenant', label: 'Tenant', icon: <User className="h-4 w-4" />, redirect: '/tenant-portal' },
+];
+
 export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
   const { t } = useTranslation();
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<UserRole>('landlord');
 
   const {
     register,
@@ -44,18 +59,38 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
   });
 
   const onSubmit = async (data: LoginFormData) => {
-    const { error } = await login(data.email, data.password);
+    const { error } = await login(data.email, data.password, selectedRole);
     
     if (error) {
       toast.error(t('auth.invalidCredentials'));
     } else {
       toast.success(t('auth.loginSuccess'));
-      navigate('/dashboard');
+      const roleConfig = roleOptions.find((r) => r.value === selectedRole);
+      navigate(roleConfig?.redirect || '/dashboard');
     }
   };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      {/* Role Selection */}
+      <div className="space-y-2">
+        <Label>Login as</Label>
+        <div className="grid grid-cols-2 gap-2">
+          {roleOptions.map((role) => (
+            <Button
+              key={role.value}
+              type="button"
+              variant={selectedRole === role.value ? 'default' : 'outline'}
+              className="flex items-center justify-start gap-2 h-auto py-3"
+              onClick={() => setSelectedRole(role.value)}
+            >
+              {role.icon}
+              <span className="text-sm">{role.label}</span>
+            </Button>
+          ))}
+        </div>
+      </div>
+
       <div className="space-y-2">
         <Label htmlFor="email">{t('auth.email')}</Label>
         <Input
@@ -122,7 +157,10 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
             {t('common.loading')}
           </>
         ) : (
-          t('auth.login')
+          <>
+            {roleOptions.find((r) => r.value === selectedRole)?.icon}
+            <span className="ml-2">Sign in as {roleOptions.find((r) => r.value === selectedRole)?.label}</span>
+          </>
         )}
       </Button>
 

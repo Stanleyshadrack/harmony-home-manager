@@ -20,7 +20,7 @@ interface AuthContextType {
   user: UserWithRole | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<{ error: string | null }>;
+  login: (email: string, password: string, role?: UserRole) => Promise<{ error: string | null }>;
   register: (data: RegisterData) => Promise<{ error: string | null }>;
   logout: () => Promise<void>;
 }
@@ -39,20 +39,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserWithRole | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const login = async (email: string, password: string): Promise<{ error: string | null }> => {
+  const login = async (email: string, password: string, role: UserRole = 'landlord'): Promise<{ error: string | null }> => {
     setIsLoading(true);
     try {
       // This will be replaced with Supabase auth when Cloud is enabled
-      console.log('Login attempt:', { email, password: '***' });
+      console.log('Login attempt:', { email, password: '***', role });
+      
+      // Role-based demo users for testing
+      const roleNames: Record<UserRole, { firstName: string; lastName: string }> = {
+        super_admin: { firstName: 'Super', lastName: 'Admin' },
+        landlord: { firstName: 'Property', lastName: 'Manager' },
+        employee: { firstName: 'James', lastName: 'Kamau' },
+        tenant: { firstName: 'John', lastName: 'Doe' },
+      };
       
       // Simulated login for UI testing - REMOVE when Supabase is connected
       if (email && password) {
+        const names = roleNames[role];
         setUser({
-          id: 'demo-user',
+          id: `demo-${role}`,
           email,
-          firstName: 'Demo',
-          lastName: 'User',
-          role: 'landlord',
+          firstName: names.firstName,
+          lastName: names.lastName,
+          role,
         });
         return { error: null };
       }
