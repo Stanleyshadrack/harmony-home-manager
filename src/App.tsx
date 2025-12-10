@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { RBACProvider } from "@/contexts/RBACContext";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import "@/i18n";
 
 import Index from "./pages/Index";
@@ -31,7 +32,7 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-  <ThemeProvider>
+    <ThemeProvider>
       <AuthProvider>
         <RBACProvider>
           <TooltipProvider>
@@ -39,23 +40,97 @@ const App = () => (
             <Sonner />
             <BrowserRouter>
               <Routes>
+                {/* Public routes */}
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/properties" element={<Properties />} />
-                <Route path="/units" element={<Units />} />
-                <Route path="/tenants" element={<Tenants />} />
-                <Route path="/billing" element={<Billing />} />
-                <Route path="/maintenance" element={<Maintenance />} />
-                <Route path="/messages" element={<Messages />} />
-                <Route path="/reports" element={<Reports />} />
-                <Route path="/notifications" element={<Notifications />} />
-                <Route path="/audit-logs" element={<AuditLogs />} />
-                <Route path="/tenant-portal" element={<TenantPortal />} />
-                <Route path="/employee-portal" element={<EmployeePortal />} />
-                <Route path="/admin-portal" element={<AdminPortal />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/help" element={<Help />} />
+
+                {/* Super Admin only routes */}
+                <Route path="/admin-portal" element={
+                  <ProtectedRoute allowedRoles={['super_admin']}>
+                    <AdminPortal />
+                  </ProtectedRoute>
+                } />
+
+                {/* Landlord and Super Admin routes */}
+                <Route path="/dashboard" element={
+                  <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
+                    <Dashboard />
+                  </ProtectedRoute>
+                } />
+                <Route path="/properties" element={
+                  <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
+                    <Properties />
+                  </ProtectedRoute>
+                } />
+                <Route path="/units" element={
+                  <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
+                    <Units />
+                  </ProtectedRoute>
+                } />
+                <Route path="/tenants" element={
+                  <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
+                    <Tenants />
+                  </ProtectedRoute>
+                } />
+                <Route path="/billing" element={
+                  <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
+                    <Billing />
+                  </ProtectedRoute>
+                } />
+                <Route path="/reports" element={
+                  <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
+                    <Reports />
+                  </ProtectedRoute>
+                } />
+                <Route path="/notifications" element={
+                  <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
+                    <Notifications />
+                  </ProtectedRoute>
+                } />
+                <Route path="/audit-logs" element={
+                  <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
+                    <AuditLogs />
+                  </ProtectedRoute>
+                } />
+
+                {/* Landlord, Employee routes */}
+                <Route path="/maintenance" element={
+                  <ProtectedRoute allowedRoles={['super_admin', 'landlord', 'employee']}>
+                    <Maintenance />
+                  </ProtectedRoute>
+                } />
+
+                {/* All authenticated users */}
+                <Route path="/messages" element={
+                  <ProtectedRoute allowedRoles={['super_admin', 'landlord', 'employee', 'tenant']}>
+                    <Messages />
+                  </ProtectedRoute>
+                } />
+                <Route path="/settings" element={
+                  <ProtectedRoute allowedRoles={['super_admin', 'landlord', 'employee', 'tenant']}>
+                    <Settings />
+                  </ProtectedRoute>
+                } />
+                <Route path="/help" element={
+                  <ProtectedRoute allowedRoles={['super_admin', 'landlord', 'employee', 'tenant']}>
+                    <Help />
+                  </ProtectedRoute>
+                } />
+
+                {/* Employee only routes */}
+                <Route path="/employee-portal" element={
+                  <ProtectedRoute allowedRoles={['employee']}>
+                    <EmployeePortal />
+                  </ProtectedRoute>
+                } />
+
+                {/* Tenant only routes */}
+                <Route path="/tenant-portal" element={
+                  <ProtectedRoute allowedRoles={['tenant']}>
+                    <TenantPortal />
+                  </ProtectedRoute>
+                } />
+
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
