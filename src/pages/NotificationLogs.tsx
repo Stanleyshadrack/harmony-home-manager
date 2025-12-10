@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
   TableBody,
@@ -32,6 +33,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useNotifications } from '@/hooks/useNotifications';
 import { NotificationLog, clearNotificationLogs } from '@/services/notificationService';
+import { getEmailHistory, clearEmailHistory } from '@/services/emailService';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import {
@@ -47,18 +49,51 @@ import {
   Send,
   Filter,
   Download,
+  Receipt,
 } from 'lucide-react';
 
 export default function NotificationLogs() {
   const { t } = useTranslation();
   const { logs, refreshLogs } = useNotifications();
+  const [emailLogs, setEmailLogs] = useState(getEmailHistory());
   
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [channelFilter, setChannelFilter] = useState<string>('all');
   const [showClearDialog, setShowClearDialog] = useState(false);
+  const [activeTab, setActiveTab] = useState('all');
 
-  const filteredLogs = logs.filter((log) => {
+  const refreshEmailLogs = () => {
+    setEmailLogs(getEmailHistory());
+  };
+
+  // Combine notification and email logs for "all" view
+  const combinedLogs = useMemo(() => {
+    const smsLogs = logs.map(log => ({
+      ...log,
+      source: 'sms' as const,
+    }));
+    
+    const emails = emailLogs.map(log => ({
+      id: log.id,
+      type: log.type,
+      channel: 'email' as const,
+      recipient: log.recipient.email,
+      recipientName: log.recipient.name,
+      message: log.subject,
+      status: log.status,
+      timestamp: log.sentAt,
+      metadata: log.metadata,
+      source: 'email' as const,
+      error: undefined as string | undefined,
+    }));
+    
+    return [...smsLogs, ...emails].sort((a, b) => 
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+  }, [logs, emailLogs]);
+
+  const filteredLogs = combinedLogs.filter((log) => {
     const matchesSearch = 
       log.recipient.toLowerCase().includes(search.toLowerCase()) ||
       log.message.toLowerCase().includes(search.toLowerCase()) ||
@@ -66,15 +101,20 @@ export default function NotificationLogs() {
     
     const matchesStatus = statusFilter === 'all' || log.status === statusFilter;
     const matchesChannel = channelFilter === 'all' || log.channel === channelFilter;
+    const matchesTab = activeTab === 'all' || 
+      (activeTab === 'sms' && log.source === 'sms') ||
+      (activeTab === 'email' && log.source === 'email');
     
-    return matchesSearch && matchesStatus && matchesChannel;
+    return matchesSearch && matchesStatus && matchesChannel && matchesTab;
   });
 
   const stats = {
-    total: logs.length,
-    sent: logs.filter(l => l.status === 'sent').length,
-    failed: logs.filter(l => l.status === 'failed').length,
-    pending: logs.filter(l => l.status === 'pending').length,
+    total: combinedLogs.length,
+    sent: combinedLogs.filter(l => l.status === 'sent').length,
+    failed: combinedLogs.filter(l => l.status === 'failed').length,
+    pending: combinedLogs.filter(l => l.status === 'pending').length,
+    emails: emailLogs.length,
+    sms: logs.length,
   };
 
   const getStatusBadge = (status: NotificationLog['status']) => {
@@ -116,9 +156,17 @@ export default function NotificationLogs() {
 
   const handleClearLogs = () => {
     clearNotificationLogs();
+    clearEmailHistory();
     refreshLogs();
+    refreshEmailLogs();
     setShowClearDialog(false);
-    toast.success('Notification logs cleared');
+    toast.success('All notification logs cleared');
+  };
+
+  const handleRefresh = () => {
+    refreshLogs();
+    refreshEmailLogs();
+    toast.success('Logs refreshed');
   };
 
   const handleExport = () => {
@@ -154,7 +202,7 @@ export default function NotificationLogs() {
       ]}
     >
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
             <div className="p-2 bg-primary/10 rounded-lg">
@@ -162,7 +210,7 @@ export default function NotificationLogs() {
             </div>
             <div>
               <p className="text-2xl font-bold">{stats.total}</p>
-              <p className="text-sm text-muted-foreground">Total Sent</p>
+              <p className="text-sm text-muted-foreground">Total</p>
             </div>
           </CardContent>
         </Card>
@@ -199,6 +247,28 @@ export default function NotificationLogs() {
             </div>
           </CardContent>
         </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2 bg-blue-500/10 rounded-lg">
+              <Mail className="h-5 w-5 text-blue-500" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{stats.emails}</p>
+              <p className="text-sm text-muted-foreground">Emails</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2 bg-green-500/10 rounded-lg">
+              <Phone className="h-5 w-5 text-green-500" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{stats.sms}</p>
+              <p className="text-sm text-muted-foreground">SMS/WhatsApp</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters and Actions */}
@@ -212,11 +282,11 @@ export default function NotificationLogs() {
               </CardDescription>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={refreshLogs}>
+              <Button variant="outline" size="sm" onClick={handleRefresh}>
                 <RefreshCw className="h-4 w-4 mr-1" />
                 Refresh
               </Button>
-              <Button variant="outline" size="sm" onClick={handleExport} disabled={logs.length === 0}>
+              <Button variant="outline" size="sm" onClick={handleExport} disabled={combinedLogs.length === 0}>
                 <Download className="h-4 w-4 mr-1" />
                 Export
               </Button>
@@ -224,7 +294,7 @@ export default function NotificationLogs() {
                 variant="outline" 
                 size="sm" 
                 onClick={() => setShowClearDialog(true)}
-                disabled={logs.length === 0}
+                disabled={combinedLogs.length === 0}
                 className="text-destructive hover:bg-destructive/10"
               >
                 <Trash2 className="h-4 w-4 mr-1" />
@@ -234,6 +304,23 @@ export default function NotificationLogs() {
           </div>
         </CardHeader>
         <CardContent>
+          {/* Tabs */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-4">
+            <TabsList>
+              <TabsTrigger value="all" className="gap-2">
+                <Send className="h-4 w-4" />
+                All ({combinedLogs.length})
+              </TabsTrigger>
+              <TabsTrigger value="email" className="gap-2">
+                <Mail className="h-4 w-4" />
+                Emails ({emailLogs.length})
+              </TabsTrigger>
+              <TabsTrigger value="sms" className="gap-2">
+                <Phone className="h-4 w-4" />
+                SMS/WhatsApp ({logs.length})
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
           {/* Filters */}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="relative flex-1">
@@ -277,8 +364,8 @@ export default function NotificationLogs() {
               <Send className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="font-semibold mb-2">No notifications found</h3>
               <p className="text-sm text-muted-foreground">
-                {logs.length === 0 
-                  ? 'Notifications will appear here once sent' 
+                {combinedLogs.length === 0 
+                  ? 'Notifications will appear here once sent. Try recording a payment and sending a receipt email.' 
                   : 'Try adjusting your search or filters'}
               </p>
             </div>
@@ -308,12 +395,18 @@ export default function NotificationLogs() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="capitalize text-xs">
+                        <Badge variant="outline" className="capitalize text-xs gap-1">
+                          {log.type === 'payment_receipt' && <Receipt className="h-3 w-3" />}
                           {log.type.replace(/_/g, ' ')}
                         </Badge>
                       </TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {log.recipient}
+                      <TableCell>
+                        <div className="flex flex-col">
+                          {'recipientName' in log && log.recipientName && (
+                            <span className="text-sm font-medium">{log.recipientName}</span>
+                          )}
+                          <span className="font-mono text-sm text-muted-foreground">{log.recipient}</span>
+                        </div>
                       </TableCell>
                       <TableCell className="max-w-xs truncate text-sm text-muted-foreground">
                         {log.message}
