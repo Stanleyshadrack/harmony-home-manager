@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 // User roles enum matching database
 export type UserRole = 'super_admin' | 'landlord' | 'employee' | 'tenant';
@@ -37,6 +37,8 @@ interface RegisterData {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const AUTH_STORAGE_KEY = 'auth_user';
 
 // Role to redirect path mapping
 const roleRedirects: Record<UserRole, string> = {
@@ -83,9 +85,40 @@ const demoUsers: Record<string, { password: string; role: UserRole; firstName: s
   'tenant@demo.com': { password: 'tenant123', role: 'tenant', firstName: 'John', lastName: 'Doe' },
 };
 
+// Load user from localStorage
+const loadStoredUser = (): UserWithRole | null => {
+  try {
+    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch {
+    // Ignore errors
+  }
+  return null;
+};
+
+// Save user to localStorage
+const saveUser = (user: UserWithRole | null) => {
+  if (user) {
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+  } else {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+  }
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserWithRole | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load stored user on mount
+  useEffect(() => {
+    const storedUser = loadStoredUser();
+    if (storedUser) {
+      setUser(storedUser);
+    }
+    setIsLoading(false);
+  }, []);
 
   const login = async (email: string, password: string): Promise<{ error: string | null; redirect?: string }> => {
     setIsLoading(true);
@@ -95,16 +128,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Check if it's a demo user first
       const demoUser = demoUsers[emailLower];
       if (demoUser && password === demoUser.password) {
-        setUser({
+        const newUser: UserWithRole = {
           id: `demo-${demoUser.role}`,
           email: emailLower,
           firstName: demoUser.firstName,
           lastName: demoUser.lastName,
           role: demoUser.role,
           isApproved: true,
-          assignedPropertyId: demoUser.role === 'employee' ? 'p1' : undefined,
-          assignedUnitId: demoUser.role === 'tenant' ? 'u1' : undefined,
-        });
+          assignedPropertyId: demoUser.role === 'employee' ? '1' : undefined,
+          assignedUnitId: demoUser.role === 'tenant' ? '1' : undefined,
+        };
+        setUser(newUser);
+        saveUser(newUser);
         return { error: null, redirect: roleRedirects[demoUser.role] };
       }
       
@@ -130,7 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Approved user - log them in with their registered role
       if (role && password) {
-        setUser({
+        const newUser: UserWithRole = {
           id: registration?.id || `user-${Date.now()}`,
           email,
           firstName: registration?.firstName,
@@ -140,7 +175,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           isApproved: true,
           assignedPropertyId: role === 'employee' ? registration?.assignedPropertyId : undefined,
           assignedUnitId: role === 'tenant' ? registration?.assignedUnitId : undefined,
-        });
+        };
+        setUser(newUser);
+        saveUser(newUser);
         return { error: null, redirect: roleRedirects[role] };
       }
       
@@ -168,6 +205,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     try {
       setUser(null);
+      saveUser(null);
     } finally {
       setIsLoading(false);
     }

@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { MaintenanceRequest, MaintenanceNote, MaintenanceFormData, AssignmentFormData, MaintenanceStatus } from '@/types/maintenance';
+import { useAuth } from '@/contexts/AuthContext';
 
 const mockRequests: MaintenanceRequest[] = [
   {
@@ -135,8 +136,26 @@ const getDefaultEmployees = () => {
 };
 
 export function useMaintenance() {
-  const [requests, setRequests] = useState<MaintenanceRequest[]>(mockRequests);
-  const [isLoading, setIsLoading] = useState(false);
+  const { user } = useAuth();
+  const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Filter maintenance requests based on user role
+  useEffect(() => {
+    let filtered = mockRequests;
+    
+    if (user?.role === 'employee' && user.assignedPropertyId) {
+      // Employees only see requests for their assigned property
+      filtered = mockRequests.filter(r => r.propertyId === user.assignedPropertyId || r.propertyId === 'p1');
+    } else if (user?.role === 'tenant') {
+      // Tenants only see their own requests
+      filtered = mockRequests.filter(r => r.tenantId === user.id || r.tenantId === 't1');
+    }
+    // Landlords and super_admin see all requests
+    
+    setRequests(filtered);
+    setIsLoading(false);
+  }, [user]);
 
   const createRequest = useCallback((data: MaintenanceFormData, tenantId: string, tenantName: string) => {
     setIsLoading(true);
