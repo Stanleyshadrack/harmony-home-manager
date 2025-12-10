@@ -7,11 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
@@ -49,11 +51,13 @@ import {
   Clock,
   Wrench,
   User,
+  Mail,
 } from 'lucide-react';
 import { useProperties } from '@/hooks/useProperties';
 import { useTenants } from '@/hooks/useTenants';
 import { useBilling } from '@/hooks/useBilling';
 import { usePendingRegistrations, PendingRegistration } from '@/hooks/useRegistrations';
+import { useInAppNotifications } from '@/hooks/useInAppNotifications';
 import { getAuditLogs, getActivitySummary } from '@/services/auditService';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -147,24 +151,53 @@ export default function AdminPortal() {
     });
   };
 
+  const { addNotification } = useInAppNotifications();
+
   const handleApproveRegistration = async (registration: PendingRegistration) => {
     await approveRegistration(registration.id, user?.email || 'Admin');
+    
+    // Send in-app notification to the user
+    addNotification({
+      userId: registration.email, // Use email as user ID for now
+      title: 'Registration Approved!',
+      message: `Your ${registration.requestedRole} account has been approved. You can now log in to the system.`,
+      category: 'registration_approved',
+      priority: 'high',
+      link: '/auth',
+    });
+
     toast({
       title: 'Registration Approved',
-      description: `${registration.firstName} ${registration.lastName}'s ${registration.requestedRole} account has been approved.`,
+      description: `${registration.firstName} ${registration.lastName}'s ${registration.requestedRole} account has been approved. A notification has been sent.`,
     });
   };
 
   const handleRejectRegistration = async () => {
-    if (selectedRegistration) {
+    if (selectedRegistration && rejectionReason.trim()) {
       await rejectRegistration(selectedRegistration.id, user?.email || 'Admin', rejectionReason);
+      
+      // Send in-app notification to the user
+      addNotification({
+        userId: selectedRegistration.email,
+        title: 'Registration Rejected',
+        message: `Your ${selectedRegistration.requestedRole} registration was not approved. Reason: ${rejectionReason}`,
+        category: 'registration_rejected',
+        priority: 'high',
+      });
+
       toast({
         title: 'Registration Rejected',
-        description: `${selectedRegistration.firstName} ${selectedRegistration.lastName}'s application has been rejected.`,
+        description: `${selectedRegistration.firstName} ${selectedRegistration.lastName}'s application has been rejected. A notification has been sent.`,
       });
       setShowRejectDialog(false);
       setSelectedRegistration(null);
       setRejectionReason('');
+    } else {
+      toast({
+        title: 'Reason Required',
+        description: 'Please provide a reason for rejection.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -858,6 +891,85 @@ export default function AdminPortal() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowLandlordDialog(false)}>
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rejection Dialog */}
+      <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <XCircle className="h-5 w-5" />
+              Reject Registration
+            </DialogTitle>
+            <DialogDescription>
+              {selectedRegistration && (
+                <>
+                  Reject the registration request from <strong>{selectedRegistration.firstName} {selectedRegistration.lastName}</strong> ({selectedRegistration.requestedRole}).
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="rejection-reason">Reason for Rejection *</Label>
+              <Textarea
+                id="rejection-reason"
+                placeholder="Please provide a clear reason for rejecting this registration..."
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                rows={4}
+              />
+              <p className="text-xs text-muted-foreground">
+                This reason will be shared with the applicant.
+              </p>
+            </div>
+
+            {/* Quick rejection reasons */}
+            <div className="space-y-2">
+              <Label className="text-sm text-muted-foreground">Quick select a reason:</Label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  'Incomplete application',
+                  'Unable to verify identity',
+                  'Does not meet requirements',
+                  'Duplicate registration',
+                ].map((reason) => (
+                  <Button
+                    key={reason}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setRejectionReason(reason)}
+                    className="text-xs"
+                  >
+                    {reason}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowRejectDialog(false);
+                setSelectedRegistration(null);
+                setRejectionReason('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleRejectRegistration}
+              disabled={!rejectionReason.trim()}
+            >
+              <XCircle className="h-4 w-4 mr-2" />
+              Reject Registration
             </Button>
           </DialogFooter>
         </DialogContent>
