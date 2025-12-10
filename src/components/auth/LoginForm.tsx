@@ -10,7 +10,20 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Loader2, LogIn } from 'lucide-react';
+import { Eye, EyeOff, Loader2, LogIn, UserCheck } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+
+const demoAccounts = [
+  { label: 'Super Admin', email: 'admin@demo.com', password: 'admin123' },
+  { label: 'Landlord', email: 'landlord@demo.com', password: 'landlord123' },
+  { label: 'Employee', email: 'employee@demo.com', password: 'employee123' },
+  { label: 'Tenant', email: 'tenant@demo.com', password: 'tenant123' },
+];
 
 const loginSchema = z.object({
   email: z.string().email('auth.emailInvalid'),
@@ -33,6 +46,7 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -42,6 +56,12 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
       rememberMe: false,
     },
   });
+
+  const fillDemoCredentials = (email: string, password: string) => {
+    setValue('email', email);
+    setValue('password', password);
+    toast.success('Demo credentials filled');
+  };
 
   const onSubmit = async (data: LoginFormData) => {
     const { error, redirect } = await login(data.email, data.password);
@@ -115,19 +135,38 @@ export function LoginForm({ onSwitchToRegister }: LoginFormProps) {
         </Label>
       </div>
 
-      <Button type="submit" className="w-full" disabled={isLoading}>
-        {isLoading ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            {t('common.loading')}
-          </>
-        ) : (
-          <>
-            <LogIn className="h-4 w-4 mr-2" />
-            {t('auth.login')}
-          </>
-        )}
-      </Button>
+      <div className="flex gap-2">
+        <Button type="submit" className="flex-1" disabled={isLoading}>
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              {t('common.loading')}
+            </>
+          ) : (
+            <>
+              <LogIn className="h-4 w-4 mr-2" />
+              {t('auth.login')}
+            </>
+          )}
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" variant="outline" size="icon" title="Demo Login">
+              <UserCheck className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {demoAccounts.map((account) => (
+              <DropdownMenuItem
+                key={account.email}
+                onClick={() => fillDemoCredentials(account.email, account.password)}
+              >
+                {account.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
       <p className="text-center text-sm text-muted-foreground">
         {t('auth.noAccount')}{' '}
