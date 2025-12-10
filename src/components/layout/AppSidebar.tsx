@@ -62,9 +62,10 @@ const mainNavItems: NavItem[] = [
   // Landlord items (full access to property management)
   { title: 'navigation.dashboard', url: '/dashboard', icon: LayoutDashboard, roles: ['super_admin', 'landlord'] },
   { title: 'navigation.properties', url: '/properties', icon: Building2, roles: ['super_admin', 'landlord'] },
-  { title: 'navigation.units', url: '/units', icon: Home, roles: ['super_admin', 'landlord'] },
-  { title: 'navigation.tenants', url: '/tenants', icon: Users, roles: ['super_admin', 'landlord'] },
+  { title: 'navigation.units', url: '/units', icon: Home, roles: ['super_admin', 'landlord', 'employee'] },
+  { title: 'navigation.tenants', url: '/tenants', icon: Users, roles: ['super_admin', 'landlord', 'employee'] },
   { title: 'navigation.billing', url: '/billing', icon: CreditCard, roles: ['super_admin', 'landlord'] },
+  { title: 'Water Data', url: '/water-data', icon: Droplets, roles: ['super_admin', 'landlord'] },
   { title: 'navigation.maintenance', url: '/maintenance', icon: Wrench, roles: ['super_admin', 'landlord'] },
   { title: 'navigation.messages', url: '/messages', icon: MessageSquare, roles: ['super_admin', 'landlord', 'employee', 'tenant'] },
   
