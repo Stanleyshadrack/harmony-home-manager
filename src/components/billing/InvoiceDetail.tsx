@@ -5,9 +5,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import { 
   Download, 
   CreditCard, 
@@ -20,10 +32,13 @@ import {
   Clock,
   CheckCircle,
   AlertTriangle,
+  Edit,
+  XCircle,
 } from 'lucide-react';
 import type { Invoice, Payment } from '@/types/billing';
 import { downloadInvoicePDF } from '@/utils/invoicePdf';
 import { useToast } from '@/hooks/use-toast';
+import { useState } from 'react';
 
 interface InvoiceDetailProps {
   invoice: Invoice | null;
@@ -31,6 +46,8 @@ interface InvoiceDetailProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onRecordPayment?: (invoice: Invoice) => void;
+  onEdit?: (invoice: Invoice) => void;
+  onCancel?: (invoice: Invoice, reason: string) => void;
 }
 
 const statusColors: Record<Invoice['status'], string> = {
@@ -72,12 +89,18 @@ export function InvoiceDetail({
   payments = [], 
   open, 
   onOpenChange,
-  onRecordPayment 
+  onRecordPayment,
+  onEdit,
+  onCancel
 }: InvoiceDetailProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const [cancelReason, setCancelReason] = useState('');
 
   if (!invoice) return null;
+
+  const canEdit = invoice.status !== 'paid' && invoice.status !== 'cancelled';
+  const canCancel = invoice.status !== 'paid' && invoice.status !== 'cancelled';
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-KE', {
@@ -314,14 +337,71 @@ export function InvoiceDetail({
             </>
           )}
 
+          {/* Cancellation Info */}
+          {invoice.status === 'cancelled' && (invoice as any).cancellationReason && (
+            <>
+              <Separator />
+              <div className="p-4 bg-destructive/5 border border-destructive/20 rounded-lg">
+                <h4 className="font-medium text-destructive mb-1">Cancellation Reason</h4>
+                <p className="text-sm text-muted-foreground">{(invoice as any).cancellationReason}</p>
+              </div>
+            </>
+          )}
+
           {/* Actions */}
-          <div className="flex gap-3 pt-4">
-            <Button variant="outline" className="flex-1" onClick={handleDownloadPDF}>
+          <div className="flex flex-wrap gap-3 pt-4">
+            <Button variant="outline" onClick={handleDownloadPDF}>
               <Download className="h-4 w-4 mr-2" />
               Download PDF
             </Button>
+            {canEdit && onEdit && (
+              <Button variant="outline" onClick={() => onEdit(invoice)}>
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Invoice
+              </Button>
+            )}
+            {canCancel && onCancel && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" className="text-destructive hover:text-destructive">
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Cancel Invoice
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Cancel Invoice {invoice.invoiceNumber}?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. The invoice will be marked as cancelled.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <div className="py-4">
+                    <Textarea
+                      placeholder="Enter cancellation reason..."
+                      value={cancelReason}
+                      onChange={(e) => setCancelReason(e.target.value)}
+                      className="min-h-[80px]"
+                    />
+                  </div>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setCancelReason('')}>
+                      Keep Invoice
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={() => {
+                        onCancel(invoice, cancelReason);
+                        setCancelReason('');
+                      }}
+                    >
+                      Cancel Invoice
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
             {invoice.status !== 'paid' && invoice.status !== 'cancelled' && onRecordPayment && (
-              <Button className="flex-1" onClick={() => onRecordPayment(invoice)}>
+              <Button className="ml-auto" onClick={() => onRecordPayment(invoice)}>
                 <CreditCard className="h-4 w-4 mr-2" />
                 Record Payment
               </Button>

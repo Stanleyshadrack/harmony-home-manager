@@ -42,6 +42,8 @@ interface InvoiceFormProps {
   onSubmit: (data: InvoiceFormData) => void;
   onCancel: () => void;
   isLoading?: boolean;
+  initialData?: Partial<InvoiceFormData> & { tenantId?: string; unitId?: string };
+  isEditing?: boolean;
 }
 
 // Mock tenant and unit data
@@ -57,18 +59,18 @@ const mockUnits = [
   { id: 'u3', number: 'C303', propertyName: 'Ocean View Towers' },
 ];
 
-export function InvoiceForm({ onSubmit, onCancel, isLoading }: InvoiceFormProps) {
+export function InvoiceForm({ onSubmit, onCancel, isLoading, initialData, isEditing }: InvoiceFormProps) {
   const { t } = useTranslation();
 
   const form = useForm<InvoiceFormData>({
     resolver: zodResolver(invoiceSchema),
     defaultValues: {
-      tenantId: '',
-      unitId: '',
-      type: 'rent',
-      description: '',
-      amount: 0,
-      dueDate: new Date().toISOString().split('T')[0],
+      tenantId: initialData?.tenantId || '',
+      unitId: initialData?.unitId || '',
+      type: initialData?.type || 'rent',
+      description: initialData?.description || '',
+      amount: initialData?.amount || 0,
+      dueDate: initialData?.dueDate || new Date().toISOString().split('T')[0],
     },
   });
 
@@ -218,7 +220,7 @@ export function InvoiceForm({ onSubmit, onCancel, isLoading }: InvoiceFormProps)
             {t('common.cancel')}
           </Button>
           <Button type="submit" disabled={isLoading}>
-            {isLoading ? t('common.loading') : t('billing.createInvoice')}
+            {isLoading ? t('common.loading') : isEditing ? t('common.save') : t('billing.createInvoice')}
           </Button>
         </div>
       </form>
