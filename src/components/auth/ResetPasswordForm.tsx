@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Loader2, KeyRound, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { PasswordStrengthIndicator } from './PasswordStrengthIndicator';
 
 const resetPasswordSchema = z.object({
   code: z.string().length(6, 'Verification code must be 6 digits'),
@@ -49,6 +50,7 @@ export const ResetPasswordForm = ({ email, onBack, onSuccess }: ResetPasswordFor
   });
 
   const codeValue = watch('code');
+  const passwordValue = watch('password') || '';
 
   const onSubmit = async (data: ResetPasswordData) => {
     setIsLoading(true);
@@ -186,6 +188,7 @@ export const ResetPasswordForm = ({ email, onBack, onSuccess }: ResetPasswordFor
         {errors.password && (
           <p className="text-sm text-destructive">{errors.password.message}</p>
         )}
+        <PasswordStrengthIndicator password={passwordValue} />
       </div>
 
       <div className="space-y-2">

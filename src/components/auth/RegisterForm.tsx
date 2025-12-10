@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { Eye, EyeOff, Loader2, User, Wrench, Building2, CheckCircle2 } from 'lucide-react';
+import { PasswordStrengthIndicator } from './PasswordStrengthIndicator';
 
 const registerSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -67,10 +68,13 @@ export function RegisterForm({ onSwitchToLogin, onEmailVerification }: RegisterF
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
   });
+
+  const passwordValue = watch('password') || '';
 
   const selectedRoleConfig = roleOptions.find((r) => r.value === selectedRole);
 
@@ -247,6 +251,7 @@ export function RegisterForm({ onSwitchToLogin, onEmailVerification }: RegisterF
         {errors.password && (
           <p className="text-sm text-destructive">{t(errors.password.message || '')}</p>
         )}
+        <PasswordStrengthIndicator password={passwordValue} />
       </div>
 
       <div className="space-y-2">
