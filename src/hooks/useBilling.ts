@@ -359,6 +359,62 @@ export function useBilling() {
       .reduce((sum, inv) => sum + inv.balance, 0);
   }, [invoices]);
 
+  const updateInvoice = useCallback((id: string, data: Partial<InvoiceFormData>) => {
+    setIsLoading(true);
+    const invoice = invoices.find((inv) => inv.id === id);
+    if (!invoice) {
+      setIsLoading(false);
+      throw new Error('Invoice not found');
+    }
+
+    const updatedAmount = data.amount ?? invoice.amount;
+    const newBalance = updatedAmount - invoice.amountPaid;
+
+    setInvoices((prev) =>
+      prev.map((inv) =>
+        inv.id === id
+          ? {
+              ...inv,
+              type: data.type ?? inv.type,
+              description: data.description ?? inv.description,
+              amount: updatedAmount,
+              balance: Math.max(0, newBalance),
+              dueDate: data.dueDate ?? inv.dueDate,
+              status: newBalance <= 0 ? 'paid' : inv.amountPaid > 0 ? 'partial' : inv.status,
+              updatedAt: new Date().toISOString(),
+            }
+          : inv
+      )
+    );
+    setIsLoading(false);
+    return invoices.find((inv) => inv.id === id);
+  }, [invoices]);
+
+  const cancelInvoice = useCallback((id: string, reason?: string) => {
+    setIsLoading(true);
+    const invoice = invoices.find((inv) => inv.id === id);
+    if (!invoice) {
+      setIsLoading(false);
+      throw new Error('Invoice not found');
+    }
+
+    setInvoices((prev) =>
+      prev.map((inv) =>
+        inv.id === id
+          ? {
+              ...inv,
+              status: 'cancelled' as const,
+              cancelledDate: new Date().toISOString().split('T')[0],
+              cancellationReason: reason,
+              updatedAt: new Date().toISOString(),
+            }
+          : inv
+      )
+    );
+    setIsLoading(false);
+    return invoice;
+  }, [invoices]);
+
   return {
     invoices,
     payments,
@@ -366,6 +422,8 @@ export function useBilling() {
     createInvoice,
     createWaterInvoice,
     recordPayment,
+    updateInvoice,
+    cancelInvoice,
     getInvoicesByStatus,
     getPaymentsByInvoice,
     getTotalRevenue,

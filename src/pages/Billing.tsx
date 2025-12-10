@@ -19,7 +19,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Droplets, FileText, Filter, Zap, Download, CheckCircle, Mail, Loader2 } from 'lucide-react';
+import { Plus, Search, Droplets, FileText, Filter, Zap, Download, CheckCircle, Mail, Loader2, Edit } from 'lucide-react';
+import { logAuditEvent } from '@/services/auditService';
 import { useBilling } from '@/hooks/useBilling';
 import { useAutoInvoice } from '@/hooks/useAutoInvoice';
 import { BillingStats } from '@/components/billing/BillingStats';
@@ -44,6 +45,8 @@ export default function Billing() {
     createInvoice,
     createWaterInvoice,
     recordPayment,
+    updateInvoice,
+    cancelInvoice,
     getTotalRevenue,
     getTotalOutstanding,
   } = useBilling();
@@ -60,6 +63,7 @@ export default function Billing() {
   const [showReceiptDialog, setShowReceiptDialog] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | undefined>();
   const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [lastPayment, setLastPayment] = useState<{ payment: Payment; invoice: Invoice } | null>(null);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
 
@@ -81,12 +85,56 @@ export default function Billing() {
   });
 
   const handleCreateInvoice = (data: any) => {
-    createInvoice(data);
+    const invoice = createInvoice(data);
+    logAuditEvent(
+      'user1', 'Current User', 'landlord',
+      'create_invoice', 'Invoice',
+      `Created invoice ${invoice.invoiceNumber}`,
+      invoice.id
+    );
     setShowInvoiceForm(false);
     toast({
       title: 'Invoice Created',
       description: 'The invoice has been created successfully.',
     });
+  };
+
+  const handleUpdateInvoice = (data: any) => {
+    if (!editingInvoice) return;
+    updateInvoice(editingInvoice.id, data);
+    logAuditEvent(
+      'user1', 'Current User', 'landlord',
+      'update_invoice', 'Invoice',
+      `Updated invoice ${editingInvoice.invoiceNumber}: amount=${data.amount}, type=${data.type}`,
+      editingInvoice.id,
+      { previousAmount: editingInvoice.amount, newAmount: data.amount }
+    );
+    setEditingInvoice(null);
+    toast({
+      title: 'Invoice Updated',
+      description: 'The invoice has been updated successfully.',
+    });
+  };
+
+  const handleCancelInvoice = (invoice: Invoice, reason: string) => {
+    cancelInvoice(invoice.id, reason);
+    logAuditEvent(
+      'user1', 'Current User', 'landlord',
+      'delete_invoice', 'Invoice',
+      `Cancelled invoice ${invoice.invoiceNumber}. Reason: ${reason || 'No reason provided'}`,
+      invoice.id,
+      { cancellationReason: reason }
+    );
+    setViewingInvoice(null);
+    toast({
+      title: 'Invoice Cancelled',
+      description: `Invoice ${invoice.invoiceNumber} has been cancelled.`,
+    });
+  };
+
+  const handleEditInvoice = (invoice: Invoice) => {
+    setViewingInvoice(null);
+    setEditingInvoice(invoice);
   };
 
   const handleRecordPayment = (data: any) => {
@@ -337,6 +385,34 @@ export default function Billing() {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Invoice Dialog */}
+      <Dialog open={!!editingInvoice} onOpenChange={(open) => !open && setEditingInvoice(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="h-5 w-5" />
+              Edit Invoice {editingInvoice?.invoiceNumber}
+            </DialogTitle>
+          </DialogHeader>
+          {editingInvoice && (
+            <InvoiceForm
+              onSubmit={handleUpdateInvoice}
+              onCancel={() => setEditingInvoice(null)}
+              isLoading={isLoading}
+              isEditing
+              initialData={{
+                tenantId: editingInvoice.tenantId,
+                unitId: editingInvoice.unitId,
+                type: editingInvoice.type,
+                description: editingInvoice.description,
+                amount: editingInvoice.amount,
+                dueDate: editingInvoice.dueDate,
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Record Payment Dialog */}
       <Dialog open={showPaymentForm} onOpenChange={setShowPaymentForm}>
         <DialogContent className="max-w-md">
@@ -428,6 +504,8 @@ export default function Billing() {
         open={!!viewingInvoice}
         onOpenChange={(open) => !open && setViewingInvoice(null)}
         onRecordPayment={handleRecordPaymentFromDetail}
+        onEdit={handleEditInvoice}
+        onCancel={handleCancelInvoice}
       />
     </DashboardLayout>
   );
