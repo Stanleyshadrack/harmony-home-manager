@@ -37,6 +37,7 @@ import {
   FileText,
   Droplets,
   UsersRound,
+  History,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -82,6 +83,7 @@ const mainNavItems: NavItem[] = [
 const secondaryNavItems: NavItem[] = [
   { title: 'navigation.reports', url: '/reports', icon: BarChart3, roles: ['super_admin', 'landlord'] },
   { title: 'navigation.notifications', url: '/notifications', icon: Bell, roles: ['super_admin', 'landlord'] },
+  { title: 'Notification Logs', url: '/notification-logs', icon: History, roles: ['super_admin', 'landlord'] },
   { title: 'navigation.auditLogs', url: '/audit-logs', icon: Shield, roles: ['super_admin', 'landlord'] },
   { title: 'navigation.settings', url: '/settings', icon: Settings, roles: ['super_admin', 'landlord', 'employee', 'tenant'] },
   { title: 'navigation.help', url: '/help', icon: HelpCircle, roles: ['super_admin', 'landlord', 'employee', 'tenant'] },
