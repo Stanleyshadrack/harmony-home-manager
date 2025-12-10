@@ -8,8 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { User, Mail, Phone, Shield, Bell } from 'lucide-react';
+import { User, Mail, Phone, Bell } from 'lucide-react';
 import { SessionManager } from '@/components/settings/SessionManager';
+import { TwoFactorSetup } from '@/components/auth/TwoFactorSetup';
 
 export default function Settings() {
   const { t } = useTranslation();
@@ -124,23 +125,8 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        {/* Security */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5" />
-              {t('settings.security')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button variant="outline" className="w-full" disabled>
-              {t('auth.resetPassword')}
-            </Button>
-            <Button variant="outline" className="w-full" disabled>
-              Enable Two-Factor Auth
-            </Button>
-          </CardContent>
-        </Card>
+        {/* Security - 2FA Setup */}
+        <TwoFactorSetup />
 
         {/* Session Management */}
         <div className="lg:col-span-2">
