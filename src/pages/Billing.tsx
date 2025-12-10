@@ -18,8 +18,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Droplets, FileText, Filter } from 'lucide-react';
+import { Plus, Search, Droplets, FileText, Filter, Zap } from 'lucide-react';
 import { useBilling } from '@/hooks/useBilling';
+import { useAutoInvoice } from '@/hooks/useAutoInvoice';
 import { BillingStats } from '@/components/billing/BillingStats';
 import { InvoiceCard } from '@/components/billing/InvoiceCard';
 import { PaymentCard } from '@/components/billing/PaymentCard';
@@ -42,6 +43,9 @@ export default function Billing() {
     getTotalRevenue,
     getTotalOutstanding,
   } = useBilling();
+
+  const { generateMonthlyRentInvoices, getTenantsWithoutInvoice } = useAutoInvoice();
+  const tenantsWithoutInvoice = getTenantsWithoutInvoice();
 
   const [activeTab, setActiveTab] = useState('invoices');
   const [searchQuery, setSearchQuery] = useState('');
@@ -93,6 +97,14 @@ export default function Billing() {
     toast({
       title: 'Water Bill Generated',
       description: 'The water bill has been generated successfully.',
+    });
+  };
+
+  const handleAutoGenerateInvoices = () => {
+    const { generated, skipped } = generateMonthlyRentInvoices();
+    toast({
+      title: 'Auto-Generate Complete',
+      description: `Generated ${generated} invoice(s). Skipped ${skipped} (already billed or no active lease).`,
     });
   };
 
@@ -151,7 +163,15 @@ export default function Billing() {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <Button 
+              variant="secondary" 
+              onClick={handleAutoGenerateInvoices}
+              disabled={tenantsWithoutInvoice.length === 0}
+            >
+              <Zap className="h-4 w-4 mr-2" />
+              Auto-Generate ({tenantsWithoutInvoice.length})
+            </Button>
             <Button variant="outline" onClick={() => setShowWaterForm(true)}>
               <Droplets className="h-4 w-4 mr-2" />
               Water Reading
