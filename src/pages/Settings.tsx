@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { User, Mail, Phone, Shield, Bell } from 'lucide-react';
+import { SessionManager } from '@/components/settings/SessionManager';
 
 export default function Settings() {
   const { t } = useTranslation();
@@ -140,6 +141,11 @@ export default function Settings() {
             </Button>
           </CardContent>
         </Card>
+
+        {/* Session Management */}
+        <div className="lg:col-span-2">
+          <SessionManager />
+        </div>
 
         {/* Notifications */}
         <Card className="lg:col-span-2">
