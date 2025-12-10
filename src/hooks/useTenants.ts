@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Tenant, Lease, TenantDocument, TenantFormData, LeaseFormData } from '@/types/tenant';
+import { useAuth } from '@/contexts/AuthContext';
 
 const mockTenants: Tenant[] = [
   {
@@ -106,15 +107,28 @@ const mockDocuments: TenantDocument[] = [
 ];
 
 export function useTenants() {
+  const { user } = useAuth();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     setTimeout(() => {
-      setTenants(mockTenants);
+      let filtered = mockTenants;
+      
+      if (user?.role === 'employee' && user.assignedPropertyId) {
+        // Employees only see tenants in their assigned property
+        // Match property name for mock data (in production, use propertyId)
+        const propertyNames = ['Sunrise Apartments', 'Sunset Apartments'];
+        if (user.assignedPropertyId === '1') {
+          filtered = mockTenants.filter(t => t.propertyName?.includes('Sunrise') || t.propertyName?.includes('Sunset'));
+        }
+      }
+      // Landlords and super_admin see all tenants
+      
+      setTenants(filtered);
       setIsLoading(false);
     }, 500);
-  }, []);
+  }, [user]);
 
   const addTenant = async (data: TenantFormData): Promise<Tenant> => {
     await new Promise((resolve) => setTimeout(resolve, 500));

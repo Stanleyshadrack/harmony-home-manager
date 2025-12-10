@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Property, PropertyFormData, Unit, UnitFormData } from '@/types/property';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Mock data - will be replaced with Supabase queries
 const mockProperties: Property[] = [
@@ -130,8 +131,26 @@ const mockUnits: Unit[] = [
 ];
 
 export function useProperties() {
-  const [properties, setProperties] = useState<Property[]>(mockProperties);
-  const [isLoading, setIsLoading] = useState(false);
+  const { user } = useAuth();
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Filter properties based on user role
+  useEffect(() => {
+    let filtered = mockProperties;
+    
+    if (user?.role === 'employee' && user.assignedPropertyId) {
+      // Employees only see their assigned property
+      filtered = mockProperties.filter(p => p.id === user.assignedPropertyId);
+    } else if (user?.role === 'landlord') {
+      // Landlords see all properties they own (for demo, show all)
+      filtered = mockProperties;
+    }
+    // Super admin sees all
+    
+    setProperties(filtered);
+    setIsLoading(false);
+  }, [user]);
 
   const addProperty = useCallback(async (data: PropertyFormData): Promise<Property> => {
     setIsLoading(true);

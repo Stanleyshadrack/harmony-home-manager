@@ -75,21 +75,28 @@ const saveEmployees = (employees: Employee[]) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(employees));
 };
 
-export function useEmployees(landlordId?: string) {
+export function useEmployees(landlordId?: string, userPropertyId?: string) {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     setTimeout(() => {
-      const allEmployees = getStoredEmployees();
+      let allEmployees = getStoredEmployees();
+      
       // Filter by landlord if provided
-      const filtered = landlordId 
-        ? allEmployees.filter(e => e.landlordId === landlordId || e.landlordId === 'demo-landlord')
-        : allEmployees;
-      setEmployees(filtered);
+      if (landlordId) {
+        allEmployees = allEmployees.filter(e => e.landlordId === landlordId || e.landlordId === 'demo-landlord');
+      }
+      
+      // Filter by property if user is an employee (they only see colleagues)
+      if (userPropertyId) {
+        allEmployees = allEmployees.filter(e => e.assignedPropertyId === userPropertyId);
+      }
+      
+      setEmployees(allEmployees);
       setIsLoading(false);
     }, 300);
-  }, [landlordId]);
+  }, [landlordId, userPropertyId]);
 
   const addEmployee = async (data: Omit<Employee, 'id' | 'hiredAt'>): Promise<Employee> => {
     await new Promise(resolve => setTimeout(resolve, 300));
