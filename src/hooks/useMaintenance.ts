@@ -113,12 +113,26 @@ const mockRequests: MaintenanceRequest[] = [
   },
 ];
 
-const mockEmployees = [
-  { id: 'e1', name: 'Bob the Plumber', specialty: 'Plumbing' },
-  { id: 'e2', name: 'AC Services Inc.', specialty: 'HVAC' },
-  { id: 'e3', name: 'Appliance Repair Co.', specialty: 'Appliances' },
-  { id: 'e4', name: 'Quick Electric', specialty: 'Electrical' },
-];
+// Mock employees - in production, this would come from useEmployees
+const getDefaultEmployees = () => {
+  const storedEmployees = localStorage.getItem('employees');
+  if (storedEmployees) {
+    const employees = JSON.parse(storedEmployees);
+    return employees
+      .filter((e: any) => e.status === 'active')
+      .map((e: any) => ({
+        id: e.id,
+        name: `${e.firstName} ${e.lastName}`,
+        specialty: e.role || 'General',
+      }));
+  }
+  return [
+    { id: 'e1', name: 'Bob the Plumber', specialty: 'Plumbing' },
+    { id: 'e2', name: 'AC Services Inc.', specialty: 'HVAC' },
+    { id: 'e3', name: 'Appliance Repair Co.', specialty: 'Appliances' },
+    { id: 'e4', name: 'Quick Electric', specialty: 'Electrical' },
+  ];
+};
 
 export function useMaintenance() {
   const [requests, setRequests] = useState<MaintenanceRequest[]>(mockRequests);
@@ -152,7 +166,8 @@ export function useMaintenance() {
 
   const assignRequest = useCallback((data: AssignmentFormData) => {
     setIsLoading(true);
-    const employee = mockEmployees.find((e) => e.id === data.assignedTo);
+    const employees = getDefaultEmployees();
+    const employee = employees.find((e: any) => e.id === data.assignedTo);
     
     setRequests((prev) =>
       prev.map((req) =>
@@ -251,7 +266,7 @@ export function useMaintenance() {
     return requests.filter((req) => req.priority === priority);
   }, [requests]);
 
-  const getEmployees = useCallback(() => mockEmployees, []);
+  const getEmployees = useCallback(() => getDefaultEmployees(), []);
 
   return {
     requests,
