@@ -24,11 +24,18 @@ import type { PaymentFormData, PaymentMethod, Invoice } from '@/types/billing';
 
 const paymentSchema = z.object({
   invoiceId: z.string().min(1, 'Invoice is required'),
-  amount: z.number().min(0.01, 'Amount must be greater than 0'),
-  paymentMethod: z.enum(['mpesa', 'card', 'bank', 'cash']),
-  transactionRef: z.string().min(1, 'Transaction reference is required'),
-  paymentDate: z.string().min(1, 'Payment date is required'),
-  notes: z.string().optional(),
+  amount: z.number({
+    required_error: 'Amount is required',
+    invalid_type_error: 'Please enter a valid amount',
+  }).min(0.01, 'Amount must be at least 0.01'),
+  paymentMethod: z.enum(['mpesa', 'card', 'bank', 'cash'], {
+    required_error: 'Please select a payment method',
+  }),
+  transactionRef: z.string()
+    .min(1, 'Transaction reference is required')
+    .max(50, 'Transaction reference must be less than 50 characters'),
+  paymentDate: z.string().min(1, 'Please select a payment date'),
+  notes: z.string().max(500, 'Notes must be less than 500 characters').optional(),
 });
 
 interface PaymentFormProps {
