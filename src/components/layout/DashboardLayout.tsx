@@ -5,6 +5,7 @@ import { SidebarProvider, SidebarTrigger, SidebarInset } from '@/components/ui/s
 import { AppSidebar } from './AppSidebar';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { Separator } from '@/components/ui/separator';
 import {
   Breadcrumb,
@@ -64,6 +65,7 @@ export function DashboardLayout({ children, title, breadcrumbs }: DashboardLayou
             )}
 
             <div className="ml-auto flex items-center gap-2">
+              <NotificationBell />
               <LanguageSwitcher />
               <ThemeSwitcher />
             </div>

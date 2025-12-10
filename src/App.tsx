@@ -26,6 +26,8 @@ import AuditLogs from "./pages/AuditLogs";
 import TenantPortal from "./pages/TenantPortal";
 import EmployeePortal from "./pages/EmployeePortal";
 import AdminPortal from "./pages/AdminPortal";
+import UserNotifications from "./pages/UserNotifications";
+import WaterData from "./pages/WaterData";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -63,18 +65,23 @@ const App = () => (
                   </ProtectedRoute>
                 } />
                 <Route path="/units" element={
-                  <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
+                  <ProtectedRoute allowedRoles={['super_admin', 'landlord', 'employee']}>
                     <Units />
                   </ProtectedRoute>
                 } />
                 <Route path="/tenants" element={
-                  <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
+                  <ProtectedRoute allowedRoles={['super_admin', 'landlord', 'employee']}>
                     <Tenants />
                   </ProtectedRoute>
                 } />
                 <Route path="/billing" element={
                   <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
                     <Billing />
+                  </ProtectedRoute>
+                } />
+                <Route path="/water-data" element={
+                  <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
+                    <WaterData />
                   </ProtectedRoute>
                 } />
                 <Route path="/reports" element={
@@ -114,6 +121,11 @@ const App = () => (
                 <Route path="/help" element={
                   <ProtectedRoute allowedRoles={['super_admin', 'landlord', 'employee', 'tenant']}>
                     <Help />
+                  </ProtectedRoute>
+                } />
+                <Route path="/user-notifications" element={
+                  <ProtectedRoute allowedRoles={['super_admin', 'landlord', 'employee', 'tenant']}>
+                    <UserNotifications />
                   </ProtectedRoute>
                 } />
 
