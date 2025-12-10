@@ -3,12 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useAuth } from '@/contexts/AuthContext';
+import { UserRole } from '@/contexts/AuthContext';
+import { usePendingRegistrations } from '@/hooks/useRegistrations';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2, User, Wrench, Building2, CheckCircle2 } from 'lucide-react';
 
 const registerSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -28,11 +30,38 @@ interface RegisterFormProps {
   onSwitchToLogin: () => void;
 }
 
+const roleOptions: { value: UserRole; label: string; icon: React.ReactNode; description: string; requiresApproval: boolean }[] = [
+  { 
+    value: 'tenant', 
+    label: 'Tenant', 
+    icon: <User className="h-5 w-5" />, 
+    description: 'Apply for units, pay bills, submit requests',
+    requiresApproval: true,
+  },
+  { 
+    value: 'employee', 
+    label: 'Employee', 
+    icon: <Wrench className="h-5 w-5" />, 
+    description: 'Handle maintenance, record readings',
+    requiresApproval: true,
+  },
+  { 
+    value: 'landlord', 
+    label: 'Landlord', 
+    icon: <Building2 className="h-5 w-5" />, 
+    description: 'Manage properties, units, and tenants',
+    requiresApproval: false,
+  },
+];
+
 export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
   const { t } = useTranslation();
-  const { register: registerUser, isLoading } = useAuth();
+  const { submitRegistration } = usePendingRegistrations();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<UserRole>('tenant');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
   const {
     register,
@@ -42,25 +71,87 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
     resolver: zodResolver(registerSchema),
   });
 
+  const selectedRoleConfig = roleOptions.find((r) => r.value === selectedRole);
+
   const onSubmit = async (data: RegisterFormData) => {
-    const { error } = await registerUser({
-      email: data.email,
-      password: data.password,
-      firstName: data.firstName,
-      lastName: data.lastName,
-      phone: data.phone,
-    });
-    
-    if (error) {
-      toast.error(error);
-    } else {
-      toast.success(t('auth.registrationSuccess'));
-      onSwitchToLogin();
+    setIsLoading(true);
+    try {
+      await submitRegistration({
+        email: data.email,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        phone: data.phone,
+        requestedRole: selectedRole,
+      });
+
+      if (selectedRoleConfig?.requiresApproval) {
+        setIsSubmitted(true);
+      } else {
+        toast.success(t('auth.registrationSuccess'));
+        onSwitchToLogin();
+      }
+    } catch {
+      toast.error('Registration failed. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  if (isSubmitted) {
+    return (
+      <div className="text-center space-y-4 py-8">
+        <div className="mx-auto w-16 h-16 rounded-full bg-success/10 flex items-center justify-center">
+          <CheckCircle2 className="h-8 w-8 text-success" />
+        </div>
+        <h3 className="text-xl font-semibold">Registration Submitted!</h3>
+        <p className="text-muted-foreground max-w-sm mx-auto">
+          Your {selectedRoleConfig?.label} account request has been submitted. 
+          An administrator will review your application and you'll be notified once approved.
+        </p>
+        <Button onClick={onSwitchToLogin} className="mt-4">
+          Back to Login
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      {/* Role Selection */}
+      <div className="space-y-2">
+        <Label>Register as</Label>
+        <div className="grid grid-cols-1 gap-2">
+          {roleOptions.map((role) => (
+            <Card
+              key={role.value}
+              className={`cursor-pointer transition-all ${
+                selectedRole === role.value
+                  ? 'border-primary bg-primary/5'
+                  : 'hover:border-primary/50'
+              }`}
+              onClick={() => setSelectedRole(role.value)}
+            >
+              <CardContent className="p-3 flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${
+                  selectedRole === role.value ? 'bg-primary text-primary-foreground' : 'bg-muted'
+                }`}>
+                  {role.icon}
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-sm">{role.label}</p>
+                  <p className="text-xs text-muted-foreground">{role.description}</p>
+                </div>
+                {role.requiresApproval && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-warning/10 text-warning">
+                    Requires Approval
+                  </span>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="firstName">{t('auth.firstName')}</Label>
@@ -177,7 +268,14 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
             {t('common.loading')}
           </>
         ) : (
-          t('auth.register')
+          <>
+            {selectedRoleConfig?.icon}
+            <span className="ml-2">
+              {selectedRoleConfig?.requiresApproval 
+                ? `Submit ${selectedRoleConfig.label} Application`
+                : t('auth.register')}
+            </span>
+          </>
         )}
       </Button>
 

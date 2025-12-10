@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -43,12 +44,19 @@ import {
   DollarSign,
   AlertTriangle,
   Activity,
+  UserCheck,
+  XCircle,
+  Clock,
+  Wrench,
+  User,
 } from 'lucide-react';
 import { useProperties } from '@/hooks/useProperties';
 import { useTenants } from '@/hooks/useTenants';
 import { useBilling } from '@/hooks/useBilling';
+import { usePendingRegistrations, PendingRegistration } from '@/hooks/useRegistrations';
 import { getAuditLogs, getActivitySummary } from '@/services/auditService';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Mock landlords data
 const mockLandlords = [
@@ -93,11 +101,16 @@ export default function AdminPortal() {
   const { properties } = useProperties();
   const { tenants } = useTenants();
   const { invoices, payments } = useBilling();
+  const { user } = useAuth();
+  const { registrations, approveRegistration, rejectRegistration, getPendingCount } = usePendingRegistrations();
   
   const [activeTab, setActiveTab] = useState('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLandlord, setSelectedLandlord] = useState<typeof mockLandlords[0] | null>(null);
   const [showLandlordDialog, setShowLandlordDialog] = useState(false);
+  const [selectedRegistration, setSelectedRegistration] = useState<PendingRegistration | null>(null);
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   const auditLogs = getAuditLogs();
   const activitySummary = getActivitySummary();
@@ -134,6 +147,30 @@ export default function AdminPortal() {
     });
   };
 
+  const handleApproveRegistration = async (registration: PendingRegistration) => {
+    await approveRegistration(registration.id, user?.email || 'Admin');
+    toast({
+      title: 'Registration Approved',
+      description: `${registration.firstName} ${registration.lastName}'s ${registration.requestedRole} account has been approved.`,
+    });
+  };
+
+  const handleRejectRegistration = async () => {
+    if (selectedRegistration) {
+      await rejectRegistration(selectedRegistration.id, user?.email || 'Admin', rejectionReason);
+      toast({
+        title: 'Registration Rejected',
+        description: `${selectedRegistration.firstName} ${selectedRegistration.lastName}'s application has been rejected.`,
+      });
+      setShowRejectDialog(false);
+      setSelectedRegistration(null);
+      setRejectionReason('');
+    }
+  };
+
+  const pendingRegistrations = registrations.filter((r) => r.status === 'pending');
+  const pendingCount = getPendingCount();
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -147,6 +184,17 @@ export default function AdminPortal() {
       month: 'short',
       day: 'numeric',
     });
+  };
+
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case 'tenant':
+        return <User className="h-4 w-4" />;
+      case 'employee':
+        return <Wrench className="h-4 w-4" />;
+      default:
+        return <Users className="h-4 w-4" />;
+    }
   };
 
   return (
@@ -245,10 +293,19 @@ export default function AdminPortal() {
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">Overview</span>
+            </TabsTrigger>
+            <TabsTrigger value="approvals" className="flex items-center gap-2 relative">
+              <UserCheck className="h-4 w-4" />
+              <span className="hidden sm:inline">Approvals</span>
+              {pendingCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center">
+                  {pendingCount}
+                </span>
+              )}
             </TabsTrigger>
             <TabsTrigger value="landlords" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
@@ -382,6 +439,126 @@ export default function AdminPortal() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* Approvals Tab */}
+          <TabsContent value="approvals" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">Registration Approvals</h2>
+                <p className="text-muted-foreground">
+                  Review and approve employee and tenant registration requests
+                </p>
+              </div>
+              {pendingCount > 0 && (
+                <Badge variant="destructive">{pendingCount} pending</Badge>
+              )}
+            </div>
+
+            {pendingRegistrations.length > 0 ? (
+              <Card>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Applicant</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead>Submitted</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pendingRegistrations.map((reg) => (
+                      <TableRow key={reg.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm">
+                              {reg.firstName.charAt(0)}
+                            </div>
+                            <span className="font-medium">{reg.firstName} {reg.lastName}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="flex items-center gap-1 w-fit">
+                            {getRoleIcon(reg.requestedRole)}
+                            <span className="capitalize">{reg.requestedRole}</span>
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            <p>{reg.email}</p>
+                            {reg.phone && <p className="text-muted-foreground">{reg.phone}</p>}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {formatDate(reg.submittedAt)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => handleApproveRegistration(reg)}
+                            >
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-destructive"
+                              onClick={() => {
+                                setSelectedRegistration(reg);
+                                setShowRejectDialog(true);
+                              }}
+                            >
+                              <XCircle className="h-4 w-4 mr-1" />
+                              Reject
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Clock className="h-12 w-12 text-muted-foreground mb-4" />
+                  <p className="text-lg font-medium">No Pending Registrations</p>
+                  <p className="text-muted-foreground">All registration requests have been processed</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Past Registrations */}
+            {registrations.filter((r) => r.status !== 'pending').length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Recent Decisions</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {registrations.filter((r) => r.status !== 'pending').slice(0, 5).map((reg) => (
+                    <div key={reg.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        {reg.status === 'approved' ? (
+                          <CheckCircle className="h-5 w-5 text-success" />
+                        ) : (
+                          <XCircle className="h-5 w-5 text-destructive" />
+                        )}
+                        <div>
+                          <p className="font-medium">{reg.firstName} {reg.lastName}</p>
+                          <p className="text-sm text-muted-foreground capitalize">{reg.requestedRole}</p>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className={reg.status === 'approved' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}>
+                        {reg.status}
+                      </Badge>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Landlords Tab */}
