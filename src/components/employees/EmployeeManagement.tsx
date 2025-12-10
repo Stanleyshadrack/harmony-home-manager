@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useEmployees, Employee } from '@/hooks/useEmployees';
 import { useProperties } from '@/hooks/useProperties';
 import { usePendingRegistrations, PendingRegistration } from '@/hooks/useRegistrations';
+import { useMaintenance } from '@/hooks/useMaintenance';
 import { useAuth } from '@/contexts/AuthContext';
 import { useInAppNotifications } from '@/hooks/useInAppNotifications';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -61,8 +62,9 @@ import {
   AlertTriangle,
   Home,
   User,
+  ClipboardList,
 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 
 export function EmployeeManagement() {
   const { t } = useTranslation();
@@ -70,6 +72,7 @@ export function EmployeeManagement() {
   const { employees, isLoading, activateEmployee, deactivateEmployee, assignToProperty, removeEmployee, getPendingCount } = useEmployees(user?.id);
   const { properties } = useProperties();
   const { registrations, approveRegistration, rejectRegistration } = usePendingRegistrations();
+  const { requests, assignRequest } = useMaintenance();
   const { addNotification } = useInAppNotifications();
   const { sendQuickNotification } = useNotifications();
   
@@ -78,17 +81,30 @@ export function EmployeeManagement() {
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
+  const [showTaskAssignDialog, setShowTaskAssignDialog] = useState(false);
   const [selectedPropertyId, setSelectedPropertyId] = useState('');
   
   // Rejection dialog for pending registrations
   const [selectedRegistration, setSelectedRegistration] = useState<PendingRegistration | null>(null);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [selectedTaskId, setSelectedTaskId] = useState('');
+  const [taskScheduledDate, setTaskScheduledDate] = useState('');
+  const [taskEstimatedCost, setTaskEstimatedCost] = useState('');
+  const [taskNotes, setTaskNotes] = useState('');
 
   // Filter employee registrations only (tenant approvals moved to Tenants module)
   const pendingEmployeeRegistrations = registrations.filter(
     r => r.requestedRole === 'employee' && r.status === 'pending'
   );
+
+  // Get pending/unassigned maintenance tasks
+  const pendingTasks = requests.filter(r => r.status === 'pending');
+
+  // Get tasks assigned to an employee
+  const getEmployeeTasks = (employeeId: string) => {
+    return requests.filter(r => r.assignedTo === employeeId && r.status !== 'resolved' && r.status !== 'cancelled');
+  };
 
   const filteredEmployees = employees.filter(emp =>
     emp.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -122,6 +138,43 @@ export function EmployeeManagement() {
   const handleRemove = async (employee: Employee) => {
     await removeEmployee(employee.id);
     toast.success(`${employee.firstName} ${employee.lastName} has been removed`);
+  };
+
+  const handleAssignTask = async () => {
+    if (!selectedEmployee || !selectedTaskId) return;
+    
+    assignRequest({
+      requestId: selectedTaskId,
+      assignedTo: selectedEmployee.id,
+      scheduledDate: taskScheduledDate || undefined,
+      estimatedCost: taskEstimatedCost ? parseFloat(taskEstimatedCost) : undefined,
+      notes: taskNotes || undefined,
+    });
+
+    // Send notification to employee
+    if (selectedEmployee.phone) {
+      await sendQuickNotification(
+        selectedEmployee.phone,
+        `${selectedEmployee.firstName} ${selectedEmployee.lastName}`,
+        'maintenance_update',
+        'sms',
+        {
+          tenantName: selectedEmployee.firstName,
+          requestId: selectedTaskId,
+          title: 'New task assigned',
+          status: 'assigned',
+          notes: taskNotes || 'Please check your dashboard for details.',
+        }
+      );
+    }
+
+    toast.success(`Task assigned to ${selectedEmployee.firstName} ${selectedEmployee.lastName}`);
+    setShowTaskAssignDialog(false);
+    setSelectedEmployee(null);
+    setSelectedTaskId('');
+    setTaskScheduledDate('');
+    setTaskEstimatedCost('');
+    setTaskNotes('');
   };
 
   const handleApproveRegistration = async (registration: PendingRegistration) => {
@@ -268,6 +321,15 @@ export function EmployeeManagement() {
             <Users className="h-4 w-4" />
             My Employees
           </TabsTrigger>
+          <TabsTrigger value="tasks" className="flex items-center gap-2 relative">
+            <ClipboardList className="h-4 w-4" />
+            Task Assignment
+            {pendingTasks.length > 0 && (
+              <span className="ml-1 h-5 w-5 rounded-full bg-warning text-warning-foreground text-xs flex items-center justify-center">
+                {pendingTasks.length}
+              </span>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="approvals" className="flex items-center gap-2 relative">
             <UserPlus className="h-4 w-4" />
             Employee Approvals
@@ -400,6 +462,97 @@ export function EmployeeManagement() {
                     ))}
                   </TableBody>
                 </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tasks Tab */}
+        <TabsContent value="tasks" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5" />
+                Pending Maintenance Tasks
+              </CardTitle>
+              <CardDescription>
+                Assign pending maintenance requests to your employees
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {pendingTasks.length === 0 ? (
+                <div className="text-center py-12">
+                  <CheckCircle className="h-12 w-12 mx-auto text-success mb-4" />
+                  <h3 className="font-semibold mb-2">No pending tasks</h3>
+                  <p className="text-sm text-muted-foreground">
+                    All maintenance requests have been assigned
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {pendingTasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border bg-card gap-4"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="p-2 rounded-full bg-warning/10">
+                          <Wrench className="h-5 w-5 text-warning" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{task.title}</p>
+                          <p className="text-sm text-muted-foreground">{task.ticketNumber}</p>
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground mt-1">
+                            <span className="flex items-center gap-1">
+                              <Building2 className="h-3 w-3" />
+                              {task.propertyName}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Home className="h-3 w-3" />
+                              Unit {task.unitNumber}
+                            </span>
+                            <Badge variant="outline" className="capitalize text-xs">
+                              {task.category}
+                            </Badge>
+                            <Badge 
+                              variant="outline" 
+                              className={`capitalize text-xs ${
+                                task.priority === 'urgent' ? 'border-destructive text-destructive' :
+                                task.priority === 'high' ? 'border-warning text-warning' :
+                                ''
+                              }`}
+                            >
+                              {task.priority}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 sm:flex-shrink-0">
+                        <Select
+                          onValueChange={(employeeId) => {
+                            const emp = employees.find(e => e.id === employeeId);
+                            if (emp) {
+                              setSelectedEmployee(emp);
+                              setSelectedTaskId(task.id);
+                              setShowTaskAssignDialog(true);
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="w-48">
+                            <SelectValue placeholder="Assign to employee" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {employees.filter(e => e.status === 'active').map((emp) => (
+                              <SelectItem key={emp.id} value={emp.id}>
+                                {emp.firstName} {emp.lastName}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </CardContent>
           </Card>
@@ -609,6 +762,64 @@ export function EmployeeManagement() {
             </Button>
             <Button variant="destructive" onClick={handleRejectRegistration}>
               Reject Registration
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Task Assignment Dialog */}
+      <Dialog open={showTaskAssignDialog} onOpenChange={setShowTaskAssignDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5" />
+              Assign Task to {selectedEmployee?.firstName} {selectedEmployee?.lastName}
+            </DialogTitle>
+            <DialogDescription>
+              Set the schedule and details for this maintenance task assignment.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Scheduled Date</Label>
+              <Input
+                type="date"
+                value={taskScheduledDate}
+                onChange={(e) => setTaskScheduledDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Estimated Cost (KES)</Label>
+              <Input
+                type="number"
+                placeholder="0.00"
+                value={taskEstimatedCost}
+                onChange={(e) => setTaskEstimatedCost(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Notes for Employee</Label>
+              <Textarea
+                value={taskNotes}
+                onChange={(e) => setTaskNotes(e.target.value)}
+                placeholder="Add any instructions or notes..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowTaskAssignDialog(false);
+              setSelectedEmployee(null);
+              setSelectedTaskId('');
+              setTaskScheduledDate('');
+              setTaskEstimatedCost('');
+              setTaskNotes('');
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleAssignTask} disabled={isProcessing}>
+              {isProcessing ? 'Assigning...' : 'Assign Task'}
             </Button>
           </DialogFooter>
         </DialogContent>
