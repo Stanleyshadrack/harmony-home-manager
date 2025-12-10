@@ -1,7 +1,7 @@
 // Notification Service - Frontend implementation ready for Twilio backend integration
 // When backend is enabled, these will call edge functions instead of mock implementations
 
-export type NotificationType = 'rent_reminder' | 'payment_confirmation' | 'maintenance_update' | 'lease_expiry' | 'general';
+export type NotificationType = 'rent_reminder' | 'payment_confirmation' | 'maintenance_update' | 'lease_expiry' | 'general' | 'custom' | 'registration_approved' | 'registration_rejected';
 export type NotificationChannel = 'sms' | 'whatsapp' | 'email';
 
 export interface NotificationPayload {
@@ -39,6 +39,15 @@ const templates: Record<NotificationType, (data: Record<string, string | number>
   
   general: (data) => 
     `Hi ${data.tenantName}, ${data.message}`,
+
+  custom: (data) => 
+    String(data.message || ''),
+
+  registration_approved: (data) => 
+    `Congratulations ${data.name}! Your ${data.role} registration has been approved. You can now log in to access your account.`,
+
+  registration_rejected: (data) => 
+    `Hello ${data.name}, we regret to inform you that your ${data.role} registration was not approved. Reason: ${data.reason}. Please contact support for more information.`,
 };
 
 // Get notification logs from localStorage
