@@ -28,6 +28,7 @@ import EmployeePortal from "./pages/EmployeePortal";
 import AdminPortal from "./pages/AdminPortal";
 import UserNotifications from "./pages/UserNotifications";
 import WaterData from "./pages/WaterData";
+import Employees from "./pages/Employees";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -77,6 +78,11 @@ const App = () => (
                 <Route path="/billing" element={
                   <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
                     <Billing />
+                  </ProtectedRoute>
+                } />
+                <Route path="/employees" element={
+                  <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
+                    <Employees />
                   </ProtectedRoute>
                 } />
                 <Route path="/water-data" element={

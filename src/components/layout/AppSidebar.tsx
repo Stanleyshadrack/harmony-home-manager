@@ -36,6 +36,7 @@ import {
   ShieldCheck,
   FileText,
   Droplets,
+  UsersRound,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -64,6 +65,7 @@ const mainNavItems: NavItem[] = [
   { title: 'navigation.properties', url: '/properties', icon: Building2, roles: ['super_admin', 'landlord'] },
   { title: 'navigation.units', url: '/units', icon: Home, roles: ['super_admin', 'landlord', 'employee'] },
   { title: 'navigation.tenants', url: '/tenants', icon: Users, roles: ['super_admin', 'landlord', 'employee'] },
+  { title: 'Employees', url: '/employees', icon: UsersRound, roles: ['super_admin', 'landlord'] },
   { title: 'navigation.billing', url: '/billing', icon: CreditCard, roles: ['super_admin', 'landlord'] },
   { title: 'Water Data', url: '/water-data', icon: Droplets, roles: ['super_admin', 'landlord'] },
   { title: 'navigation.maintenance', url: '/maintenance', icon: Wrench, roles: ['super_admin', 'landlord'] },
