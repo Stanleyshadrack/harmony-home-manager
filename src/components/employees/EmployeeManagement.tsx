@@ -5,6 +5,7 @@ import { useProperties } from '@/hooks/useProperties';
 import { usePendingRegistrations, PendingRegistration } from '@/hooks/useRegistrations';
 import { useAuth } from '@/contexts/AuthContext';
 import { useInAppNotifications } from '@/hooks/useInAppNotifications';
+import { useNotifications } from '@/hooks/useNotifications';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -70,7 +71,9 @@ export function EmployeeManagement() {
   const { properties } = useProperties();
   const { registrations, approveRegistration, rejectRegistration } = usePendingRegistrations();
   const { addNotification } = useInAppNotifications();
+  const { sendQuickNotification } = useNotifications();
   
+  const [isProcessing, setIsProcessing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
@@ -122,20 +125,38 @@ export function EmployeeManagement() {
   };
 
   const handleApproveRegistration = async (registration: PendingRegistration) => {
-    await approveRegistration(registration.id, user?.email || 'Landlord');
-    
-    const roleLabel = registration.requestedRole === 'employee' ? 'employee' : 'tenant';
-    
-    addNotification({
-      userId: registration.email,
-      title: 'Registration Approved!',
-      message: `Your ${roleLabel} account has been approved by the landlord. You can now log in.`,
-      category: 'registration_approved',
-      priority: 'high',
-      link: '/auth',
-    });
+    setIsProcessing(true);
+    try {
+      await approveRegistration(registration.id, user?.email || 'Landlord');
+      
+      // In-app notification
+      addNotification({
+        userId: registration.email,
+        title: 'Registration Approved!',
+        message: 'Your employee account has been approved by the landlord. You can now log in.',
+        category: 'registration_approved',
+        priority: 'high',
+        link: '/auth',
+      });
 
-    toast.success(`${registration.firstName} ${registration.lastName}'s ${roleLabel} account approved`);
+      // Send SMS notification
+      if (registration.phone) {
+        await sendQuickNotification(
+          registration.phone,
+          `${registration.firstName} ${registration.lastName}`,
+          'registration_approved',
+          'sms',
+          {
+            name: registration.firstName,
+            role: 'employee'
+          }
+        );
+      }
+
+      toast.success(`${registration.firstName} ${registration.lastName}'s employee account approved. Notification sent.`);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleRejectRegistration = async () => {
@@ -144,22 +165,41 @@ export function EmployeeManagement() {
       return;
     }
 
-    const roleLabel = selectedRegistration.requestedRole === 'employee' ? 'employee' : 'tenant';
-    
-    await rejectRegistration(selectedRegistration.id, user?.email || 'Landlord', rejectionReason);
-    
-    addNotification({
-      userId: selectedRegistration.email,
-      title: 'Registration Rejected',
-      message: `Your ${roleLabel} registration was not approved. Reason: ${rejectionReason}`,
-      category: 'registration_rejected',
-      priority: 'high',
-    });
+    setIsProcessing(true);
+    try {
+      await rejectRegistration(selectedRegistration.id, user?.email || 'Landlord', rejectionReason);
+      
+      // In-app notification
+      addNotification({
+        userId: selectedRegistration.email,
+        title: 'Registration Rejected',
+        message: `Your employee registration was not approved. Reason: ${rejectionReason}`,
+        category: 'registration_rejected',
+        priority: 'high',
+      });
 
-    toast.success(`Registration rejected`);
-    setShowRejectDialog(false);
-    setSelectedRegistration(null);
-    setRejectionReason('');
+      // Send SMS notification
+      if (selectedRegistration.phone) {
+        await sendQuickNotification(
+          selectedRegistration.phone,
+          `${selectedRegistration.firstName} ${selectedRegistration.lastName}`,
+          'registration_rejected',
+          'sms',
+          {
+            name: selectedRegistration.firstName,
+            role: 'employee',
+            reason: rejectionReason
+          }
+        );
+      }
+
+      toast.success('Registration rejected. Notification sent.');
+      setShowRejectDialog(false);
+      setSelectedRegistration(null);
+      setRejectionReason('');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const getStatusBadge = (status: string) => {
