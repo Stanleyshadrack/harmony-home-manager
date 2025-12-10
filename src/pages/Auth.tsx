@@ -7,11 +7,12 @@ import { RegisterForm } from '@/components/auth/RegisterForm';
 import { ForgotPasswordForm } from '@/components/auth/ForgotPasswordForm';
 import { ResetPasswordForm } from '@/components/auth/ResetPasswordForm';
 import { EmailVerificationForm } from '@/components/auth/EmailVerificationForm';
+import { TwoFactorVerification } from '@/components/auth/TwoFactorVerification';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Building2 } from 'lucide-react';
 
-type AuthView = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'email-verification';
+type AuthView = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'email-verification' | '2fa-verification';
 
 export default function Auth() {
   const { t } = useTranslation();
@@ -19,6 +20,8 @@ export default function Auth() {
   const [authView, setAuthView] = useState<AuthView>('login');
   const [resetEmail, setResetEmail] = useState('');
   const [verificationEmail, setVerificationEmail] = useState('');
+  const [twoFactorEmail, setTwoFactorEmail] = useState('');
+  const [pendingLoginRedirect, setPendingLoginRedirect] = useState<string | null>(null);
 
   // Redirect if already authenticated
   if (isAuthenticated) {
@@ -103,6 +106,11 @@ export default function Auth() {
                 <LoginForm 
                   onSwitchToRegister={() => setAuthView('register')} 
                   onForgotPassword={() => setAuthView('forgot-password')}
+                  onRequire2FA={(email, redirect) => {
+                    setTwoFactorEmail(email);
+                    setPendingLoginRedirect(redirect);
+                    setAuthView('2fa-verification');
+                  }}
                 />
               )}
               {authView === 'register' && (
@@ -135,6 +143,16 @@ export default function Auth() {
                   email={verificationEmail}
                   onBack={() => setAuthView('login')}
                   onSuccess={() => setAuthView('login')}
+                />
+              )}
+              {authView === '2fa-verification' && (
+                <TwoFactorVerification
+                  email={twoFactorEmail}
+                  onBack={() => setAuthView('login')}
+                  onSuccess={() => {
+                    // Complete the login after 2FA verification
+                    window.location.href = pendingLoginRedirect || '/dashboard';
+                  }}
                 />
               )}
             </div>

@@ -44,9 +44,10 @@ type LoginFormData = z.infer<typeof loginSchema>;
 interface LoginFormProps {
   onSwitchToRegister: () => void;
   onForgotPassword: () => void;
+  onRequire2FA?: (email: string, redirect: string | null) => void;
 }
 
-export function LoginForm({ onSwitchToRegister, onForgotPassword }: LoginFormProps) {
+export function LoginForm({ onSwitchToRegister, onForgotPassword, onRequire2FA }: LoginFormProps) {
   const { t } = useTranslation();
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -126,6 +127,17 @@ export function LoginForm({ onSwitchToRegister, onForgotPassword }: LoginFormPro
       // Reset attempts on successful login
       resetAttempts(data.email);
       setAttemptsWarning(null);
+      
+      // Check if 2FA is enabled for this user
+      const twoFactorData = localStorage.getItem(`2fa_${data.email}`);
+      if (twoFactorData) {
+        const parsedData = JSON.parse(twoFactorData);
+        if (parsedData.enabled && onRequire2FA) {
+          onRequire2FA(data.email, redirect || null);
+          return;
+        }
+      }
+      
       toast.success(t('auth.loginSuccess'));
       navigate(redirect || '/dashboard');
     }
