@@ -8,8 +8,10 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Eye, CreditCard, FileText, Droplets, Home } from 'lucide-react';
+import { MoreHorizontal, Eye, CreditCard, FileText, Droplets, Home, Download } from 'lucide-react';
 import type { Invoice } from '@/types/billing';
+import { downloadInvoicePDF } from '@/utils/invoicePdf';
+import { useToast } from '@/hooks/use-toast';
 
 interface InvoiceCardProps {
   invoice: Invoice;
@@ -36,6 +38,7 @@ const typeIcons: Record<Invoice['type'], React.ReactNode> = {
 
 export function InvoiceCard({ invoice, onView, onRecordPayment }: InvoiceCardProps) {
   const { t } = useTranslation();
+  const { toast } = useToast();
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -49,6 +52,24 @@ export function InvoiceCard({ invoice, onView, onRecordPayment }: InvoiceCardPro
       year: 'numeric',
       month: 'short',
       day: 'numeric',
+    });
+  };
+
+  const handleDownloadPDF = () => {
+    downloadInvoicePDF({
+      invoice,
+      tenantName: invoice.tenantName,
+      tenantEmail: 'tenant@email.com',
+      unitNumber: invoice.unitNumber,
+      propertyName: invoice.propertyName,
+      propertyAddress: '123 Property Street, Nairobi',
+      landlordName: 'Property Manager',
+      landlordPhone: '+254 712 345 678',
+      landlordEmail: 'manager@property.com',
+    });
+    toast({
+      title: 'Invoice Downloaded',
+      description: `Invoice ${invoice.invoiceNumber} has been downloaded.`,
     });
   };
 
@@ -79,6 +100,10 @@ export function InvoiceCard({ invoice, onView, onRecordPayment }: InvoiceCardPro
                 <DropdownMenuItem onClick={() => onView?.(invoice)}>
                   <Eye className="h-4 w-4 mr-2" />
                   View Details
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleDownloadPDF}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
                 </DropdownMenuItem>
                 {invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
                   <DropdownMenuItem onClick={() => onRecordPayment?.(invoice)}>
