@@ -394,7 +394,9 @@ export function useMessages(conversationId: string) {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!conversationId) {
@@ -414,11 +416,46 @@ export function useMessages(conversationId: string) {
     // Poll for new messages every 2 seconds
     intervalRef.current = setInterval(loadMessages, 2000);
 
+    // Simulate typing indicators occasionally
+    const simulateTyping = () => {
+      const conversations = getStoredConversations();
+      const currentConv = conversations.find(c => c.id === conversationId);
+      if (currentConv) {
+        const otherParticipant = currentConv.participants.find(p => p.userId !== 'current-user');
+        if (otherParticipant && Math.random() > 0.7) {
+          setTypingUsers([otherParticipant.name]);
+          typingTimeoutRef.current = setTimeout(() => {
+            setTypingUsers([]);
+          }, 2000 + Math.random() * 2000);
+        }
+      }
+    };
+
+    const typingInterval = setInterval(simulateTyping, 8000);
+
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
+      clearInterval(typingInterval);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
     };
+  }, [conversationId]);
+
+  const markMessageAsRead = useCallback((messageId: string) => {
+    const allMessages = getStoredMessages();
+    if (allMessages[conversationId]) {
+      allMessages[conversationId] = allMessages[conversationId].map(msg => {
+        if (msg.id === messageId && !msg.readBy.includes('current-user')) {
+          return { ...msg, readBy: [...msg.readBy, 'current-user'] };
+        }
+        return msg;
+      });
+      saveMessages(allMessages);
+      setMessages(allMessages[conversationId]);
+    }
   }, [conversationId]);
 
   const sendMessage = useCallback(async (data: NewMessageData): Promise<Message> => {
@@ -455,6 +492,24 @@ export function useMessages(conversationId: string) {
       return conv;
     });
     saveConversations(updatedConversations);
+
+    // Simulate message being read after a delay
+    setTimeout(() => {
+      const msgs = getStoredMessages();
+      if (msgs[data.conversationId]) {
+        msgs[data.conversationId] = msgs[data.conversationId].map(msg => {
+          if (msg.id === newMessage.id) {
+            const conversations = getStoredConversations();
+            const conv = conversations.find(c => c.id === data.conversationId);
+            const otherParticipants = conv?.participants.filter(p => p.userId !== 'current-user').map(p => p.name) || [];
+            return { ...msg, readBy: [...msg.readBy, ...otherParticipants] };
+          }
+          return msg;
+        });
+        saveMessages(msgs);
+        setMessages(msgs[data.conversationId]);
+      }
+    }, 3000 + Math.random() * 5000);
 
     return newMessage;
   }, [user]);
@@ -499,5 +554,7 @@ export function useMessages(conversationId: string) {
     isLoading,
     sendMessage,
     forwardMessage,
+    typingUsers,
+    markMessageAsRead,
   };
 }
