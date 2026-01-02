@@ -1,239 +1,463 @@
-import { useState, useEffect } from 'react';
-import { Message, Conversation, NewMessageData, NewConversationData } from '@/types/message';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Conversation, Message, NewConversationData, NewMessageData } from '@/types/message';
+import { useAuth } from '@/contexts/AuthContext';
 
-const mockConversations: Conversation[] = [
+const CONVERSATIONS_KEY = 'conversations';
+const MESSAGES_KEY = 'messages';
+
+// Initial mock conversations
+const initialMockConversations: Conversation[] = [
   {
-    id: '1',
+    id: 'conv-1',
     participants: [
-      { userId: 'user-1', name: 'John Doe', role: 'tenant' },
-      { userId: 'emp-1', name: 'James Mwangi', role: 'employee' },
+      { userId: 'current-user', name: 'You', role: 'landlord' },
+      { userId: 't1', name: 'John Doe', role: 'tenant' },
     ],
     type: 'direct',
-    subject: 'Plumbing Issue - Unit A101',
-    propertyId: '1',
-    unitId: '1',
+    subject: 'Rent Payment Question',
     unreadCount: 2,
     createdAt: '2024-01-15T10:00:00Z',
-    updatedAt: '2024-01-16T14:30:00Z',
+    updatedAt: '2024-01-15T14:30:00Z',
   },
   {
-    id: '2',
+    id: 'conv-2',
     participants: [
-      { userId: 'user-2', name: 'Mary Wanjiku', role: 'tenant' },
-      { userId: 'landlord-1', name: 'David Kimani', role: 'landlord' },
+      { userId: 'current-user', name: 'You', role: 'landlord' },
+      { userId: 'e1', name: 'James Kamau', role: 'employee' },
     ],
     type: 'direct',
-    subject: 'Rent Payment Query',
+    subject: 'Maintenance Update',
     unreadCount: 0,
     createdAt: '2024-01-14T09:00:00Z',
-    updatedAt: '2024-01-15T11:00:00Z',
+    updatedAt: '2024-01-14T16:45:00Z',
   },
   {
-    id: '3',
+    id: 'conv-3',
     participants: [
-      { userId: 'emp-1', name: 'James Mwangi', role: 'employee' },
-      { userId: 'landlord-1', name: 'David Kimani', role: 'landlord' },
+      { userId: 'current-user', name: 'You', role: 'landlord' },
+      { userId: 't2', name: 'Jane Smith', role: 'tenant' },
     ],
     type: 'direct',
-    subject: 'Monthly Report',
+    subject: 'Unit A102 - Lease Renewal',
     unreadCount: 1,
-    createdAt: '2024-01-13T08:00:00Z',
-    updatedAt: '2024-01-16T09:00:00Z',
+    createdAt: '2024-01-13T11:00:00Z',
+    updatedAt: '2024-01-15T09:15:00Z',
   },
 ];
 
-const mockMessages: Record<string, Message[]> = {
-  '1': [
+// Initial mock messages
+const initialMockMessages: Record<string, Message[]> = {
+  'conv-1': [
     {
-      id: '1',
-      conversationId: '1',
-      senderId: 'user-1',
+      id: 'msg-1',
+      conversationId: 'conv-1',
+      senderId: 't1',
       senderName: 'John Doe',
       senderRole: 'tenant',
-      content: 'Hi, there is a leak in my kitchen sink. It started this morning.',
+      content: 'Hi, I wanted to ask about the rent payment for this month.',
       isForwarded: false,
-      readBy: ['user-1', 'emp-1'],
+      readBy: ['t1'],
       createdAt: '2024-01-15T10:00:00Z',
     },
     {
-      id: '2',
-      conversationId: '1',
-      senderId: 'emp-1',
-      senderName: 'James Mwangi',
-      senderRole: 'employee',
-      content: 'Thank you for reporting. I will come to inspect it this afternoon around 2 PM. Will that work for you?',
+      id: 'msg-2',
+      conversationId: 'conv-1',
+      senderId: 'current-user',
+      senderName: 'You',
+      senderRole: 'landlord',
+      content: 'Hello John! Of course, what would you like to know?',
       isForwarded: false,
-      readBy: ['user-1', 'emp-1'],
-      createdAt: '2024-01-15T10:15:00Z',
+      readBy: ['current-user', 't1'],
+      createdAt: '2024-01-15T10:05:00Z',
     },
     {
-      id: '3',
-      conversationId: '1',
-      senderId: 'user-1',
+      id: 'msg-3',
+      conversationId: 'conv-1',
+      senderId: 't1',
       senderName: 'John Doe',
       senderRole: 'tenant',
-      content: 'Yes, 2 PM works for me. Thank you!',
+      content: 'Can I pay via bank transfer this month? I usually use M-Pesa but my phone is having issues.',
       isForwarded: false,
-      readBy: ['user-1', 'emp-1'],
-      createdAt: '2024-01-15T10:20:00Z',
-    },
-    {
-      id: '4',
-      conversationId: '1',
-      senderId: 'emp-1',
-      senderName: 'James Mwangi',
-      senderRole: 'employee',
-      content: 'I have inspected the issue. It requires a plumber. I will arrange for one tomorrow morning.',
-      isForwarded: false,
-      readBy: ['emp-1'],
-      createdAt: '2024-01-16T14:30:00Z',
+      readBy: ['t1'],
+      createdAt: '2024-01-15T14:30:00Z',
     },
   ],
-  '2': [
+  'conv-2': [
     {
-      id: '5',
-      conversationId: '2',
-      senderId: 'user-2',
-      senderName: 'Mary Wanjiku',
-      senderRole: 'tenant',
-      content: 'Hello, I wanted to confirm if my payment for January was received?',
+      id: 'msg-4',
+      conversationId: 'conv-2',
+      senderId: 'e1',
+      senderName: 'James Kamau',
+      senderRole: 'employee',
+      content: 'Good morning! I completed the plumbing repair in unit B202.',
       isForwarded: false,
-      readBy: ['user-2', 'landlord-1'],
+      readBy: ['e1', 'current-user'],
       createdAt: '2024-01-14T09:00:00Z',
     },
     {
-      id: '6',
-      conversationId: '2',
-      senderId: 'landlord-1',
-      senderName: 'David Kimani',
+      id: 'msg-5',
+      conversationId: 'conv-2',
+      senderId: 'current-user',
+      senderName: 'You',
       senderRole: 'landlord',
-      content: 'Yes, we received your payment of KES 30,000 on January 5th. Thank you!',
+      content: 'Excellent work, James! Please send me the receipt for the parts.',
       isForwarded: false,
-      readBy: ['user-2', 'landlord-1'],
-      createdAt: '2024-01-15T11:00:00Z',
+      readBy: ['current-user', 'e1'],
+      createdAt: '2024-01-14T09:15:00Z',
     },
-  ],
-  '3': [
     {
-      id: '7',
-      conversationId: '3',
-      senderId: 'emp-1',
-      senderName: 'James Mwangi',
+      id: 'msg-6',
+      conversationId: 'conv-2',
+      senderId: 'e1',
+      senderName: 'James Kamau',
       senderRole: 'employee',
-      content: 'Good morning. Here is the monthly maintenance report for Sunrise Apartments.',
+      content: 'Will do! I\'ll upload it to the system shortly.',
       isForwarded: false,
-      readBy: ['emp-1'],
-      createdAt: '2024-01-16T09:00:00Z',
+      readBy: ['e1', 'current-user'],
+      createdAt: '2024-01-14T16:45:00Z',
     },
   ],
+  'conv-3': [
+    {
+      id: 'msg-7',
+      conversationId: 'conv-3',
+      senderId: 't2',
+      senderName: 'Jane Smith',
+      senderRole: 'tenant',
+      content: 'Hi, I would like to discuss renewing my lease. The current one expires next month.',
+      isForwarded: false,
+      readBy: ['t2', 'current-user'],
+      createdAt: '2024-01-13T11:00:00Z',
+    },
+    {
+      id: 'msg-8',
+      conversationId: 'conv-3',
+      senderId: 'current-user',
+      senderName: 'You',
+      senderRole: 'landlord',
+      content: 'Hello Jane! I\'d be happy to renew your lease. Would you prefer a 6-month or 12-month term?',
+      isForwarded: false,
+      readBy: ['current-user', 't2'],
+      createdAt: '2024-01-13T11:30:00Z',
+    },
+    {
+      id: 'msg-9',
+      conversationId: 'conv-3',
+      senderId: 't2',
+      senderName: 'Jane Smith',
+      senderRole: 'tenant',
+      content: 'I\'d prefer a 12-month term. Will the rent remain the same?',
+      isForwarded: false,
+      readBy: ['t2'],
+      createdAt: '2024-01-15T09:15:00Z',
+    },
+  ],
+};
+
+// Simulated incoming messages for testing
+const simulatedMessages = [
+  {
+    conversationId: 'conv-1',
+    senderId: 't1',
+    senderName: 'John Doe',
+    senderRole: 'tenant' as const,
+    content: 'Thank you for your quick response! Yes, bank transfer would work great.',
+  },
+  {
+    conversationId: 'conv-2',
+    senderId: 'e1',
+    senderName: 'James Kamau',
+    senderRole: 'employee' as const,
+    content: 'I\'ve uploaded the receipt. Also, unit C303 has a water heater issue that needs attention.',
+  },
+  {
+    conversationId: 'conv-3',
+    senderId: 't2',
+    senderName: 'Jane Smith',
+    senderRole: 'tenant' as const,
+    content: 'I\'ve reviewed the terms. Everything looks good. When can we sign the new agreement?',
+  },
+  {
+    conversationId: 'conv-1',
+    senderId: 't1',
+    senderName: 'John Doe',
+    senderRole: 'tenant' as const,
+    content: 'One more question - is there a discount for paying the full year upfront?',
+  },
+  {
+    conversationId: 'conv-2',
+    senderId: 'e1',
+    senderName: 'James Kamau',
+    senderRole: 'employee' as const,
+    content: 'I\'ve finished the water reading for all units in Block A. Submitting the data now.',
+  },
+];
+
+const getStoredConversations = (): Conversation[] => {
+  try {
+    const stored = localStorage.getItem(CONVERSATIONS_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch {
+    // Ignore
+  }
+  localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(initialMockConversations));
+  return initialMockConversations;
+};
+
+const getStoredMessages = (): Record<string, Message[]> => {
+  try {
+    const stored = localStorage.getItem(MESSAGES_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch {
+    // Ignore
+  }
+  localStorage.setItem(MESSAGES_KEY, JSON.stringify(initialMockMessages));
+  return initialMockMessages;
+};
+
+const saveConversations = (conversations: Conversation[]) => {
+  localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(conversations));
+};
+
+const saveMessages = (messages: Record<string, Message[]>) => {
+  localStorage.setItem(MESSAGES_KEY, JSON.stringify(messages));
 };
 
 export function useConversations() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const simulationIndexRef = useRef(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    setTimeout(() => {
-      // Add last message to conversations
-      const conversationsWithLastMessage = mockConversations.map((conv) => {
-        const messages = mockMessages[conv.id] || [];
-        return {
-          ...conv,
-          lastMessage: messages[messages.length - 1],
+    setConversations(getStoredConversations());
+    setIsLoading(false);
+
+    // Start real-time simulation - incoming messages every 20-35 seconds
+    const startSimulation = () => {
+      intervalRef.current = setInterval(() => {
+        if (simulationIndexRef.current >= simulatedMessages.length) {
+          simulationIndexRef.current = 0; // Loop back
+        }
+
+        const simMsg = simulatedMessages[simulationIndexRef.current];
+        const newMessage: Message = {
+          id: `msg-sim-${Date.now()}`,
+          conversationId: simMsg.conversationId,
+          senderId: simMsg.senderId,
+          senderName: simMsg.senderName,
+          senderRole: simMsg.senderRole,
+          content: simMsg.content,
+          isForwarded: false,
+          readBy: [simMsg.senderId],
+          createdAt: new Date().toISOString(),
         };
-      });
-      setConversations(conversationsWithLastMessage);
-      setIsLoading(false);
-    }, 500);
+
+        // Update messages
+        const allMessages = getStoredMessages();
+        if (!allMessages[simMsg.conversationId]) {
+          allMessages[simMsg.conversationId] = [];
+        }
+        allMessages[simMsg.conversationId].push(newMessage);
+        saveMessages(allMessages);
+
+        // Update conversation
+        const updatedConversations = getStoredConversations().map(conv => {
+          if (conv.id === simMsg.conversationId) {
+            return {
+              ...conv,
+              lastMessage: newMessage,
+              unreadCount: conv.unreadCount + 1,
+              updatedAt: new Date().toISOString(),
+            };
+          }
+          return conv;
+        });
+        saveConversations(updatedConversations);
+        setConversations(updatedConversations);
+
+        simulationIndexRef.current++;
+      }, 20000 + Math.random() * 15000); // 20-35 seconds
+    };
+
+    startSimulation();
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
   }, []);
 
-  const createConversation = async (data: NewConversationData): Promise<Conversation> => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
+  const createConversation = useCallback(async (data: NewConversationData): Promise<Conversation> => {
     const newConversation: Conversation = {
-      id: Date.now().toString(),
-      participants: data.participantIds.map((id) => ({
-        userId: id,
-        name: 'New User',
-        role: 'tenant',
-      })),
-      type: data.participantIds.length > 2 ? 'group' : 'direct',
+      id: `conv-${Date.now()}`,
+      participants: [
+        { userId: 'current-user', name: 'You', role: 'landlord' },
+        ...data.participantIds.map(id => ({
+          userId: id,
+          name: `User ${id}`,
+          role: 'tenant' as const,
+        })),
+      ],
+      type: data.participantIds.length > 1 ? 'group' : 'direct',
       subject: data.subject,
       unreadCount: 0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    setConversations((prev) => [newConversation, ...prev]);
-    return newConversation;
-  };
 
-  const markAsRead = async (conversationId: string): Promise<void> => {
-    await new Promise((resolve) => setTimeout(resolve, 200));
-    setConversations((prev) =>
-      prev.map((conv) =>
-        conv.id === conversationId ? { ...conv, unreadCount: 0 } : conv
-      )
-    );
-  };
+    const updatedConversations = [newConversation, ...conversations];
+    setConversations(updatedConversations);
+    saveConversations(updatedConversations);
+
+    // Add initial message
+    const initialMessage: Message = {
+      id: `msg-${Date.now()}`,
+      conversationId: newConversation.id,
+      senderId: 'current-user',
+      senderName: 'You',
+      senderRole: 'landlord',
+      content: data.initialMessage,
+      isForwarded: false,
+      readBy: ['current-user'],
+      createdAt: new Date().toISOString(),
+    };
+
+    const allMessages = getStoredMessages();
+    allMessages[newConversation.id] = [initialMessage];
+    saveMessages(allMessages);
+
+    return newConversation;
+  }, [conversations]);
+
+  const markAsRead = useCallback(async (conversationId: string): Promise<void> => {
+    const updatedConversations = conversations.map(conv => {
+      if (conv.id === conversationId) {
+        return { ...conv, unreadCount: 0 };
+      }
+      return conv;
+    });
+    setConversations(updatedConversations);
+    saveConversations(updatedConversations);
+  }, [conversations]);
+
+  const refreshConversations = useCallback(() => {
+    setConversations(getStoredConversations());
+  }, []);
 
   return {
     conversations,
     isLoading,
     createConversation,
     markAsRead,
+    refreshConversations,
   };
 }
 
 export function useMessages(conversationId: string) {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    setIsLoading(true);
-    setTimeout(() => {
-      setMessages(mockMessages[conversationId] || []);
+    if (!conversationId) {
+      setMessages([]);
       setIsLoading(false);
-    }, 300);
+      return;
+    }
+
+    const loadMessages = () => {
+      const allMessages = getStoredMessages();
+      setMessages(allMessages[conversationId] || []);
+      setIsLoading(false);
+    };
+
+    loadMessages();
+
+    // Poll for new messages every 2 seconds
+    intervalRef.current = setInterval(loadMessages, 2000);
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
   }, [conversationId]);
 
-  const sendMessage = async (data: NewMessageData): Promise<Message> => {
-    await new Promise((resolve) => setTimeout(resolve, 300));
+  const sendMessage = useCallback(async (data: NewMessageData): Promise<Message> => {
     const newMessage: Message = {
-      id: Date.now().toString(),
+      id: `msg-${Date.now()}`,
       conversationId: data.conversationId,
       senderId: 'current-user',
-      senderName: 'You',
-      senderRole: 'landlord',
+      senderName: user ? `${user.firstName} ${user.lastName}` : 'You',
+      senderRole: (user?.role as 'tenant' | 'employee' | 'landlord') || 'landlord',
       content: data.content,
       isForwarded: false,
       readBy: ['current-user'],
       createdAt: new Date().toISOString(),
     };
-    setMessages((prev) => [...prev, newMessage]);
-    return newMessage;
-  };
 
-  const forwardMessage = async (
-    messageId: string,
-    toConversationId: string
-  ): Promise<Message> => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    const originalMessage = messages.find((m) => m.id === messageId);
-    if (!originalMessage) throw new Error('Message not found');
+    const allMessages = getStoredMessages();
+    if (!allMessages[data.conversationId]) {
+      allMessages[data.conversationId] = [];
+    }
+    allMessages[data.conversationId].push(newMessage);
+    saveMessages(allMessages);
+    setMessages(allMessages[data.conversationId]);
+
+    // Update conversation's last message
+    const storedConversations = getStoredConversations();
+    const updatedConversations = storedConversations.map(conv => {
+      if (conv.id === data.conversationId) {
+        return {
+          ...conv,
+          lastMessage: newMessage,
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      return conv;
+    });
+    saveConversations(updatedConversations);
+
+    return newMessage;
+  }, [user]);
+
+  const forwardMessage = useCallback(async (messageId: string, toConversationId: string): Promise<Message> => {
+    const allMessages = getStoredMessages();
+    let originalMessage: Message | undefined;
+    
+    for (const msgs of Object.values(allMessages)) {
+      originalMessage = msgs.find(m => m.id === messageId);
+      if (originalMessage) break;
+    }
+
+    if (!originalMessage) {
+      throw new Error('Message not found');
+    }
 
     const forwardedMessage: Message = {
-      id: Date.now().toString(),
+      id: `msg-${Date.now()}`,
       conversationId: toConversationId,
       senderId: 'current-user',
-      senderName: 'You',
-      senderRole: 'landlord',
+      senderName: user ? `${user.firstName} ${user.lastName}` : 'You',
+      senderRole: (user?.role as 'tenant' | 'employee' | 'landlord') || 'landlord',
       content: originalMessage.content,
       isForwarded: true,
       forwardedFrom: originalMessage.senderName,
       readBy: ['current-user'],
       createdAt: new Date().toISOString(),
     };
+
+    if (!allMessages[toConversationId]) {
+      allMessages[toConversationId] = [];
+    }
+    allMessages[toConversationId].push(forwardedMessage);
+    saveMessages(allMessages);
+
     return forwardedMessage;
-  };
+  }, [user]);
 
   return {
     messages,

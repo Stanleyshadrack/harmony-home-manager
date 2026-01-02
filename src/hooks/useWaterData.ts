@@ -1,4 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+
+export type WaterReadingStatus = 'pending' | 'approved' | 'rejected';
 
 export interface WaterReading {
   id: string;
@@ -15,8 +18,15 @@ export interface WaterReading {
   readingDate: string;
   billingPeriod: string;
   recordedBy: string;
+  recordedByRole: 'employee' | 'landlord';
+  status: WaterReadingStatus;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectionReason?: string;
   createdAt: string;
 }
+
+const STORAGE_KEY = 'water_readings';
 
 // Mock water readings data
 const mockWaterReadings: WaterReading[] = [
@@ -35,6 +45,10 @@ const mockWaterReadings: WaterReading[] = [
     readingDate: '2024-01-15',
     billingPeriod: 'January 2024',
     recordedBy: 'James Kamau',
+    recordedByRole: 'employee',
+    status: 'approved',
+    approvedBy: 'Property Manager',
+    approvedAt: '2024-01-16T10:00:00Z',
     createdAt: '2024-01-15T10:00:00Z',
   },
   {
@@ -52,6 +66,10 @@ const mockWaterReadings: WaterReading[] = [
     readingDate: '2023-12-15',
     billingPeriod: 'December 2023',
     recordedBy: 'James Kamau',
+    recordedByRole: 'employee',
+    status: 'approved',
+    approvedBy: 'Property Manager',
+    approvedAt: '2023-12-16T10:00:00Z',
     createdAt: '2023-12-15T10:00:00Z',
   },
   {
@@ -69,6 +87,8 @@ const mockWaterReadings: WaterReading[] = [
     readingDate: '2024-01-15',
     billingPeriod: 'January 2024',
     recordedBy: 'James Kamau',
+    recordedByRole: 'employee',
+    status: 'pending',
     createdAt: '2024-01-15T11:00:00Z',
   },
   {
@@ -85,32 +105,137 @@ const mockWaterReadings: WaterReading[] = [
     totalAmount: 120,
     readingDate: '2024-01-15',
     billingPeriod: 'January 2024',
-    recordedBy: 'James Kamau',
+    recordedBy: 'Property Manager',
+    recordedByRole: 'landlord',
+    status: 'approved',
+    approvedBy: 'Property Manager',
+    approvedAt: '2024-01-15T12:00:00Z',
     createdAt: '2024-01-15T12:00:00Z',
+  },
+  {
+    id: 'wr-5',
+    unitId: 'u4',
+    unitNumber: 'D404',
+    propertyName: 'Ocean View Towers',
+    tenantName: 'Sarah Wilson',
+    meterId: 'WM-004',
+    previousReading: 320,
+    currentReading: 375,
+    consumption: 55,
+    ratePerUnit: 1.5,
+    totalAmount: 82.5,
+    readingDate: '2024-01-16',
+    billingPeriod: 'January 2024',
+    recordedBy: 'James Kamau',
+    recordedByRole: 'employee',
+    status: 'pending',
+    createdAt: '2024-01-16T09:00:00Z',
   },
 ];
 
-export function useWaterData() {
-  const [readings, setReadings] = useState<WaterReading[]>(mockWaterReadings);
-  const [isLoading, setIsLoading] = useState(false);
+const getStoredReadings = (): WaterReading[] => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch {
+    // Ignore
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(mockWaterReadings));
+  return mockWaterReadings;
+};
 
-  const addReading = useCallback((data: Omit<WaterReading, 'id' | 'consumption' | 'totalAmount' | 'createdAt'>) => {
+const saveReadings = (readings: WaterReading[]) => {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(readings));
+};
+
+export function useWaterData() {
+  const { user } = useAuth();
+  const [readings, setReadings] = useState<WaterReading[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    setReadings(getStoredReadings());
+    setIsLoading(false);
+  }, []);
+
+  const canAddReading = user?.role === 'employee' || user?.role === 'landlord';
+  const canApprove = user?.role === 'landlord';
+
+  const addReading = useCallback((data: Omit<WaterReading, 'id' | 'consumption' | 'totalAmount' | 'createdAt' | 'status' | 'recordedByRole'>) => {
+    if (!user || !canAddReading) return null;
+
     setIsLoading(true);
     const consumption = data.currentReading - data.previousReading;
     const totalAmount = consumption * data.ratePerUnit;
+    const isLandlord = user.role === 'landlord';
 
     const newReading: WaterReading = {
       ...data,
       id: `wr-${Date.now()}`,
       consumption,
       totalAmount,
+      recordedByRole: isLandlord ? 'landlord' : 'employee',
+      status: isLandlord ? 'approved' : 'pending', // Auto-approve if landlord adds
+      approvedBy: isLandlord ? `${user.firstName} ${user.lastName}` : undefined,
+      approvedAt: isLandlord ? new Date().toISOString() : undefined,
       createdAt: new Date().toISOString(),
     };
 
-    setReadings(prev => [newReading, ...prev]);
+    const updated = [newReading, ...readings];
+    setReadings(updated);
+    saveReadings(updated);
     setIsLoading(false);
     return newReading;
-  }, []);
+  }, [readings, user, canAddReading]);
+
+  const approveReading = useCallback((readingId: string) => {
+    if (!user || !canApprove) return false;
+
+    const updated = readings.map(r => {
+      if (r.id === readingId && r.status === 'pending') {
+        return {
+          ...r,
+          status: 'approved' as WaterReadingStatus,
+          approvedBy: `${user.firstName} ${user.lastName}`,
+          approvedAt: new Date().toISOString(),
+        };
+      }
+      return r;
+    });
+
+    setReadings(updated);
+    saveReadings(updated);
+    return true;
+  }, [readings, user, canApprove]);
+
+  const rejectReading = useCallback((readingId: string, reason: string) => {
+    if (!user || !canApprove) return false;
+
+    const updated = readings.map(r => {
+      if (r.id === readingId && r.status === 'pending') {
+        return {
+          ...r,
+          status: 'rejected' as WaterReadingStatus,
+          rejectionReason: reason,
+        };
+      }
+      return r;
+    });
+
+    setReadings(updated);
+    saveReadings(updated);
+    return true;
+  }, [readings, user, canApprove]);
+
+  const getPendingReadings = useCallback(() => {
+    return readings.filter(r => r.status === 'pending');
+  }, [readings]);
+
+  const getApprovedReadings = useCallback(() => {
+    return readings.filter(r => r.status === 'approved');
+  }, [readings]);
 
   const getReadingsByUnit = useCallback((unitId: string) => {
     return readings.filter(r => r.unitId === unitId);
@@ -121,12 +246,13 @@ export function useWaterData() {
   }, [readings]);
 
   const getConsumptionStats = useCallback(() => {
-    const totalConsumption = readings.reduce((sum, r) => sum + r.consumption, 0);
-    const totalRevenue = readings.reduce((sum, r) => sum + r.totalAmount, 0);
-    const avgConsumption = readings.length > 0 ? totalConsumption / readings.length : 0;
+    const approvedReadings = getApprovedReadings();
+    const totalConsumption = approvedReadings.reduce((sum, r) => sum + r.consumption, 0);
+    const totalRevenue = approvedReadings.reduce((sum, r) => sum + r.totalAmount, 0);
+    const avgConsumption = approvedReadings.length > 0 ? totalConsumption / approvedReadings.length : 0;
     
     // Group by month for trend
-    const monthlyData = readings.reduce((acc, r) => {
+    const monthlyData = approvedReadings.reduce((acc, r) => {
       const month = r.billingPeriod;
       if (!acc[month]) {
         acc[month] = { consumption: 0, revenue: 0, count: 0 };
@@ -142,18 +268,25 @@ export function useWaterData() {
       totalRevenue,
       avgConsumption,
       monthlyData,
-      totalReadings: readings.length,
+      totalReadings: approvedReadings.length,
+      pendingCount: getPendingReadings().length,
     };
-  }, [readings]);
+  }, [readings, getApprovedReadings, getPendingReadings]);
 
   const getHighConsumptionUnits = useCallback((threshold: number = 60) => {
-    return readings.filter(r => r.consumption > threshold);
-  }, [readings]);
+    return getApprovedReadings().filter(r => r.consumption > threshold);
+  }, [getApprovedReadings]);
 
   return {
     readings,
     isLoading,
+    canAddReading,
+    canApprove,
     addReading,
+    approveReading,
+    rejectReading,
+    getPendingReadings,
+    getApprovedReadings,
     getReadingsByUnit,
     getReadingsByProperty,
     getConsumptionStats,
