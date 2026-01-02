@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useInAppNotifications } from './useInAppNotifications';
 
 export type WaterReadingStatus = 'pending' | 'approved' | 'rejected';
 
@@ -8,6 +9,7 @@ export interface WaterReading {
   unitId: string;
   unitNumber: string;
   propertyName: string;
+  propertyId: string;
   tenantName: string;
   meterId: string;
   previousReading: number;
@@ -28,13 +30,14 @@ export interface WaterReading {
 
 const STORAGE_KEY = 'water_readings';
 
-// Mock water readings data
+// Mock water readings data with propertyId
 const mockWaterReadings: WaterReading[] = [
   {
     id: 'wr-1',
     unitId: 'u1',
     unitNumber: 'A101',
-    propertyName: 'Sunrise Apartments',
+    propertyName: 'Sunset Apartments',
+    propertyId: '1',
     tenantName: 'John Doe',
     meterId: 'WM-001',
     previousReading: 1200,
@@ -55,7 +58,8 @@ const mockWaterReadings: WaterReading[] = [
     id: 'wr-2',
     unitId: 'u1',
     unitNumber: 'A101',
-    propertyName: 'Sunrise Apartments',
+    propertyName: 'Sunset Apartments',
+    propertyId: '1',
     tenantName: 'John Doe',
     meterId: 'WM-001',
     previousReading: 1150,
@@ -76,7 +80,8 @@ const mockWaterReadings: WaterReading[] = [
     id: 'wr-3',
     unitId: 'u2',
     unitNumber: 'B202',
-    propertyName: 'Sunrise Apartments',
+    propertyName: 'Sunset Apartments',
+    propertyId: '1',
     tenantName: 'Jane Smith',
     meterId: 'WM-002',
     previousReading: 800,
@@ -95,7 +100,8 @@ const mockWaterReadings: WaterReading[] = [
     id: 'wr-4',
     unitId: 'u3',
     unitNumber: 'C303',
-    propertyName: 'Ocean View Towers',
+    propertyName: 'Garden View Residences',
+    propertyId: '2',
     tenantName: 'Mike Johnson',
     meterId: 'WM-003',
     previousReading: 500,
@@ -116,7 +122,8 @@ const mockWaterReadings: WaterReading[] = [
     id: 'wr-5',
     unitId: 'u4',
     unitNumber: 'D404',
-    propertyName: 'Ocean View Towers',
+    propertyName: 'Kilimani Heights',
+    propertyId: '3',
     tenantName: 'Sarah Wilson',
     meterId: 'WM-004',
     previousReading: 320,
@@ -150,15 +157,53 @@ const saveReadings = (readings: WaterReading[]) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(readings));
 };
 
+// Notification helper that doesn't require hooks
+const addWaterNotification = (data: {
+  userId: string;
+  title: string;
+  message: string;
+  category: string;
+  priority: string;
+  link?: string;
+}) => {
+  const NOTIF_KEY = 'in_app_notifications';
+  try {
+    const stored = localStorage.getItem(NOTIF_KEY);
+    const notifications = stored ? JSON.parse(stored) : [];
+    const newNotification = {
+      id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      ...data,
+      read: false,
+      createdAt: new Date().toISOString(),
+    };
+    localStorage.setItem(NOTIF_KEY, JSON.stringify([newNotification, ...notifications].slice(0, 100)));
+  } catch {
+    // Ignore
+  }
+};
+
 export function useWaterData() {
   const { user } = useAuth();
   const [readings, setReadings] = useState<WaterReading[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setReadings(getStoredReadings());
+    const allReadings = getStoredReadings();
+    // Filter readings based on user role and assigned properties
+    let filteredReadings = allReadings;
+    
+    if (user?.role === 'employee' && user.assignedPropertyId) {
+      // Employees only see readings for their assigned property
+      filteredReadings = allReadings.filter(r => r.propertyId === user.assignedPropertyId);
+    } else if (user?.role === 'tenant') {
+      // Tenants don't see water readings in this context
+      filteredReadings = [];
+    }
+    // Landlords and super admin see all readings
+    
+    setReadings(filteredReadings);
     setIsLoading(false);
-  }, []);
+  }, [user]);
 
   const canAddReading = user?.role === 'employee' || user?.role === 'landlord';
   const canApprove = user?.role === 'landlord';
@@ -177,23 +222,40 @@ export function useWaterData() {
       consumption,
       totalAmount,
       recordedByRole: isLandlord ? 'landlord' : 'employee',
-      status: isLandlord ? 'approved' : 'pending', // Auto-approve if landlord adds
+      status: isLandlord ? 'approved' : 'pending',
       approvedBy: isLandlord ? `${user.firstName} ${user.lastName}` : undefined,
       approvedAt: isLandlord ? new Date().toISOString() : undefined,
       createdAt: new Date().toISOString(),
     };
 
-    const updated = [newReading, ...readings];
-    setReadings(updated);
+    const allReadings = getStoredReadings();
+    const updated = [newReading, ...allReadings];
     saveReadings(updated);
+    setReadings(prev => [newReading, ...prev]);
     setIsLoading(false);
+
+    // Send notification to landlords when employee adds a reading
+    if (!isLandlord) {
+      addWaterNotification({
+        userId: 'landlord',
+        title: 'New Water Reading Pending Approval',
+        message: `${user.firstName} ${user.lastName} submitted a water reading for ${data.unitNumber} at ${data.propertyName}. Consumption: ${consumption} units.`,
+        category: 'water_reading_pending',
+        priority: 'medium',
+        link: '/water-data',
+      });
+    }
+
     return newReading;
-  }, [readings, user, canAddReading]);
+  }, [user, canAddReading]);
 
   const approveReading = useCallback((readingId: string) => {
     if (!user || !canApprove) return false;
 
-    const updated = readings.map(r => {
+    const allReadings = getStoredReadings();
+    const reading = allReadings.find(r => r.id === readingId);
+    
+    const updated = allReadings.map(r => {
       if (r.id === readingId && r.status === 'pending') {
         return {
           ...r,
@@ -205,15 +267,36 @@ export function useWaterData() {
       return r;
     });
 
-    setReadings(updated);
     saveReadings(updated);
+    setReadings(prev => prev.map(r => {
+      if (r.id === readingId) {
+        return updated.find(u => u.id === readingId) || r;
+      }
+      return r;
+    }));
+
+    // Notify the employee who submitted
+    if (reading && reading.recordedByRole === 'employee') {
+      addWaterNotification({
+        userId: 'employee',
+        title: 'Water Reading Approved',
+        message: `Your water reading for ${reading.unitNumber} at ${reading.propertyName} has been approved by ${user.firstName} ${user.lastName}.`,
+        category: 'water_reading_approved',
+        priority: 'low',
+        link: '/water-data',
+      });
+    }
+
     return true;
-  }, [readings, user, canApprove]);
+  }, [user, canApprove]);
 
   const rejectReading = useCallback((readingId: string, reason: string) => {
     if (!user || !canApprove) return false;
 
-    const updated = readings.map(r => {
+    const allReadings = getStoredReadings();
+    const reading = allReadings.find(r => r.id === readingId);
+
+    const updated = allReadings.map(r => {
       if (r.id === readingId && r.status === 'pending') {
         return {
           ...r,
@@ -224,10 +307,28 @@ export function useWaterData() {
       return r;
     });
 
-    setReadings(updated);
     saveReadings(updated);
+    setReadings(prev => prev.map(r => {
+      if (r.id === readingId) {
+        return updated.find(u => u.id === readingId) || r;
+      }
+      return r;
+    }));
+
+    // Notify the employee who submitted
+    if (reading && reading.recordedByRole === 'employee') {
+      addWaterNotification({
+        userId: 'employee',
+        title: 'Water Reading Rejected',
+        message: `Your water reading for ${reading.unitNumber} at ${reading.propertyName} was rejected. Reason: ${reason}`,
+        category: 'water_reading_rejected',
+        priority: 'high',
+        link: '/water-data',
+      });
+    }
+
     return true;
-  }, [readings, user, canApprove]);
+  }, [user, canApprove]);
 
   const getPendingReadings = useCallback(() => {
     return readings.filter(r => r.status === 'pending');
@@ -251,7 +352,6 @@ export function useWaterData() {
     const totalRevenue = approvedReadings.reduce((sum, r) => sum + r.totalAmount, 0);
     const avgConsumption = approvedReadings.length > 0 ? totalConsumption / approvedReadings.length : 0;
     
-    // Group by month for trend
     const monthlyData = approvedReadings.reduce((acc, r) => {
       const month = r.billingPeriod;
       if (!acc[month]) {
