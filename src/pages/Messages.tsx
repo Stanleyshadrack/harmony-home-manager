@@ -25,7 +25,7 @@ export default function Messages() {
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [showMobileList, setShowMobileList] = useState(true);
 
-  const { messages, isLoading: loadingMessages, sendMessage, forwardMessage } = useMessages(
+  const { messages, isLoading: loadingMessages, sendMessage, forwardMessage, typingUsers } = useMessages(
     selectedConversation?.id || ''
   );
 
@@ -200,6 +200,8 @@ export default function Messages() {
                   messages={messages}
                   isLoading={loadingMessages}
                   onForward={handleForwardMessage}
+                  typingUsers={typingUsers}
+                  totalParticipants={selectedConversation.participants.length}
                 />
                 <MessageInput onSend={handleSendMessage} />
               </CardContent>

@@ -12,13 +12,17 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { MoreVertical, Forward, Copy, Reply } from 'lucide-react';
+import { MoreVertical, Forward, Copy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { TypingIndicator } from './TypingIndicator';
+import { ReadReceipt } from './ReadReceipt';
 
 interface MessageThreadProps {
   messages: Message[];
   isLoading?: boolean;
   onForward?: (message: Message) => void;
+  typingUsers?: string[];
+  totalParticipants?: number;
 }
 
 const roleColors = {
@@ -27,7 +31,7 @@ const roleColors = {
   landlord: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
 };
 
-export function MessageThread({ messages, isLoading, onForward }: MessageThreadProps) {
+export function MessageThread({ messages, isLoading, onForward, typingUsers = [], totalParticipants = 2 }: MessageThreadProps) {
   const { toast } = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -133,11 +137,21 @@ export function MessageThread({ messages, isLoading, onForward }: MessageThreadP
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
+
+                {isOwn && (
+                  <ReadReceipt
+                    readBy={message.readBy}
+                    isOwn={isOwn}
+                    totalParticipants={totalParticipants}
+                    className="mt-1"
+                  />
+                )}
               </div>
             </div>
           );
         })}
       </div>
+      <TypingIndicator typingUsers={typingUsers} />
     </ScrollArea>
   );
 }
