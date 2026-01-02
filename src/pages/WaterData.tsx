@@ -4,12 +4,16 @@ import { format } from 'date-fns';
 import { 
   Droplets, 
   TrendingUp, 
-  TrendingDown, 
   BarChart3, 
   AlertTriangle,
   Search,
   Filter,
-  Download
+  Download,
+  Check,
+  X,
+  Clock,
+  Plus,
+  User
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -19,6 +23,9 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { 
   BarChart, 
   Bar, 
@@ -33,20 +40,41 @@ import {
   Pie,
   Cell
 } from 'recharts';
-import { useWaterData } from '@/hooks/useWaterData';
+import { useWaterData, WaterReading } from '@/hooks/useWaterData';
+import { useAuth } from '@/contexts/AuthContext';
+import { WaterReadingForm } from '@/components/billing/WaterReadingForm';
+import { useToast } from '@/hooks/use-toast';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--info))', 'hsl(var(--warning))', 'hsl(var(--success))'];
 
 export default function WaterData() {
   const { t } = useTranslation();
-  const { readings, getConsumptionStats, getHighConsumptionUnits } = useWaterData();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const { 
+    readings, 
+    getConsumptionStats, 
+    getHighConsumptionUnits,
+    getPendingReadings,
+    canAddReading,
+    canApprove,
+    approveReading,
+    rejectReading,
+    addReading
+  } = useWaterData();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [propertyFilter, setPropertyFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [activeTab, setActiveTab] = useState('overview');
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [selectedReading, setSelectedReading] = useState<WaterReading | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   const stats = getConsumptionStats();
   const highConsumptionUnits = getHighConsumptionUnits();
+  const pendingReadings = getPendingReadings();
 
   // Prepare chart data
   const monthlyChartData = Object.entries(stats.monthlyData).map(([month, data]) => ({
@@ -57,10 +85,12 @@ export default function WaterData() {
   }));
 
   const propertyConsumption = readings.reduce((acc, r) => {
-    if (!acc[r.propertyName]) {
-      acc[r.propertyName] = 0;
+    if (r.status === 'approved') {
+      if (!acc[r.propertyName]) {
+        acc[r.propertyName] = 0;
+      }
+      acc[r.propertyName] += r.consumption;
     }
-    acc[r.propertyName] += r.consumption;
     return acc;
   }, {} as Record<string, number>);
 
@@ -76,7 +106,8 @@ export default function WaterData() {
       r.unitNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       r.tenantName.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesProperty = propertyFilter === 'all' || r.propertyName === propertyFilter;
-    return matchesSearch && matchesProperty;
+    const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
+    return matchesSearch && matchesProperty && matchesStatus;
   });
 
   const formatCurrency = (amount: number) => {
@@ -84,6 +115,74 @@ export default function WaterData() {
       style: 'currency',
       currency: 'USD',
     }).format(amount);
+  };
+
+  const handleApprove = (reading: WaterReading) => {
+    const success = approveReading(reading.id);
+    if (success) {
+      toast({
+        title: 'Reading Approved',
+        description: `Water reading for ${reading.unitNumber} has been approved.`,
+      });
+    }
+  };
+
+  const handleReject = () => {
+    if (!selectedReading || !rejectionReason.trim()) return;
+    
+    const success = rejectReading(selectedReading.id, rejectionReason);
+    if (success) {
+      toast({
+        title: 'Reading Rejected',
+        description: `Water reading for ${selectedReading.unitNumber} has been rejected.`,
+        variant: 'destructive',
+      });
+    }
+    setShowRejectDialog(false);
+    setSelectedReading(null);
+    setRejectionReason('');
+  };
+
+  const openRejectDialog = (reading: WaterReading) => {
+    setSelectedReading(reading);
+    setShowRejectDialog(true);
+  };
+
+  const handleAddReading = (data: any) => {
+    const result = addReading({
+      unitId: data.unitId,
+      unitNumber: data.unitNumber || 'N/A',
+      propertyName: data.propertyName || 'Unknown Property',
+      tenantName: data.tenantName || 'Unknown Tenant',
+      meterId: data.meterId,
+      previousReading: data.previousReading,
+      currentReading: data.currentReading,
+      ratePerUnit: data.ratePerUnit,
+      readingDate: data.readingDate,
+      billingPeriod: data.billingPeriod,
+      recordedBy: user ? `${user.firstName} ${user.lastName}` : 'Unknown',
+    });
+
+    if (result) {
+      toast({
+        title: user?.role === 'landlord' ? 'Reading Added & Approved' : 'Reading Submitted',
+        description: user?.role === 'landlord' 
+          ? 'The water reading has been added and auto-approved.'
+          : 'The water reading has been submitted for approval.',
+      });
+      setShowAddDialog(false);
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return <Badge className="bg-success/10 text-success border-success/20"><Check className="h-3 w-3 mr-1" />Approved</Badge>;
+      case 'rejected':
+        return <Badge variant="destructive"><X className="h-3 w-3 mr-1" />Rejected</Badge>;
+      default:
+        return <Badge variant="outline" className="border-warning/50 text-warning"><Clock className="h-3 w-3 mr-1" />Pending</Badge>;
+    }
   };
 
   return (
@@ -95,8 +194,18 @@ export default function WaterData() {
       ]}
     >
       <div className="space-y-6">
+        {/* Header Actions */}
+        {canAddReading && (
+          <div className="flex justify-end">
+            <Button onClick={() => setShowAddDialog(true)} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add Water Reading
+            </Button>
+          </div>
+        )}
+
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <Card>
             <CardContent className="p-4 flex items-center gap-4">
               <div className="p-3 rounded-full bg-info/10">
@@ -136,7 +245,19 @@ export default function WaterData() {
           <Card>
             <CardContent className="p-4 flex items-center gap-4">
               <div className="p-3 rounded-full bg-warning/10">
-                <AlertTriangle className="h-5 w-5 text-warning" />
+                <Clock className="h-5 w-5 text-warning" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Pending Approval</p>
+                <p className="text-2xl font-bold">{stats.pendingCount}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="p-3 rounded-full bg-destructive/10">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">High Usage Units</p>
@@ -151,6 +272,14 @@ export default function WaterData() {
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="readings">All Readings</TabsTrigger>
+            {canApprove && (
+              <TabsTrigger value="pending" className="relative">
+                Pending Approval
+                {pendingReadings.length > 0 && (
+                  <Badge className="ml-2 bg-warning text-warning-foreground">{pendingReadings.length}</Badge>
+                )}
+              </TabsTrigger>
+            )}
             <TabsTrigger value="analysis">Analysis</TabsTrigger>
             <TabsTrigger value="alerts">Alerts</TabsTrigger>
           </TabsList>
@@ -236,7 +365,7 @@ export default function WaterData() {
                           dataKey="value"
                           label={({ name }) => name}
                         >
-                          {propertyChartData.map((entry, index) => (
+                          {propertyChartData.map((_, index) => (
                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                           ))}
                         </Pie>
@@ -290,6 +419,17 @@ export default function WaterData() {
                   ))}
                 </SelectContent>
               </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
               <Button variant="outline">
                 <Download className="h-4 w-4 mr-2" />
                 Export
@@ -303,11 +443,11 @@ export default function WaterData() {
                     <TableHead>Date</TableHead>
                     <TableHead>Unit</TableHead>
                     <TableHead>Tenant</TableHead>
-                    <TableHead>Meter ID</TableHead>
-                    <TableHead className="text-right">Previous</TableHead>
-                    <TableHead className="text-right">Current</TableHead>
+                    <TableHead>Recorded By</TableHead>
                     <TableHead className="text-right">Consumption</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                    {canApprove && <TableHead>Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -316,9 +456,15 @@ export default function WaterData() {
                       <TableCell>{format(new Date(reading.readingDate), 'MMM d, yyyy')}</TableCell>
                       <TableCell className="font-medium">{reading.unitNumber}</TableCell>
                       <TableCell>{reading.tenantName}</TableCell>
-                      <TableCell className="font-mono text-sm">{reading.meterId}</TableCell>
-                      <TableCell className="text-right">{reading.previousReading}</TableCell>
-                      <TableCell className="text-right">{reading.currentReading}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm">{reading.recordedBy}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {reading.recordedByRole}
+                          </Badge>
+                        </div>
+                      </TableCell>
                       <TableCell className="text-right">
                         <Badge variant={reading.consumption > 60 ? 'destructive' : 'outline'}>
                           {reading.consumption} m³
@@ -327,12 +473,95 @@ export default function WaterData() {
                       <TableCell className="text-right font-medium">
                         {formatCurrency(reading.totalAmount)}
                       </TableCell>
+                      <TableCell>{getStatusBadge(reading.status)}</TableCell>
+                      {canApprove && (
+                        <TableCell>
+                          {reading.status === 'pending' && (
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="ghost" className="text-success" onClick={() => handleApprove(reading)}>
+                                <Check className="h-4 w-4" />
+                              </Button>
+                              <Button size="sm" variant="ghost" className="text-destructive" onClick={() => openRejectDialog(reading)}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </Card>
           </TabsContent>
+
+          {/* Pending Approval Tab */}
+          {canApprove && (
+            <TabsContent value="pending" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-warning" />
+                    Pending Water Readings
+                  </CardTitle>
+                  <CardDescription>
+                    Review and approve water readings submitted by employees
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {pendingReadings.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                      <Check className="h-12 w-12 mb-4 opacity-50" />
+                      <p>All readings have been reviewed</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {pendingReadings.map((reading) => (
+                        <div
+                          key={reading.id}
+                          className="flex items-center justify-between p-4 bg-warning/5 border border-warning/20 rounded-lg"
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-center gap-4">
+                              <div>
+                                <p className="font-medium">
+                                  Unit {reading.unitNumber} - {reading.tenantName}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  {reading.propertyName} • {reading.billingPeriod}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Recorded by: {reading.recordedBy} ({reading.recordedByRole})
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="text-right">
+                              <p className="font-medium">{reading.consumption} m³</p>
+                              <p className="text-sm text-muted-foreground">
+                                {formatCurrency(reading.totalAmount)}
+                              </p>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="outline" className="gap-1" onClick={() => handleApprove(reading)}>
+                                <Check className="h-4 w-4" />
+                                Approve
+                              </Button>
+                              <Button size="sm" variant="outline" className="gap-1 text-destructive" onClick={() => openRejectDialog(reading)}>
+                                <X className="h-4 w-4" />
+                                Reject
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
 
           {/* Analysis Tab */}
           <TabsContent value="analysis" className="space-y-6">
@@ -345,7 +574,7 @@ export default function WaterData() {
                 <CardContent>
                   <div className="h-[300px]">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={readings.slice(0, 6)} layout="vertical">
+                      <BarChart data={readings.filter(r => r.status === 'approved').slice(0, 6)} layout="vertical">
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                         <XAxis type="number" className="text-xs" />
                         <YAxis dataKey="unitNumber" type="category" className="text-xs" width={60} />
@@ -372,7 +601,7 @@ export default function WaterData() {
                     <p className="text-2xl font-bold">{stats.avgConsumption.toFixed(2)} m³</p>
                   </div>
                   <div className="p-4 bg-muted/50 rounded-lg">
-                    <p className="text-sm text-muted-foreground">Total Readings</p>
+                    <p className="text-sm text-muted-foreground">Total Approved Readings</p>
                     <p className="text-2xl font-bold">{stats.totalReadings}</p>
                   </div>
                   <div className="p-4 bg-muted/50 rounded-lg">
@@ -437,6 +666,56 @@ export default function WaterData() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Add Water Reading Dialog */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Add Water Reading</DialogTitle>
+            <DialogDescription>
+              {user?.role === 'landlord' 
+                ? 'Record a water meter reading. It will be auto-approved.'
+                : 'Submit a water meter reading for landlord approval.'}
+            </DialogDescription>
+          </DialogHeader>
+          <WaterReadingForm 
+            onSubmit={handleAddReading}
+            onCancel={() => setShowAddDialog(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject Dialog */}
+      <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Water Reading</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for rejecting this water reading.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="reason">Rejection Reason</Label>
+              <Textarea
+                id="reason"
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Enter the reason for rejection..."
+                className="mt-2"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRejectDialog(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleReject} disabled={!rejectionReason.trim()}>
+              Reject Reading
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
