@@ -153,6 +153,7 @@ export default function WaterData() {
       unitId: data.unitId,
       unitNumber: data.unitNumber || 'N/A',
       propertyName: data.propertyName || 'Unknown Property',
+      propertyId: data.propertyId || '1',
       tenantName: data.tenantName || 'Unknown Tenant',
       meterId: data.meterId,
       previousReading: data.previousReading,

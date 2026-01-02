@@ -223,6 +223,31 @@ const saveMessages = (messages: Record<string, Message[]>) => {
   localStorage.setItem(MESSAGES_KEY, JSON.stringify(messages));
 };
 
+// Notification helper for new messages
+const addMessageNotification = (data: {
+  userId: string;
+  title: string;
+  message: string;
+  category: string;
+  priority: string;
+  link?: string;
+}) => {
+  const NOTIF_KEY = 'in_app_notifications';
+  try {
+    const stored = localStorage.getItem(NOTIF_KEY);
+    const notifications = stored ? JSON.parse(stored) : [];
+    const newNotification = {
+      id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      ...data,
+      read: false,
+      createdAt: new Date().toISOString(),
+    };
+    localStorage.setItem(NOTIF_KEY, JSON.stringify([newNotification, ...notifications].slice(0, 100)));
+  } catch {
+    // Ignore
+  }
+};
+
 export function useConversations() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -275,6 +300,16 @@ export function useConversations() {
         });
         saveConversations(updatedConversations);
         setConversations(updatedConversations);
+
+        // Add notification for new message
+        addMessageNotification({
+          userId: 'all',
+          title: 'New Message',
+          message: `${simMsg.senderName}: ${simMsg.content.substring(0, 50)}${simMsg.content.length > 50 ? '...' : ''}`,
+          category: 'new_message',
+          priority: 'medium',
+          link: '/messages',
+        });
 
         simulationIndexRef.current++;
       }, 20000 + Math.random() * 15000); // 20-35 seconds

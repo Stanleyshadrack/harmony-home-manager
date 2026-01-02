@@ -9,6 +9,10 @@ export type NotificationCategory =
   | 'rent_reminder' 
   | 'lease_expiry' 
   | 'task_assigned'
+  | 'water_reading_pending'
+  | 'water_reading_approved'
+  | 'water_reading_rejected'
+  | 'new_message'
   | 'general';
 
 export interface InAppNotification {
