@@ -62,7 +62,7 @@ export function MessageThread({ messages, isLoading, onForward }: MessageThreadP
           return (
             <div
               key={message.id}
-              className={cn('flex gap-3', isOwn && 'flex-row-reverse')}
+              className={cn('flex gap-3', isOwn ? 'flex-row-reverse justify-start' : 'justify-start')}
             >
               <Avatar className="h-8 w-8 flex-shrink-0">
                 <AvatarFallback className="bg-primary/10 text-primary text-xs">
@@ -73,7 +73,7 @@ export function MessageThread({ messages, isLoading, onForward }: MessageThreadP
                 </AvatarFallback>
               </Avatar>
 
-              <div className={cn('max-w-[70%]', isOwn && 'items-end')}>
+              <div className={cn('max-w-[70%] flex flex-col', isOwn ? 'items-end' : 'items-start')}>
                 <div className={cn('flex items-center gap-2 mb-1', isOwn && 'flex-row-reverse')}>
                   <span className="text-sm font-medium">{message.senderName}</span>
                   <Badge variant="outline" className={cn('text-xs', roleColors[message.senderRole])}>
