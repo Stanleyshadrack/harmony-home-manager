@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useInAppNotifications } from './useInAppNotifications';
+import { sendWaterReadingEmail } from '@/services/emailService';
+import { shouldSendNotification } from '@/hooks/useNotificationPreferences';
 
 export type WaterReadingStatus = 'pending' | 'approved' | 'rejected';
 
@@ -244,6 +245,20 @@ export function useWaterData() {
         priority: 'medium',
         link: '/water-data',
       });
+      
+      // Send email notification if enabled
+      if (shouldSendNotification('landlord', 'email', 'waterReadings')) {
+        sendWaterReadingEmail({
+          recipientName: 'Property Manager',
+          recipientEmail: 'manager@property.com',
+          unitNumber: data.unitNumber,
+          propertyName: data.propertyName,
+          consumption,
+          totalAmount,
+          status: 'pending',
+          submittedBy: `${user.firstName} ${user.lastName}`,
+        });
+      }
     }
 
     return newReading;
@@ -285,6 +300,20 @@ export function useWaterData() {
         priority: 'low',
         link: '/water-data',
       });
+      
+      // Send email notification if enabled
+      if (shouldSendNotification('employee', 'email', 'waterReadings')) {
+        sendWaterReadingEmail({
+          recipientName: reading.recordedBy,
+          recipientEmail: 'employee@property.com',
+          unitNumber: reading.unitNumber,
+          propertyName: reading.propertyName,
+          consumption: reading.consumption,
+          totalAmount: reading.totalAmount,
+          status: 'approved',
+          approvedBy: `${user.firstName} ${user.lastName}`,
+        });
+      }
     }
 
     return true;
@@ -325,6 +354,20 @@ export function useWaterData() {
         priority: 'high',
         link: '/water-data',
       });
+      
+      // Send email notification if enabled
+      if (shouldSendNotification('employee', 'email', 'waterReadings')) {
+        sendWaterReadingEmail({
+          recipientName: reading.recordedBy,
+          recipientEmail: 'employee@property.com',
+          unitNumber: reading.unitNumber,
+          propertyName: reading.propertyName,
+          consumption: reading.consumption,
+          totalAmount: reading.totalAmount,
+          status: 'rejected',
+          rejectionReason: reason,
+        });
+      }
     }
 
     return true;

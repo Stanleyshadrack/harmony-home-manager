@@ -8,9 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { User, Mail, Phone, Bell } from 'lucide-react';
+import { User, Mail, Phone } from 'lucide-react';
 import { SessionManager } from '@/components/settings/SessionManager';
 import { TwoFactorSetup } from '@/components/auth/TwoFactorSetup';
+import { NotificationPreferences } from '@/components/settings/NotificationPreferences';
 
 export default function Settings() {
   const { t } = useTranslation();
@@ -133,23 +134,10 @@ export default function Settings() {
           <SessionManager />
         </div>
 
-        {/* Notifications */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Bell className="h-5 w-5" />
-              {t('settings.notifications')}
-            </CardTitle>
-            <CardDescription>
-              Configure how you receive notifications
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Notification preferences will be available once the backend is connected.
-            </p>
-          </CardContent>
-        </Card>
+        {/* Notification Preferences */}
+        <div className="lg:col-span-2">
+          <NotificationPreferences />
+        </div>
       </div>
     </DashboardLayout>
   );
