@@ -75,6 +75,28 @@
     --chart-5: 280 65% 60%;
   }
 
+  /* ANIMATED BLOB UTILITY CLASSES */
+
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(50px);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.blob-animate {
+  animation: blobFloat 15s ease-in-out infinite;
+}
+
+@keyframes blobFloat {
+  0% { transform: translate(0px, 0px) scale(1); }
+  33% { transform: translate(50px, -80px) scale(1.2); }
+  66% { transform: translate(-40px, 60px) scale(0.9); }
+  100% { transform: translate(0px, 0px) scale(1); }
+}
+
+
   .dark {
     --background: 222 47% 7%;
     --foreground: 210 20% 98%;

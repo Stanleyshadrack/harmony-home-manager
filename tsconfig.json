@@ -1,16 +1,42 @@
 {
   "files": [],
-  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }],
+
+  // ❌ tsconfig.node.json removed (complete)
+  "references": [
+    { "path": "./tsconfig.app.json" }
+  ],
+
   "compilerOptions": {
+    // ⭐ Required Next.js compatibility settings
+    "noEmit": true,
+    "esModuleInterop": true,
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "forceConsistentCasingInFileNames": true,
+    "incremental": true,
+    "skipLibCheck": true,
+
+    // 📍 Path alias support
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     },
-    "noImplicitAny": false,
-    "noUnusedParameters": false,
-    "skipLibCheck": true,
-    "allowJs": true,
-    "noUnusedLocals": false,
-    "strictNullChecks": false
-  }
+
+    // 🔌 Add the Next.js plugin
+    "plugins": [
+      { "name": "next" }
+    ]
+  },
+
+  // 📌 Include these files
+  "include": [
+    "./src",
+    "./dist/types/**/*.ts",
+    "./next-env.d.ts"
+  ],
+
+  // 🚫 Exclude these paths
+  "exclude": [
+    "./node_modules"
+  ]
 }
