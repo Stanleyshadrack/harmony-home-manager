@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { QuickStatsWidget } from '@/components/dashboard/QuickStatsWidget';
 import { 
   Building2, 
   Home, 
@@ -102,6 +103,11 @@ export default function Dashboard() {
             </Card>
           </Link>
         ))}
+      </div>
+
+      {/* Quick Stats Widget - Pending Readings & Recent Messages */}
+      <div className="mb-8">
+        <QuickStatsWidget />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

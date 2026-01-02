@@ -17,9 +17,11 @@ interface PaymentReceiptEmailData {
   landlordName: string;
 }
 
-interface EmailLog {
+export type EmailType = 'payment_receipt' | 'rent_reminder' | 'maintenance_update' | 'water_reading_pending' | 'water_reading_approved' | 'water_reading_rejected' | 'general';
+
+export interface EmailLog {
   id: string;
-  type: 'payment_receipt' | 'rent_reminder' | 'maintenance_update' | 'general';
+  type: EmailType;
   recipient: EmailRecipient;
   subject: string;
   status: 'sent' | 'pending' | 'failed';
@@ -119,4 +121,120 @@ export function getEmailHistory(): EmailLog[] {
 
 export function clearEmailHistory(): void {
   localStorage.removeItem(EMAIL_LOGS_KEY);
+}
+
+// Water Reading Email Notifications
+interface WaterReadingEmailData {
+  recipientName: string;
+  recipientEmail: string;
+  unitNumber: string;
+  propertyName: string;
+  consumption: number;
+  totalAmount: number;
+  status: 'pending' | 'approved' | 'rejected';
+  submittedBy?: string;
+  approvedBy?: string;
+  rejectionReason?: string;
+}
+
+export async function sendWaterReadingEmail(data: WaterReadingEmailData): Promise<{ success: boolean; messageId: string }> {
+  await new Promise(resolve => setTimeout(resolve, 600));
+  
+  const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  const subjects: Record<string, string> = {
+    pending: `Water Reading Pending Approval - ${data.unitNumber}`,
+    approved: `Water Reading Approved - ${data.unitNumber}`,
+    rejected: `Water Reading Rejected - ${data.unitNumber}`,
+  };
+
+  const emailLog: EmailLog = {
+    id: messageId,
+    type: `water_reading_${data.status}` as EmailType,
+    recipient: { name: data.recipientName, email: data.recipientEmail },
+    subject: subjects[data.status],
+    status: 'sent',
+    sentAt: new Date().toISOString(),
+    metadata: {
+      unitNumber: data.unitNumber,
+      propertyName: data.propertyName,
+      consumption: data.consumption,
+      totalAmount: data.totalAmount,
+    },
+  };
+  
+  saveEmailLog(emailLog);
+  
+  console.log('📧 Simulated Water Reading Email Sent:', {
+    to: data.recipientEmail,
+    subject: emailLog.subject,
+    body: generateWaterReadingEmailBody(data),
+  });
+  
+  return { success: true, messageId };
+}
+
+function generateWaterReadingEmailBody(data: WaterReadingEmailData): string {
+  if (data.status === 'pending') {
+    return `
+Dear ${data.recipientName},
+
+A new water reading has been submitted and requires your approval.
+
+READING DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Unit: ${data.unitNumber}
+Property: ${data.propertyName}
+Consumption: ${data.consumption} units
+Total Amount: KES ${data.totalAmount.toLocaleString()}
+Submitted By: ${data.submittedBy || 'Employee'}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Please log in to review and approve this reading.
+
+Best regards,
+Property Management System
+    `.trim();
+  }
+
+  if (data.status === 'approved') {
+    return `
+Dear ${data.recipientName},
+
+Your water reading has been approved!
+
+READING DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Unit: ${data.unitNumber}
+Property: ${data.propertyName}
+Consumption: ${data.consumption} units
+Total Amount: KES ${data.totalAmount.toLocaleString()}
+Approved By: ${data.approvedBy || 'Manager'}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This reading has been added to the tenant's billing.
+
+Best regards,
+Property Management System
+    `.trim();
+  }
+
+  return `
+Dear ${data.recipientName},
+
+Your water reading has been rejected.
+
+READING DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Unit: ${data.unitNumber}
+Property: ${data.propertyName}
+Consumption: ${data.consumption} units
+Reason: ${data.rejectionReason || 'No reason provided'}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Please review and submit a corrected reading.
+
+Best regards,
+Property Management System
+  `.trim();
 }
