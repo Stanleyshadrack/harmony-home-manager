@@ -1,42 +1,35 @@
 {
-  "files": [],
-
-  // ❌ tsconfig.node.json removed (complete)
-  "references": [
-    { "path": "./tsconfig.app.json" }
-  ],
-
   "compilerOptions": {
-    // ⭐ Required Next.js compatibility settings
+    "target": "ES2020",
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": false,
+
     "noEmit": true,
     "esModuleInterop": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+
     "jsx": "react-jsx",
-    "allowJs": true,
     "forceConsistentCasingInFileNames": true,
     "incremental": true,
-    "skipLibCheck": true,
 
-    // 📍 Path alias support
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     },
 
-    // 🔌 Add the Next.js plugin
-    "plugins": [
-      { "name": "next" }
-    ]
+    "plugins": [{ "name": "next" }]
   },
 
-  // 📌 Include these files
   "include": [
-    "./src",
-    "./dist/types/**/*.ts",
-    "./next-env.d.ts"
+    "next-env.d.ts",
+    "src/**/*",
+    "dist/types/**/*.ts"
   ],
 
-  // 🚫 Exclude these paths
-  "exclude": [
-    "./node_modules"
-  ]
+  "exclude": ["node_modules"]
 }
