@@ -51,53 +51,23 @@ import {
   Clock,
   Wrench,
   User,
-  Mail,
+  Lock,
+  Key,
+  Edit,
+  CreditCard,
 } from 'lucide-react';
 import { useProperties } from '@/hooks/useProperties';
 import { useTenants } from '@/hooks/useTenants';
 import { useBilling } from '@/hooks/useBilling';
 import { usePendingRegistrations, PendingRegistration } from '@/hooks/useRegistrations';
 import { useInAppNotifications } from '@/hooks/useInAppNotifications';
+import { useLandlords, Landlord } from '@/hooks/useLandlords';
 import { getAuditLogs, getActivitySummary } from '@/services/auditService';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-
-// Mock landlords data
-const mockLandlords = [
-  {
-    id: '1',
-    name: 'Alice Wanjiku',
-    email: 'alice@landlord.com',
-    phone: '+254 712 345 678',
-    properties: 5,
-    units: 42,
-    status: 'active',
-    joinedAt: '2023-06-15',
-    subscription: 'premium',
-  },
-  {
-    id: '2',
-    name: 'Bob Ochieng',
-    email: 'bob@landlord.com',
-    phone: '+254 723 456 789',
-    properties: 3,
-    units: 24,
-    status: 'active',
-    joinedAt: '2023-09-20',
-    subscription: 'basic',
-  },
-  {
-    id: '3',
-    name: 'Carol Muthoni',
-    email: 'carol@landlord.com',
-    phone: '+254 734 567 890',
-    properties: 8,
-    units: 96,
-    status: 'suspended',
-    joinedAt: '2023-03-10',
-    subscription: 'enterprise',
-  },
-];
+import { LandlordForm } from '@/components/admin/LandlordForm';
+import { SystemLockControl } from '@/components/admin/SystemLockControl';
+import { UserPasswordReset } from '@/components/admin/UserPasswordReset';
 
 export default function AdminPortal() {
   const { t } = useTranslation();
@@ -107,11 +77,24 @@ export default function AdminPortal() {
   const { invoices, payments } = useBilling();
   const { user } = useAuth();
   const { registrations, approveRegistration, rejectRegistration, getPendingCount } = usePendingRegistrations();
+  const {
+    landlords,
+    subscriptionPlans,
+    addLandlord,
+    updateLandlord,
+    suspendLandlord,
+    activateLandlord,
+    updateSubscription,
+    isSubscriptionExpired,
+    getExpiredSubscriptions,
+  } = useLandlords();
   
   const [activeTab, setActiveTab] = useState('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedLandlord, setSelectedLandlord] = useState<typeof mockLandlords[0] | null>(null);
+  const [selectedLandlord, setSelectedLandlord] = useState<Landlord | null>(null);
   const [showLandlordDialog, setShowLandlordDialog] = useState(false);
+  const [showLandlordForm, setShowLandlordForm] = useState(false);
+  const [landlordFormMode, setLandlordFormMode] = useState<'add' | 'edit'>('add');
   const [selectedRegistration, setSelectedRegistration] = useState<PendingRegistration | null>(null);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
@@ -121,23 +104,58 @@ export default function AdminPortal() {
 
   // Platform Stats
   const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
-  const totalLandlords = mockLandlords.length;
-  const activeLandlords = mockLandlords.filter((l) => l.status === 'active').length;
+  const totalLandlords = landlords.length;
+  const activeLandlords = landlords.filter((l) => l.status === 'active').length;
   const totalProperties = properties.length;
-  const totalUnits = mockLandlords.reduce((sum, l) => sum + l.units, 0);
+  const totalUnits = landlords.reduce((sum, l) => sum + l.currentUnits, 0);
+  const expiredSubscriptions = getExpiredSubscriptions();
 
-  const filteredLandlords = mockLandlords.filter(
+  const filteredLandlords = landlords.filter(
     (l) =>
-      l.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      `${l.firstName} ${l.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
       l.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleViewLandlord = (landlord: typeof mockLandlords[0]) => {
+  const handleViewLandlord = (landlord: Landlord) => {
     setSelectedLandlord(landlord);
     setShowLandlordDialog(true);
   };
 
+  const handleEditLandlord = (landlord: Landlord) => {
+    setSelectedLandlord(landlord);
+    setLandlordFormMode('edit');
+    setShowLandlordForm(true);
+  };
+
+  const handleAddLandlord = () => {
+    setSelectedLandlord(null);
+    setLandlordFormMode('add');
+    setShowLandlordForm(true);
+  };
+
+  const handleLandlordFormSubmit = (data: any) => {
+    if (landlordFormMode === 'add') {
+      addLandlord({
+        ...data,
+        status: 'active',
+        subscriptionStartDate: new Date().toISOString(),
+      });
+      toast({
+        title: 'Landlord Added',
+        description: `${data.firstName} ${data.lastName} has been added successfully.`,
+      });
+    } else if (selectedLandlord) {
+      updateLandlord(selectedLandlord.id, data);
+      toast({
+        title: 'Landlord Updated',
+        description: `${data.firstName} ${data.lastName}'s profile has been updated.`,
+      });
+    }
+    setShowLandlordForm(false);
+  };
+
   const handleSuspendLandlord = (id: string) => {
+    suspendLandlord(id);
     toast({
       title: 'Landlord Suspended',
       description: 'The landlord account has been suspended.',
@@ -145,6 +163,7 @@ export default function AdminPortal() {
   };
 
   const handleActivateLandlord = (id: string) => {
+    activateLandlord(id);
     toast({
       title: 'Landlord Activated',
       description: 'The landlord account has been activated.',
@@ -156,9 +175,8 @@ export default function AdminPortal() {
   const handleApproveRegistration = async (registration: PendingRegistration) => {
     await approveRegistration(registration.id, user?.email || 'Admin');
     
-    // Send in-app notification to the user
     addNotification({
-      userId: registration.email, // Use email as user ID for now
+      userId: registration.email,
       title: 'Registration Approved!',
       message: `Your ${registration.requestedRole} account has been approved. You can now log in to the system.`,
       category: 'registration_approved',
@@ -168,7 +186,7 @@ export default function AdminPortal() {
 
     toast({
       title: 'Registration Approved',
-      description: `${registration.firstName} ${registration.lastName}'s ${registration.requestedRole} account has been approved. A notification has been sent.`,
+      description: `${registration.firstName} ${registration.lastName}'s ${registration.requestedRole} account has been approved.`,
     });
   };
 
@@ -176,7 +194,6 @@ export default function AdminPortal() {
     if (selectedRegistration && rejectionReason.trim()) {
       await rejectRegistration(selectedRegistration.id, user?.email || 'Admin', rejectionReason);
       
-      // Send in-app notification to the user
       addNotification({
         userId: selectedRegistration.email,
         title: 'Registration Rejected',
@@ -187,7 +204,7 @@ export default function AdminPortal() {
 
       toast({
         title: 'Registration Rejected',
-        description: `${selectedRegistration.firstName} ${selectedRegistration.lastName}'s application has been rejected. A notification has been sent.`,
+        description: `${selectedRegistration.firstName} ${selectedRegistration.lastName}'s application has been rejected.`,
       });
       setShowRejectDialog(false);
       setSelectedRegistration(null);
@@ -241,7 +258,7 @@ export default function AdminPortal() {
           <div>
             <h1 className="text-2xl font-bold">Platform Administration</h1>
             <p className="text-muted-foreground">
-              Manage landlords, monitor platform activity, and configure system settings
+              Manage landlords, system settings, and user accounts
             </p>
           </div>
           <Badge variant="outline" className="bg-primary/10 text-primary">
@@ -326,7 +343,7 @@ export default function AdminPortal() {
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">Overview</span>
@@ -344,9 +361,17 @@ export default function AdminPortal() {
               <Users className="h-4 w-4" />
               <span className="hidden sm:inline">Landlords</span>
             </TabsTrigger>
+            <TabsTrigger value="users" className="flex items-center gap-2">
+              <Key className="h-4 w-4" />
+              <span className="hidden sm:inline">Users</span>
+            </TabsTrigger>
+            <TabsTrigger value="system" className="flex items-center gap-2">
+              <Lock className="h-4 w-4" />
+              <span className="hidden sm:inline">System</span>
+            </TabsTrigger>
             <TabsTrigger value="audit" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
-              <span className="hidden sm:inline">Audit Logs</span>
+              <span className="hidden sm:inline">Audit</span>
             </TabsTrigger>
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
@@ -363,17 +388,17 @@ export default function AdminPortal() {
                   <CardTitle className="text-lg">Recent Landlords</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {mockLandlords.slice(0, 5).map((landlord) => (
+                  {landlords.slice(0, 5).map((landlord) => (
                     <div
                       key={landlord.id}
                       className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
                     >
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
-                          {landlord.name.charAt(0)}
+                          {landlord.firstName.charAt(0)}
                         </div>
                         <div>
-                          <p className="font-medium">{landlord.name}</p>
+                          <p className="font-medium">{landlord.firstName} {landlord.lastName}</p>
                           <p className="text-sm text-muted-foreground">{landlord.email}</p>
                         </div>
                       </div>
@@ -389,7 +414,7 @@ export default function AdminPortal() {
                           {landlord.status}
                         </Badge>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {landlord.properties} properties
+                          {landlord.currentProperties} properties
                         </p>
                       </div>
                     </div>
@@ -448,13 +473,24 @@ export default function AdminPortal() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {mockLandlords.filter((l) => l.status === 'suspended').length > 0 && (
+                    {landlords.filter((l) => l.status === 'suspended').length > 0 && (
                       <div className="flex items-center gap-3 p-3 bg-destructive/5 border border-destructive/20 rounded-lg">
                         <Ban className="h-5 w-5 text-destructive" />
                         <div>
                           <p className="font-medium">Suspended Accounts</p>
                           <p className="text-sm text-muted-foreground">
-                            {mockLandlords.filter((l) => l.status === 'suspended').length} landlord account(s) are currently suspended
+                            {landlords.filter((l) => l.status === 'suspended').length} landlord account(s) are suspended
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    {expiredSubscriptions.length > 0 && (
+                      <div className="flex items-center gap-3 p-3 bg-warning/5 border border-warning/20 rounded-lg">
+                        <CreditCard className="h-5 w-5 text-warning" />
+                        <div>
+                          <p className="font-medium">Expired Subscriptions</p>
+                          <p className="text-sm text-muted-foreground">
+                            {expiredSubscriptions.length} subscription(s) have expired
                           </p>
                         </div>
                       </div>
@@ -528,10 +564,7 @@ export default function AdminPortal() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <Button
-                              size="sm"
-                              onClick={() => handleApproveRegistration(reg)}
-                            >
+                            <Button size="sm" onClick={() => handleApproveRegistration(reg)}>
                               <CheckCircle className="h-4 w-4 mr-1" />
                               Approve
                             </Button>
@@ -563,35 +596,6 @@ export default function AdminPortal() {
                 </CardContent>
               </Card>
             )}
-
-            {/* Past Registrations */}
-            {registrations.filter((r) => r.status !== 'pending').length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Recent Decisions</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {registrations.filter((r) => r.status !== 'pending').slice(0, 5).map((reg) => (
-                    <div key={reg.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        {reg.status === 'approved' ? (
-                          <CheckCircle className="h-5 w-5 text-success" />
-                        ) : (
-                          <XCircle className="h-5 w-5 text-destructive" />
-                        )}
-                        <div>
-                          <p className="font-medium">{reg.firstName} {reg.lastName}</p>
-                          <p className="text-sm text-muted-foreground capitalize">{reg.requestedRole}</p>
-                        </div>
-                      </div>
-                      <Badge variant="outline" className={reg.status === 'approved' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}>
-                        {reg.status}
-                      </Badge>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
           </TabsContent>
 
           {/* Landlords Tab */}
@@ -606,7 +610,7 @@ export default function AdminPortal() {
                   className="pl-10"
                 />
               </div>
-              <Button>
+              <Button onClick={handleAddLandlord}>
                 <UserPlus className="h-4 w-4 mr-2" />
                 Add Landlord
               </Button>
@@ -621,7 +625,7 @@ export default function AdminPortal() {
                     <TableHead>Properties</TableHead>
                     <TableHead>Subscription</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Joined</TableHead>
+                    <TableHead>Expires</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -631,9 +635,14 @@ export default function AdminPortal() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm">
-                            {landlord.name.charAt(0)}
+                            {landlord.firstName.charAt(0)}
                           </div>
-                          <span className="font-medium">{landlord.name}</span>
+                          <div>
+                            <span className="font-medium">{landlord.firstName} {landlord.lastName}</span>
+                            {landlord.company && (
+                              <p className="text-xs text-muted-foreground">{landlord.company}</p>
+                            )}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -644,8 +653,8 @@ export default function AdminPortal() {
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
-                          <p>{landlord.properties} properties</p>
-                          <p className="text-muted-foreground">{landlord.units} units</p>
+                          <p>{landlord.currentProperties}/{landlord.maxProperties} properties</p>
+                          <p className="text-muted-foreground">{landlord.currentUnits}/{landlord.maxUnits} units</p>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -665,8 +674,11 @@ export default function AdminPortal() {
                           {landlord.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {formatDate(landlord.joinedAt)}
+                      <TableCell className={isSubscriptionExpired(landlord) ? 'text-destructive' : 'text-muted-foreground'}>
+                        {formatDate(landlord.subscriptionEndDate)}
+                        {isSubscriptionExpired(landlord) && (
+                          <Badge variant="destructive" className="ml-2 text-xs">Expired</Badge>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
@@ -679,6 +691,10 @@ export default function AdminPortal() {
                             <DropdownMenuItem onClick={() => handleViewLandlord(landlord)}>
                               <Eye className="h-4 w-4 mr-2" />
                               View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEditLandlord(landlord)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit
                             </DropdownMenuItem>
                             {landlord.status === 'active' ? (
                               <DropdownMenuItem
@@ -702,6 +718,22 @@ export default function AdminPortal() {
                 </TableBody>
               </Table>
             </Card>
+          </TabsContent>
+
+          {/* Users Tab - Password Reset */}
+          <TabsContent value="users" className="space-y-4">
+            <UserPasswordReset />
+          </TabsContent>
+
+          {/* System Lock Tab */}
+          <TabsContent value="system" className="space-y-4">
+            <div>
+              <h2 className="text-xl font-semibold">System Lock Control</h2>
+              <p className="text-muted-foreground">
+                Lock the system to prevent access during maintenance or emergencies
+              </p>
+            </div>
+            <SystemLockControl />
           </TabsContent>
 
           {/* Audit Logs Tab */}
@@ -782,45 +814,26 @@ export default function AdminPortal() {
                       Enabled
                     </Badge>
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <div>
-                      <p className="font-medium">Email Notifications</p>
-                      <p className="text-sm text-muted-foreground">System email alerts</p>
-                    </div>
-                    <Badge variant="outline" className="bg-success/10 text-success">
-                      Enabled
-                    </Badge>
-                  </div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
                   <CardTitle>Subscription Plans</CardTitle>
-                  <CardDescription>Manage available subscription tiers</CardDescription>
+                  <CardDescription>Available subscription tiers</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <div>
-                      <p className="font-medium">Basic Plan</p>
-                      <p className="text-sm text-muted-foreground">Up to 10 units</p>
+                  {subscriptionPlans.map((plan) => (
+                    <div key={plan.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div>
+                        <p className="font-medium">{plan.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Up to {plan.maxUnits} units
+                        </p>
+                      </div>
+                      <span className="font-semibold">${plan.price}/mo</span>
                     </div>
-                    <span className="font-semibold">$29/mo</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <div>
-                      <p className="font-medium">Premium Plan</p>
-                      <p className="text-sm text-muted-foreground">Up to 50 units</p>
-                    </div>
-                    <span className="font-semibold">$79/mo</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <div>
-                      <p className="font-medium">Enterprise Plan</p>
-                      <p className="text-sm text-muted-foreground">Unlimited units</p>
-                    </div>
-                    <span className="font-semibold">$199/mo</span>
-                  </div>
+                  ))}
                 </CardContent>
               </Card>
             </div>
@@ -838,10 +851,10 @@ export default function AdminPortal() {
             <div className="space-y-4">
               <div className="flex items-center gap-4">
                 <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-primary text-2xl font-semibold">
-                  {selectedLandlord.name.charAt(0)}
+                  {selectedLandlord.firstName.charAt(0)}
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold">{selectedLandlord.name}</h3>
+                  <h3 className="text-lg font-semibold">{selectedLandlord.firstName} {selectedLandlord.lastName}</h3>
                   <p className="text-muted-foreground">{selectedLandlord.email}</p>
                 </div>
               </div>
@@ -849,11 +862,11 @@ export default function AdminPortal() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-3 bg-muted/50 rounded-lg">
                   <p className="text-sm text-muted-foreground">Properties</p>
-                  <p className="text-xl font-bold">{selectedLandlord.properties}</p>
+                  <p className="text-xl font-bold">{selectedLandlord.currentProperties}/{selectedLandlord.maxProperties}</p>
                 </div>
                 <div className="p-3 bg-muted/50 rounded-lg">
                   <p className="text-sm text-muted-foreground">Units</p>
-                  <p className="text-xl font-bold">{selectedLandlord.units}</p>
+                  <p className="text-xl font-bold">{selectedLandlord.currentUnits}/{selectedLandlord.maxUnits}</p>
                 </div>
               </div>
 
@@ -861,6 +874,10 @@ export default function AdminPortal() {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Phone</span>
                   <span>{selectedLandlord.phone}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Company</span>
+                  <span>{selectedLandlord.company || 'N/A'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Subscription</span>
@@ -883,7 +900,13 @@ export default function AdminPortal() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Joined</span>
-                  <span>{formatDate(selectedLandlord.joinedAt)}</span>
+                  <span>{formatDate(selectedLandlord.createdAt)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Subscription Expires</span>
+                  <span className={isSubscriptionExpired(selectedLandlord) ? 'text-destructive' : ''}>
+                    {formatDate(selectedLandlord.subscriptionEndDate)}
+                  </span>
                 </div>
               </div>
             </div>
@@ -895,6 +918,16 @@ export default function AdminPortal() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Landlord Form Dialog */}
+      <LandlordForm
+        open={showLandlordForm}
+        onOpenChange={setShowLandlordForm}
+        onSubmit={handleLandlordFormSubmit}
+        landlord={selectedLandlord}
+        subscriptionPlans={subscriptionPlans}
+        mode={landlordFormMode}
+      />
 
       {/* Rejection Dialog */}
       <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
@@ -923,14 +956,10 @@ export default function AdminPortal() {
                 onChange={(e) => setRejectionReason(e.target.value)}
                 rows={4}
               />
-              <p className="text-xs text-muted-foreground">
-                This reason will be shared with the applicant.
-              </p>
             </div>
 
-            {/* Quick rejection reasons */}
             <div className="space-y-2">
-              <Label className="text-sm text-muted-foreground">Quick select a reason:</Label>
+              <Label className="text-sm text-muted-foreground">Quick select:</Label>
               <div className="flex flex-wrap gap-2">
                 {[
                   'Incomplete application',
