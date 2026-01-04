@@ -30,6 +30,7 @@ import UserNotifications from "./pages/UserNotifications";
 import WaterData from "./pages/WaterData";
 import Employees from "./pages/Employees";
 import NotificationLogs from "./pages/NotificationLogs";
+import PropertyDetail from "./pages/PropertyDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -64,6 +65,11 @@ const App = () => (
                 <Route path="/properties" element={
                   <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
                     <Properties />
+                  </ProtectedRoute>
+                } />
+                <Route path="/properties/:id" element={
+                  <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
+                    <PropertyDetail />
                   </ProtectedRoute>
                 } />
                 <Route path="/units" element={

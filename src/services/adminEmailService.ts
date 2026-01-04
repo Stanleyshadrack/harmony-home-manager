@@ -1,0 +1,246 @@
+// Admin Email Notifications Service
+// Handles email notifications for system lock/unlock and password reset actions
+
+import { EmailLog } from './emailService';
+
+const EMAIL_LOGS_KEY = 'email_logs';
+
+function getEmailLogs(): EmailLog[] {
+  const logs = localStorage.getItem(EMAIL_LOGS_KEY);
+  return logs ? JSON.parse(logs) : [];
+}
+
+function saveEmailLog(log: EmailLog): void {
+  const logs = getEmailLogs();
+  logs.unshift(log);
+  localStorage.setItem(EMAIL_LOGS_KEY, JSON.stringify(logs.slice(0, 100)));
+}
+
+// System Lock/Unlock Email
+interface SystemLockEmailData {
+  action: 'lock' | 'unlock';
+  adminEmail: string;
+  adminName: string;
+  reason?: string;
+  timestamp: string;
+  affectedUsers: Array<{ name: string; email: string }>;
+}
+
+export async function sendSystemLockEmail(data: SystemLockEmailData): Promise<{ success: boolean; messageId: string }> {
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const subject = data.action === 'lock' 
+    ? '🔒 System Locked - Action Required'
+    : '🔓 System Unlocked - Access Restored';
+
+  // Send to all affected users
+  for (const user of data.affectedUsers) {
+    const emailLog: EmailLog = {
+      id: `${messageId}_${user.email}`,
+      type: data.action === 'lock' ? 'system_lock' : 'system_unlock',
+      recipient: user,
+      subject,
+      status: 'sent',
+      sentAt: new Date().toISOString(),
+      metadata: {
+        action: data.action,
+        performedBy: data.adminEmail,
+        reason: data.reason,
+      },
+    };
+    
+    saveEmailLog(emailLog);
+    
+    console.log('📧 System Lock Email Sent:', {
+      to: user.email,
+      subject,
+      body: generateSystemLockEmailBody(data, user.name),
+    });
+  }
+  
+  return { success: true, messageId };
+}
+
+function generateSystemLockEmailBody(data: SystemLockEmailData, recipientName: string): string {
+  if (data.action === 'lock') {
+    return `
+Dear ${recipientName},
+
+IMPORTANT: System Access Notification
+
+The property management system has been LOCKED by an administrator.
+
+DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Locked By: ${data.adminName} (${data.adminEmail})
+Time: ${new Date(data.timestamp).toLocaleString()}
+Reason: ${data.reason || 'No reason provided'}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+During the lock period, you will not be able to access the system unless you have special permissions.
+
+If you believe this is an error, please contact your administrator.
+
+Best regards,
+Property Management System
+    `.trim();
+  }
+
+  return `
+Dear ${recipientName},
+
+SYSTEM ACCESS RESTORED
+
+The property management system has been UNLOCKED and is now accessible.
+
+DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Unlocked By: ${data.adminName} (${data.adminEmail})
+Time: ${new Date(data.timestamp).toLocaleString()}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You can now access the system normally.
+
+Best regards,
+Property Management System
+  `.trim();
+}
+
+// Password Reset Email
+interface PasswordResetEmailData {
+  userEmail: string;
+  userName: string;
+  adminEmail: string;
+  adminName: string;
+  temporaryPassword: string;
+  timestamp: string;
+}
+
+export async function sendPasswordResetEmail(data: PasswordResetEmailData): Promise<{ success: boolean; messageId: string }> {
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  const emailLog: EmailLog = {
+    id: messageId,
+    type: 'password_reset',
+    recipient: { name: data.userName, email: data.userEmail },
+    subject: '🔐 Your Password Has Been Reset',
+    status: 'sent',
+    sentAt: new Date().toISOString(),
+    metadata: {
+      resetBy: data.adminEmail,
+      timestamp: data.timestamp,
+    },
+  };
+  
+  saveEmailLog(emailLog);
+  
+  console.log('📧 Password Reset Email Sent:', {
+    to: data.userEmail,
+    subject: emailLog.subject,
+    body: generatePasswordResetEmailBody(data),
+  });
+  
+  return { success: true, messageId };
+}
+
+function generatePasswordResetEmailBody(data: PasswordResetEmailData): string {
+  return `
+Dear ${data.userName},
+
+Your password has been reset by an administrator.
+
+IMPORTANT SECURITY INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Reset By: ${data.adminName}
+Time: ${new Date(data.timestamp).toLocaleString()}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Your new temporary password is:
+
+${data.temporaryPassword}
+
+⚠️ IMPORTANT: Please change this password immediately after logging in for security purposes.
+
+If you did not request this password reset, please contact your administrator immediately.
+
+Best regards,
+Property Management System
+  `.trim();
+}
+
+// Subscription Reminder Email
+interface SubscriptionReminderEmailData {
+  landlordName: string;
+  landlordEmail: string;
+  planName: string;
+  expirationDate: string;
+  daysUntilExpiration: number;
+}
+
+export async function sendSubscriptionReminderEmail(data: SubscriptionReminderEmailData): Promise<{ success: boolean; messageId: string }> {
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  const emailLog: EmailLog = {
+    id: messageId,
+    type: 'subscription_reminder',
+    recipient: { name: data.landlordName, email: data.landlordEmail },
+    subject: `⏰ Subscription Renewal Reminder - ${data.daysUntilExpiration} days left`,
+    status: 'sent',
+    sentAt: new Date().toISOString(),
+    metadata: {
+      planName: data.planName,
+      expirationDate: data.expirationDate,
+      daysUntilExpiration: data.daysUntilExpiration,
+    },
+  };
+  
+  saveEmailLog(emailLog);
+  
+  console.log('📧 Subscription Reminder Email Sent:', {
+    to: data.landlordEmail,
+    subject: emailLog.subject,
+  });
+  
+  return { success: true, messageId };
+}
+
+// Subscription Suspended Email
+interface SubscriptionSuspendedEmailData {
+  landlordName: string;
+  landlordEmail: string;
+  planName: string;
+  suspensionDate: string;
+}
+
+export async function sendSubscriptionSuspendedEmail(data: SubscriptionSuspendedEmailData): Promise<{ success: boolean; messageId: string }> {
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  const emailLog: EmailLog = {
+    id: messageId,
+    type: 'subscription_suspended',
+    recipient: { name: data.landlordName, email: data.landlordEmail },
+    subject: '⚠️ Subscription Expired - Account Suspended',
+    status: 'sent',
+    sentAt: new Date().toISOString(),
+    metadata: {
+      planName: data.planName,
+      suspensionDate: data.suspensionDate,
+    },
+  };
+  
+  saveEmailLog(emailLog);
+  
+  console.log('📧 Subscription Suspended Email Sent:', {
+    to: data.landlordEmail,
+    subject: emailLog.subject,
+  });
+  
+  return { success: true, messageId };
+}
