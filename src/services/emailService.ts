@@ -17,7 +17,7 @@ interface PaymentReceiptEmailData {
   landlordName: string;
 }
 
-export type EmailType = 'payment_receipt' | 'rent_reminder' | 'maintenance_update' | 'water_reading_pending' | 'water_reading_approved' | 'water_reading_rejected' | 'system_lock' | 'system_unlock' | 'password_reset' | 'subscription_reminder' | 'subscription_suspended' | 'general';
+export type EmailType = 'payment_receipt' | 'rent_reminder' | 'maintenance_update' | 'water_reading_pending' | 'water_reading_approved' | 'water_reading_rejected' | 'system_lock' | 'system_unlock' | 'password_reset' | 'subscription_reminder' | 'subscription_suspended' | 'subscription_renewal' | 'system_announcement' | 'general';
 
 export interface EmailLog {
   id: string;

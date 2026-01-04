@@ -244,3 +244,96 @@ export async function sendSubscriptionSuspendedEmail(data: SubscriptionSuspended
   
   return { success: true, messageId };
 }
+
+// Bulk Announcement Email
+export interface BulkAnnouncementEmailData {
+  subject: string;
+  message: string;
+  recipientGroups: string[];
+  senderName: string;
+  senderEmail: string;
+  timestamp: string;
+}
+
+export async function sendBulkAnnouncementEmail(
+  data: BulkAnnouncementEmailData,
+  totalRecipients: number
+): Promise<{ success: boolean; messageId: string; sentCount: number; failedCount: number }> {
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  const messageId = `bulk_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  // Simulate sending to all recipients with some random failures
+  const failedCount = Math.floor(Math.random() * Math.min(3, totalRecipients * 0.05));
+  const sentCount = totalRecipients - failedCount;
+  
+  const emailLog: EmailLog = {
+    id: messageId,
+    type: 'system_announcement',
+    recipient: { name: 'All Recipients', email: `${totalRecipients} users` },
+    subject: data.subject,
+    status: 'sent',
+    sentAt: new Date().toISOString(),
+    metadata: {
+      recipientGroups: data.recipientGroups,
+      totalRecipients,
+      sentCount,
+      failedCount,
+      message: data.message.substring(0, 100) + (data.message.length > 100 ? '...' : ''),
+    },
+  };
+  
+  saveEmailLog(emailLog);
+  
+  console.log('📧 Bulk Announcement Email Sent:', {
+    subject: data.subject,
+    recipientGroups: data.recipientGroups,
+    totalRecipients,
+    sentCount,
+    failedCount,
+  });
+  
+  return { success: true, messageId, sentCount, failedCount };
+}
+
+// Subscription Renewal Confirmation Email
+interface SubscriptionRenewalConfirmationData {
+  landlordName: string;
+  landlordEmail: string;
+  planName: string;
+  amount: number;
+  newExpirationDate: string;
+  transactionId: string;
+}
+
+export async function sendSubscriptionRenewalConfirmationEmail(
+  data: SubscriptionRenewalConfirmationData
+): Promise<{ success: boolean; messageId: string }> {
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  const emailLog: EmailLog = {
+    id: messageId,
+    type: 'subscription_renewal',
+    recipient: { name: data.landlordName, email: data.landlordEmail },
+    subject: '✅ Subscription Renewal Confirmed',
+    status: 'sent',
+    sentAt: new Date().toISOString(),
+    metadata: {
+      planName: data.planName,
+      amount: data.amount,
+      newExpirationDate: data.newExpirationDate,
+      transactionId: data.transactionId,
+    },
+  };
+  
+  saveEmailLog(emailLog);
+  
+  console.log('📧 Subscription Renewal Confirmation Email Sent:', {
+    to: data.landlordEmail,
+    subject: emailLog.subject,
+  });
+  
+  return { success: true, messageId };
+}
