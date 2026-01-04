@@ -55,6 +55,8 @@ import {
   Key,
   Edit,
   CreditCard,
+  Mail,
+  RefreshCw,
 } from 'lucide-react';
 import { useProperties } from '@/hooks/useProperties';
 import { useTenants } from '@/hooks/useTenants';
@@ -68,6 +70,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { LandlordForm } from '@/components/admin/LandlordForm';
 import { SystemLockControl } from '@/components/admin/SystemLockControl';
 import { UserPasswordReset } from '@/components/admin/UserPasswordReset';
+import { BulkEmailForm } from '@/components/admin/BulkEmailForm';
+import { SubscriptionRenewalDialog } from '@/components/landlords/SubscriptionRenewalDialog';
+import { sendSubscriptionRenewalConfirmationEmail } from '@/services/adminEmailService';
 
 export default function AdminPortal() {
   const { t } = useTranslation();
@@ -86,6 +91,8 @@ export default function AdminPortal() {
     activateLandlord,
     updateSubscription,
     isSubscriptionExpired,
+    renewSubscription,
+    getDaysUntilExpiration,
     getExpiredSubscriptions,
   } = useLandlords();
   
@@ -98,6 +105,8 @@ export default function AdminPortal() {
   const [selectedRegistration, setSelectedRegistration] = useState<PendingRegistration | null>(null);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [showRenewalDialog, setShowRenewalDialog] = useState(false);
+  const [renewalLandlord, setRenewalLandlord] = useState<Landlord | null>(null);
 
   const auditLogs = getAuditLogs();
   const activitySummary = getActivitySummary();
@@ -169,6 +178,42 @@ export default function AdminPortal() {
       description: 'The landlord account has been activated.',
     });
   };
+
+  const handleOpenRenewalDialog = (landlord: Landlord) => {
+    setRenewalLandlord(landlord);
+    setShowRenewalDialog(true);
+  };
+
+  const handleRenewSubscription = async (landlordId: string, plan: string, paymentData: any) => {
+    const landlord = landlords.find(l => l.id === landlordId);
+    if (!landlord) return;
+
+    const planDetails = subscriptionPlans.find(p => p.id === plan);
+    
+    // Process renewal
+    updateSubscription(landlordId, plan as any);
+
+    // Send confirmation email
+    await sendSubscriptionRenewalConfirmationEmail({
+      landlordName: `${landlord.firstName} ${landlord.lastName}`,
+      landlordEmail: landlord.email,
+      planName: planDetails?.name || plan,
+      amount: (planDetails?.price || 0) * 12,
+      newExpirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      transactionId: `TXN-${Date.now()}`,
+    });
+
+    setShowRenewalDialog(false);
+    setRenewalLandlord(null);
+  };
+
+  // Recipient groups for bulk email
+  const bulkEmailRecipientGroups = [
+    { id: 'landlords', label: 'All Landlords', icon: <Building2 className="h-4 w-4" />, count: landlords.length },
+    { id: 'tenants', label: 'All Tenants', icon: <Users className="h-4 w-4" />, count: tenants.length },
+    { id: 'employees', label: 'All Employees', icon: <Wrench className="h-4 w-4" />, count: 5 },
+    { id: 'active_landlords', label: 'Active Landlords', icon: <CheckCircle className="h-4 w-4" />, count: activeLandlords },
+  ];
 
   const { addNotification } = useInAppNotifications();
 
@@ -343,7 +388,7 @@ export default function AdminPortal() {
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">Overview</span>
@@ -364,6 +409,10 @@ export default function AdminPortal() {
             <TabsTrigger value="users" className="flex items-center gap-2">
               <Key className="h-4 w-4" />
               <span className="hidden sm:inline">Users</span>
+            </TabsTrigger>
+            <TabsTrigger value="announcements" className="flex items-center gap-2">
+              <Mail className="h-4 w-4" />
+              <span className="hidden sm:inline">Emails</span>
             </TabsTrigger>
             <TabsTrigger value="system" className="flex items-center gap-2">
               <Lock className="h-4 w-4" />
@@ -696,6 +745,10 @@ export default function AdminPortal() {
                               <Edit className="h-4 w-4 mr-2" />
                               Edit
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleOpenRenewalDialog(landlord)}>
+                              <RefreshCw className="h-4 w-4 mr-2" />
+                              Renew Subscription
+                            </DropdownMenuItem>
                             {landlord.status === 'active' ? (
                               <DropdownMenuItem
                                 onClick={() => handleSuspendLandlord(landlord.id)}
@@ -723,6 +776,17 @@ export default function AdminPortal() {
           {/* Users Tab - Password Reset */}
           <TabsContent value="users" className="space-y-4">
             <UserPasswordReset />
+          </TabsContent>
+
+          {/* Announcements Tab - Bulk Email */}
+          <TabsContent value="announcements" className="space-y-4">
+            <div>
+              <h2 className="text-xl font-semibold">System Announcements</h2>
+              <p className="text-muted-foreground">
+                Send bulk email notifications to users across the platform
+              </p>
+            </div>
+            <BulkEmailForm recipientGroups={bulkEmailRecipientGroups} />
           </TabsContent>
 
           {/* System Lock Tab */}
@@ -1003,6 +1067,17 @@ export default function AdminPortal() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Subscription Renewal Dialog */}
+      {renewalLandlord && (
+        <SubscriptionRenewalDialog
+          open={showRenewalDialog}
+          onOpenChange={setShowRenewalDialog}
+          landlord={renewalLandlord}
+          subscriptionPlans={subscriptionPlans}
+          onRenew={handleRenewSubscription}
+        />
+      )}
     </DashboardLayout>
   );
 }

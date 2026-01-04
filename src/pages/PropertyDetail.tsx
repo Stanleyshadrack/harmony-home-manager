@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
+import { PropertyPhotoGallery } from '@/components/properties/PropertyPhotoGallery';
+import { useToast } from '@/hooks/use-toast';
 import {
   Building2,
   MapPin,
@@ -25,6 +27,7 @@ import {
   Shield,
   Droplets,
   Zap,
+  Image,
 } from 'lucide-react';
 
 const amenityIcons: Record<string, React.ReactNode> = {
@@ -40,17 +43,38 @@ export default function PropertyDetail() {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { properties, isLoading: propertiesLoading } = useProperties();
+  const { toast } = useToast();
+  const { properties, updateProperty, isLoading: propertiesLoading } = useProperties();
   const { units, isLoading: unitsLoading } = useUnits(id);
   
   const [property, setProperty] = useState<Property | null>(null);
+  const [propertyPhotos, setPropertyPhotos] = useState<string[]>([]);
 
   useEffect(() => {
     if (!propertiesLoading && id) {
       const found = properties.find(p => p.id === id);
       setProperty(found || null);
+      // Load photos from localStorage or property
+      const storedPhotos = localStorage.getItem(`property_photos_${id}`);
+      if (storedPhotos) {
+        setPropertyPhotos(JSON.parse(storedPhotos));
+      } else if (found?.photos) {
+        setPropertyPhotos(found.photos);
+      }
     }
   }, [properties, propertiesLoading, id]);
+
+  const handlePhotosChange = async (newPhotos: string[]) => {
+    setPropertyPhotos(newPhotos);
+    // Save to localStorage
+    if (id) {
+      localStorage.setItem(`property_photos_${id}`, JSON.stringify(newPhotos));
+    }
+    toast({
+      title: 'Photos Updated',
+      description: 'Property photos have been updated.',
+    });
+  };
 
   if (propertiesLoading || unitsLoading) {
     return (
@@ -204,6 +228,10 @@ export default function PropertyDetail() {
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="photos" className="flex items-center gap-1">
+            <Image className="h-4 w-4" />
+            Photos ({propertyPhotos.length})
+          </TabsTrigger>
           <TabsTrigger value="units">Units ({units.length})</TabsTrigger>
           <TabsTrigger value="amenities">Amenities</TabsTrigger>
         </TabsList>
@@ -283,6 +311,16 @@ export default function PropertyDetail() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Photos Tab */}
+        <TabsContent value="photos" className="space-y-4">
+          <PropertyPhotoGallery
+            propertyId={property.id}
+            photos={propertyPhotos}
+            onPhotosChange={handlePhotosChange}
+            editable={true}
+          />
         </TabsContent>
 
         <TabsContent value="units" className="space-y-4">
