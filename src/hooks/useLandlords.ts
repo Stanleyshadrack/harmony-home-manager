@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { sendSubscriptionReminderEmail, sendSubscriptionSuspendedEmail } from '@/services/adminEmailService';
 
 export type SubscriptionPlan = 'basic' | 'premium' | 'enterprise';
 export type LandlordStatus = 'active' | 'suspended' | 'pending';
@@ -21,6 +22,7 @@ export interface Landlord {
   createdAt: string;
   updatedAt: string;
   avatarUrl?: string;
+  lastReminderSent?: string;
 }
 
 export interface SubscriptionPlanDetails {
@@ -33,6 +35,7 @@ export interface SubscriptionPlanDetails {
 }
 
 const STORAGE_KEY = 'landlords';
+const REMINDER_DAYS = [30, 14, 7, 3, 1]; // Days before expiration to send reminders
 
 const subscriptionPlans: SubscriptionPlanDetails[] = [
   {
@@ -135,14 +138,99 @@ const saveLandlords = (landlords: Landlord[]) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(landlords));
 };
 
+// Calculate days until subscription expires
+const getDaysUntilExpiration = (endDate: string): number => {
+  const end = new Date(endDate);
+  const now = new Date();
+  const diff = end.getTime() - now.getTime();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+};
+
 export function useLandlords() {
   const [landlords, setLandlords] = useState<Landlord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    setLandlords(getStoredLandlords());
-    setIsLoading(false);
+  // Check subscriptions and send reminders/suspend
+  const checkSubscriptions = useCallback(async (currentLandlords: Landlord[]) => {
+    let updated = false;
+    const updatedLandlords = [...currentLandlords];
+
+    for (let i = 0; i < updatedLandlords.length; i++) {
+      const landlord = updatedLandlords[i];
+      const daysUntilExpiration = getDaysUntilExpiration(landlord.subscriptionEndDate);
+      const planDetails = subscriptionPlans.find(p => p.id === landlord.subscription);
+
+      // Check if subscription is expired
+      if (daysUntilExpiration < 0 && landlord.status === 'active') {
+        // Auto-suspend expired subscription
+        updatedLandlords[i] = {
+          ...landlord,
+          status: 'suspended',
+          updatedAt: new Date().toISOString(),
+        };
+        updated = true;
+
+        // Send suspension email
+        await sendSubscriptionSuspendedEmail({
+          landlordName: `${landlord.firstName} ${landlord.lastName}`,
+          landlordEmail: landlord.email,
+          planName: planDetails?.name || landlord.subscription,
+          suspensionDate: new Date().toISOString(),
+        });
+
+        console.log(`🔒 Auto-suspended landlord ${landlord.email} due to expired subscription`);
+        continue;
+      }
+
+      // Check if we need to send a reminder
+      if (landlord.status === 'active' && daysUntilExpiration > 0) {
+        const shouldSendReminder = REMINDER_DAYS.includes(daysUntilExpiration);
+        const lastReminder = landlord.lastReminderSent ? new Date(landlord.lastReminderSent) : null;
+        const today = new Date().toDateString();
+
+        if (shouldSendReminder && (!lastReminder || lastReminder.toDateString() !== today)) {
+          // Send reminder email
+          await sendSubscriptionReminderEmail({
+            landlordName: `${landlord.firstName} ${landlord.lastName}`,
+            landlordEmail: landlord.email,
+            planName: planDetails?.name || landlord.subscription,
+            expirationDate: landlord.subscriptionEndDate,
+            daysUntilExpiration,
+          });
+
+          updatedLandlords[i] = {
+            ...landlord,
+            lastReminderSent: new Date().toISOString(),
+          };
+          updated = true;
+
+          console.log(`📧 Sent subscription reminder to ${landlord.email} - ${daysUntilExpiration} days left`);
+        }
+      }
+    }
+
+    if (updated) {
+      saveLandlords(updatedLandlords);
+      setLandlords(updatedLandlords);
+    }
   }, []);
+
+  useEffect(() => {
+    const storedLandlords = getStoredLandlords();
+    setLandlords(storedLandlords);
+    setIsLoading(false);
+
+    // Check subscriptions on load
+    checkSubscriptions(storedLandlords);
+
+    // Set up periodic check (every hour in production, every 30 seconds for demo)
+    const interval = setInterval(() => {
+      const current = getStoredLandlords();
+      checkSubscriptions(current);
+    }, 30000); // 30 seconds for demo
+
+    return () => clearInterval(interval);
+  }, [checkSubscriptions]);
 
   const addLandlord = useCallback((data: Omit<Landlord, 'id' | 'createdAt' | 'updatedAt' | 'currentProperties' | 'currentUnits'>) => {
     const plan = subscriptionPlans.find(p => p.id === data.subscription) || subscriptionPlans[0];
@@ -188,9 +276,19 @@ export function useLandlords() {
     saveLandlords(updated);
   }, [landlords]);
 
-  const suspendLandlord = useCallback((id: string) => {
+  const suspendLandlord = useCallback(async (id: string) => {
+    const landlord = landlords.find(l => l.id === id);
+    if (landlord) {
+      const planDetails = subscriptionPlans.find(p => p.id === landlord.subscription);
+      await sendSubscriptionSuspendedEmail({
+        landlordName: `${landlord.firstName} ${landlord.lastName}`,
+        landlordEmail: landlord.email,
+        planName: planDetails?.name || landlord.subscription,
+        suspensionDate: new Date().toISOString(),
+      });
+    }
     updateLandlord(id, { status: 'suspended' });
-  }, [updateLandlord]);
+  }, [landlords, updateLandlord]);
 
   const activateLandlord = useCallback((id: string) => {
     updateLandlord(id, { status: 'active' });
@@ -210,6 +308,7 @@ export function useLandlords() {
       subscriptionEndDate: endDate.toISOString(),
       maxProperties: planDetails.maxProperties,
       maxUnits: planDetails.maxUnits,
+      status: 'active', // Reactivate if was suspended
     });
   }, [updateLandlord]);
 
@@ -229,6 +328,26 @@ export function useLandlords() {
     return landlords.find(l => l.id === id);
   }, [landlords]);
 
+  const getExpiringSubscriptions = useCallback((withinDays: number = 30): Landlord[] => {
+    return landlords.filter(l => {
+      const days = getDaysUntilExpiration(l.subscriptionEndDate);
+      return days > 0 && days <= withinDays && l.status === 'active';
+    });
+  }, [landlords]);
+
+  const renewSubscription = useCallback((id: string) => {
+    const landlord = landlords.find(l => l.id === id);
+    if (!landlord) return;
+
+    const newEndDate = new Date(landlord.subscriptionEndDate);
+    newEndDate.setFullYear(newEndDate.getFullYear() + 1);
+
+    updateLandlord(id, {
+      subscriptionEndDate: newEndDate.toISOString(),
+      status: 'active',
+    });
+  }, [landlords, updateLandlord]);
+
   return {
     landlords,
     isLoading,
@@ -243,5 +362,8 @@ export function useLandlords() {
     getExpiredSubscriptions,
     getActiveLandlords,
     getLandlordById,
+    getExpiringSubscriptions,
+    renewSubscription,
+    getDaysUntilExpiration,
   };
 }

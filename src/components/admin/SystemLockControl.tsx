@@ -24,6 +24,7 @@ import {
   SystemLockState,
   LockLogEntry,
 } from '@/services/systemLockService';
+import { sendSystemLockEmail } from '@/services/adminEmailService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -45,7 +46,7 @@ export function SystemLockControl() {
     setLockLogs(getLockLogs());
   }, []);
 
-  const handleLock = () => {
+  const handleLock = async () => {
     if (!lockReason.trim()) {
       toast({
         title: 'Reason Required',
@@ -61,20 +62,43 @@ export function SystemLockControl() {
     setShowLockDialog(false);
     setLockReason('');
 
+    // Send email notifications
+    await sendSystemLockEmail({
+      action: 'lock',
+      adminEmail: user?.email || 'Admin',
+      adminName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Admin',
+      reason: lockReason,
+      timestamp: new Date().toISOString(),
+      affectedUsers: [
+        { name: 'All Users', email: 'users@system.com' },
+      ],
+    });
+
     toast({
       title: 'System Locked',
-      description: 'The system has been locked. Only super admins can access it.',
+      description: 'The system has been locked. Email notifications sent.',
     });
   };
 
-  const handleUnlock = () => {
+  const handleUnlock = async () => {
     const newState = unlockSystem(user?.email || 'Admin');
     setLockState(newState);
     setLockLogs(getLockLogs());
 
+    // Send email notifications
+    await sendSystemLockEmail({
+      action: 'unlock',
+      adminEmail: user?.email || 'Admin',
+      adminName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Admin',
+      timestamp: new Date().toISOString(),
+      affectedUsers: [
+        { name: 'All Users', email: 'users@system.com' },
+      ],
+    });
+
     toast({
       title: 'System Unlocked',
-      description: 'The system is now accessible to all users.',
+      description: 'The system is now accessible. Email notifications sent.',
     });
   };
 

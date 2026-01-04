@@ -30,6 +30,7 @@ import {
   ManagedUser,
   PasswordResetLog,
 } from '@/services/userManagementService';
+import { sendPasswordResetEmail } from '@/services/adminEmailService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -59,7 +60,7 @@ export function UserPasswordReset() {
       `${u.firstName} ${u.lastName}`.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleResetPassword = () => {
+  const handleResetPassword = async () => {
     if (!selectedUser) return;
 
     if (newPassword.length < 8) {
@@ -88,9 +89,19 @@ export function UserPasswordReset() {
     );
 
     if (result.success) {
+      // Send email notification
+      await sendPasswordResetEmail({
+        userEmail: selectedUser.email,
+        userName: `${selectedUser.firstName} ${selectedUser.lastName}`,
+        adminEmail: user?.email || 'Admin',
+        adminName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Admin',
+        temporaryPassword: newPassword,
+        timestamp: new Date().toISOString(),
+      });
+
       toast({
         title: 'Password Reset',
-        description: `Password for ${selectedUser.email} has been reset successfully.`,
+        description: `Password for ${selectedUser.email} has been reset. Email notification sent.`,
       });
       setShowResetDialog(false);
       setSelectedUser(null);
