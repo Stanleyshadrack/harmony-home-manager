@@ -14,8 +14,11 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Landlord, SubscriptionPlanDetails } from '@/hooks/useLandlords';
+import { useSubscriptionPayments } from '@/hooks/useSubscriptionPayments';
+import { SubscriptionPaymentHistory } from '@/components/landlords/SubscriptionPaymentHistory';
 import {
   CreditCard,
   Check,
@@ -24,6 +27,7 @@ import {
   Loader2,
   ShieldCheck,
   Sparkles,
+  History,
 } from 'lucide-react';
 
 interface SubscriptionRenewalDialogProps {
@@ -34,7 +38,7 @@ interface SubscriptionRenewalDialogProps {
   onRenew: (landlordId: string, plan: string, paymentData: PaymentData) => Promise<void>;
 }
 
-interface PaymentData {
+export interface PaymentData {
   cardNumber: string;
   expiryDate: string;
   cvv: string;
@@ -48,7 +52,9 @@ export function SubscriptionRenewalDialog({
   subscriptionPlans,
   onRenew,
 }: SubscriptionRenewalDialogProps) {
+  const { addPayment } = useSubscriptionPayments();
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState<'renew' | 'history'>('renew');
   const [selectedPlan, setSelectedPlan] = useState(landlord.subscription);
   const [step, setStep] = useState<'plan' | 'payment' | 'success'>('plan');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -80,7 +86,6 @@ export function SubscriptionRenewalDialog({
   };
 
   const handleProcessPayment = async () => {
-    // Validate payment data
     if (!paymentData.cardNumber || !paymentData.expiryDate || !paymentData.cvv || !paymentData.cardholderName) {
       toast({
         title: 'Missing Information',
@@ -93,8 +98,27 @@ export function SubscriptionRenewalDialog({
     setIsProcessing(true);
 
     try {
-      // Simulate payment processing
       await new Promise(resolve => setTimeout(resolve, 2000));
+
+      const newExpiryDate = new Date();
+      newExpiryDate.setFullYear(newExpiryDate.getFullYear() + 1);
+
+      addPayment({
+        landlordId: landlord.id,
+        landlordName: `${landlord.firstName} ${landlord.lastName}`,
+        landlordEmail: landlord.email,
+        planId: selectedPlan,
+        planName: newPlan?.name || selectedPlan,
+        amount: (newPlan?.price || 0) * 12,
+        paymentMethod: 'card',
+        transactionRef: `TXN-${Date.now()}`,
+        cardLast4: paymentData.cardNumber.slice(-4),
+        status: 'completed',
+        renewalPeriod: '1 Year',
+        previousExpiryDate: landlord.subscriptionEndDate,
+        newExpiryDate: newExpiryDate.toISOString(),
+        paymentDate: new Date().toISOString(),
+      });
 
       await onRenew(landlord.id, selectedPlan, paymentData);
 
@@ -117,6 +141,7 @@ export function SubscriptionRenewalDialog({
 
   const handleClose = () => {
     setStep('plan');
+    setActiveTab('renew');
     setPaymentData({ cardNumber: '', expiryDate: '', cvv: '', cardholderName: '' });
     onOpenChange(false);
   };
@@ -133,99 +158,116 @@ export function SubscriptionRenewalDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CreditCard className="h-5 w-5" />
-            {step === 'success' ? 'Renewal Complete' : 'Renew Subscription'}
+            {step === 'success' ? 'Renewal Complete' : 'Subscription Management'}
           </DialogTitle>
           <DialogDescription>
-            {step === 'plan' && `Renew or upgrade your subscription plan for ${landlord.firstName} ${landlord.lastName}`}
+            {step === 'plan' && `Manage subscription for ${landlord.firstName} ${landlord.lastName}`}
             {step === 'payment' && 'Enter your payment details to complete the renewal'}
             {step === 'success' && 'Your subscription has been successfully renewed'}
           </DialogDescription>
         </DialogHeader>
 
         {step === 'plan' && (
-          <div className="space-y-4">
-            {/* Current Status */}
-            <Card className={isExpired ? 'border-destructive' : daysLeft <= 7 ? 'border-warning' : ''}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Current Plan</p>
-                    <p className="font-semibold capitalize">{currentPlan?.name}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-muted-foreground">Expires</p>
-                    <Badge variant={isExpired ? 'destructive' : daysLeft <= 7 ? 'outline' : 'secondary'}>
-                      {isExpired ? 'Expired' : `${daysLeft} days left`}
-                    </Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'renew' | 'history')} className="w-full">
+            <TabsList className="w-full">
+              <TabsTrigger value="renew" className="flex-1">
+                <CreditCard className="h-4 w-4 mr-2" />
+                Renew Subscription
+              </TabsTrigger>
+              <TabsTrigger value="history" className="flex-1">
+                <History className="h-4 w-4 mr-2" />
+                Payment History
+              </TabsTrigger>
+            </TabsList>
 
-            {/* Plan Selection */}
-            <div className="space-y-3">
-              <Label>Select Plan</Label>
-              <RadioGroup value={selectedPlan} onValueChange={(value) => setSelectedPlan(value as any)}>
-                {subscriptionPlans.map(plan => (
-                  <div
-                    key={plan.id}
-                    className={`flex items-start gap-4 p-4 rounded-lg border cursor-pointer transition-colors ${
-                      selectedPlan === plan.id
-                        ? 'bg-primary/10 border-primary'
-                        : 'hover:bg-muted/50'
-                    }`}
-                    onClick={() => setSelectedPlan(plan.id)}
-                  >
-                    <RadioGroupItem value={plan.id} id={plan.id} />
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor={plan.id} className="font-semibold cursor-pointer">
-                          {plan.name}
-                          {plan.id === 'enterprise' && (
-                            <Badge variant="secondary" className="ml-2">
-                              <Sparkles className="h-3 w-3 mr-1" />
-                              Popular
-                            </Badge>
-                          )}
-                        </Label>
-                        <span className="font-bold text-lg">${plan.price}/mo</span>
-                      </div>
-                      <ul className="mt-2 space-y-1">
-                        {plan.features.slice(0, 3).map((feature, idx) => (
-                          <li key={idx} className="text-sm text-muted-foreground flex items-center gap-2">
-                            <Check className="h-3 w-3 text-success" />
-                            {feature}
-                          </li>
-                        ))}
-                      </ul>
+            <TabsContent value="renew" className="mt-4 space-y-4">
+              {/* Current Status */}
+              <Card className={isExpired ? 'border-destructive' : daysLeft <= 7 ? 'border-warning' : ''}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Current Plan</p>
+                      <p className="font-semibold capitalize">{currentPlan?.name}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-muted-foreground">Expires</p>
+                      <Badge variant={isExpired ? 'destructive' : daysLeft <= 7 ? 'outline' : 'secondary'}>
+                        {isExpired ? 'Expired' : `${daysLeft} days left`}
+                      </Badge>
                     </div>
                   </div>
-                ))}
-              </RadioGroup>
-            </div>
+                </CardContent>
+              </Card>
 
-            {/* Summary */}
-            <Card className="bg-muted/50">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span>Renewal Period</span>
+              {/* Plan Selection */}
+              <div className="space-y-3">
+                <Label>Select Plan</Label>
+                <RadioGroup value={selectedPlan} onValueChange={(value) => setSelectedPlan(value as any)}>
+                  {subscriptionPlans.map(plan => (
+                    <div
+                      key={plan.id}
+                      className={`flex items-start gap-4 p-4 rounded-lg border cursor-pointer transition-colors ${
+                        selectedPlan === plan.id
+                          ? 'bg-primary/10 border-primary'
+                          : 'hover:bg-muted/50'
+                      }`}
+                      onClick={() => setSelectedPlan(plan.id)}
+                    >
+                      <RadioGroupItem value={plan.id} id={plan.id} />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor={plan.id} className="font-semibold cursor-pointer">
+                            {plan.name}
+                            {plan.id === 'enterprise' && (
+                              <Badge variant="secondary" className="ml-2">
+                                <Sparkles className="h-3 w-3 mr-1" />
+                                Popular
+                              </Badge>
+                            )}
+                          </Label>
+                          <span className="font-bold text-lg">${plan.price}/mo</span>
+                        </div>
+                        <ul className="mt-2 space-y-1">
+                          {plan.features.slice(0, 3).map((feature, idx) => (
+                            <li key={idx} className="text-sm text-muted-foreground flex items-center gap-2">
+                              <Check className="h-3 w-3 text-success" />
+                              {feature}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  ))}
+                </RadioGroup>
+              </div>
+
+              {/* Summary */}
+              <Card className="bg-muted/50">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <span>Renewal Period</span>
+                    </div>
+                    <span>1 Year</span>
                   </div>
-                  <span>1 Year</span>
-                </div>
-                <Separator className="my-3" />
-                <div className="flex items-center justify-between font-semibold">
-                  <span>Total Due Today</span>
-                  <span className="text-lg">${(newPlan?.price || 0) * 12}/year</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                  <Separator className="my-3" />
+                  <div className="flex items-center justify-between font-semibold">
+                    <span>Total Due Today</span>
+                    <span className="text-lg">${(newPlan?.price || 0) * 12}/year</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="history" className="mt-4">
+              <SubscriptionPaymentHistory landlordId={landlord.id} showTitle={false} />
+            </TabsContent>
+          </Tabs>
         )}
 
         {step === 'payment' && (
@@ -325,7 +367,7 @@ export function SubscriptionRenewalDialog({
         )}
 
         <DialogFooter>
-          {step === 'plan' && (
+          {step === 'plan' && activeTab === 'renew' && (
             <>
               <Button variant="outline" onClick={handleClose}>
                 Cancel
@@ -335,6 +377,11 @@ export function SubscriptionRenewalDialog({
                 Proceed to Payment
               </Button>
             </>
+          )}
+          {step === 'plan' && activeTab === 'history' && (
+            <Button variant="outline" onClick={handleClose}>
+              Close
+            </Button>
           )}
           {step === 'payment' && (
             <>

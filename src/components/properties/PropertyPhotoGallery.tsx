@@ -1,6 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -18,18 +19,22 @@ import {
   Trash2,
   Plus,
   Loader2,
+  Star,
+  GripVertical,
 } from 'lucide-react';
 
 interface PropertyPhotoGalleryProps {
   propertyId: string;
   photos: string[];
-  onPhotosChange: (photos: string[]) => void;
+  featuredPhotoIndex?: number;
+  onPhotosChange: (photos: string[], featuredIndex?: number) => void;
   editable?: boolean;
 }
 
 export function PropertyPhotoGallery({
   propertyId,
   photos,
+  featuredPhotoIndex = 0,
   onPhotosChange,
   editable = true,
 }: PropertyPhotoGalleryProps) {
@@ -37,6 +42,17 @@ export function PropertyPhotoGallery({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+    });
+  };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -66,13 +82,13 @@ export function PropertyPhotoGallery({
           continue;
         }
 
-        // Convert to base64 for localStorage storage
         const base64 = await fileToBase64(file);
         newPhotos.push(base64);
       }
 
       if (newPhotos.length > 0) {
-        onPhotosChange([...photos, ...newPhotos]);
+        const updatedPhotos = [...photos, ...newPhotos];
+        onPhotosChange(updatedPhotos, featuredPhotoIndex);
         toast({
           title: 'Photos Uploaded',
           description: `${newPhotos.length} photo(s) added successfully.`,
@@ -92,23 +108,83 @@ export function PropertyPhotoGallery({
     }
   };
 
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = error => reject(error);
-    });
-  };
-
   const handleDeletePhoto = (index: number) => {
     const newPhotos = photos.filter((_, i) => i !== index);
-    onPhotosChange(newPhotos);
+    let newFeaturedIndex = featuredPhotoIndex;
+    if (index === featuredPhotoIndex) {
+      newFeaturedIndex = 0;
+    } else if (index < featuredPhotoIndex) {
+      newFeaturedIndex = featuredPhotoIndex - 1;
+    }
+    onPhotosChange(newPhotos, Math.min(newFeaturedIndex, Math.max(0, newPhotos.length - 1)));
     toast({
       title: 'Photo Deleted',
       description: 'Photo has been removed from the gallery.',
     });
   };
+
+  const handleSetFeatured = (index: number) => {
+    onPhotosChange(photos, index);
+    toast({
+      title: 'Featured Photo Set',
+      description: 'This photo will be shown as the cover image.',
+    });
+  };
+
+  // Drag and drop handlers
+  const handleDragStart = useCallback((e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', index.toString());
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (draggedIndex !== null && draggedIndex !== index) {
+      setDragOverIndex(index);
+    }
+  }, [draggedIndex]);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOverIndex(null);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      setDraggedIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    const newPhotos = [...photos];
+    const [draggedPhoto] = newPhotos.splice(draggedIndex, 1);
+    newPhotos.splice(dropIndex, 0, draggedPhoto);
+
+    let newFeaturedIndex = featuredPhotoIndex;
+    if (draggedIndex === featuredPhotoIndex) {
+      newFeaturedIndex = dropIndex;
+    } else if (draggedIndex < featuredPhotoIndex && dropIndex >= featuredPhotoIndex) {
+      newFeaturedIndex = featuredPhotoIndex - 1;
+    } else if (draggedIndex > featuredPhotoIndex && dropIndex <= featuredPhotoIndex) {
+      newFeaturedIndex = featuredPhotoIndex + 1;
+    }
+
+    onPhotosChange(newPhotos, newFeaturedIndex);
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+
+    toast({
+      title: 'Photos Reordered',
+      description: 'Photo order has been updated.',
+    });
+  }, [draggedIndex, photos, featuredPhotoIndex, onPhotosChange, toast]);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  }, []);
 
   const handlePrevPhoto = () => {
     if (selectedPhotoIndex !== null && selectedPhotoIndex > 0) {
@@ -126,10 +202,17 @@ export function PropertyPhotoGallery({
     <>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Image className="h-5 w-5" />
-            Property Photos
-          </CardTitle>
+          <div>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Image className="h-5 w-5" />
+              Property Photos
+            </CardTitle>
+            {editable && photos.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Drag photos to reorder • Click star to set cover
+              </p>
+            )}
+          </div>
           {editable && (
             <Button
               size="sm"
@@ -159,34 +242,81 @@ export function PropertyPhotoGallery({
               {photos.map((photo, index) => (
                 <div
                   key={index}
-                  className="relative group aspect-square rounded-lg overflow-hidden bg-muted"
+                  draggable={editable}
+                  onDragStart={(e) => editable && handleDragStart(e, index)}
+                  onDragOver={(e) => editable && handleDragOver(e, index)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => editable && handleDrop(e, index)}
+                  onDragEnd={handleDragEnd}
+                  className={`relative group aspect-square rounded-lg overflow-hidden bg-muted transition-all ${
+                    editable ? 'cursor-grab active:cursor-grabbing' : ''
+                  } ${draggedIndex === index ? 'opacity-50 scale-95' : ''} ${
+                    dragOverIndex === index ? 'ring-2 ring-primary ring-offset-2' : ''
+                  }`}
                 >
+                  {/* Featured Badge */}
+                  {index === featuredPhotoIndex && (
+                    <Badge 
+                      className="absolute top-2 left-2 z-10 bg-primary text-primary-foreground"
+                    >
+                      <Star className="h-3 w-3 mr-1 fill-current" />
+                      Cover
+                    </Badge>
+                  )}
+
+                  {/* Drag Handle */}
+                  {editable && (
+                    <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="bg-background/80 backdrop-blur-sm rounded p-1">
+                        <GripVertical className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                  )}
+
                   <img
                     src={photo}
                     alt={`Property photo ${index + 1}`}
-                    className="w-full h-full object-cover cursor-pointer transition-transform group-hover:scale-105"
+                    className="w-full h-full object-cover transition-transform group-hover:scale-105"
                     onClick={() => setSelectedPhotoIndex(index)}
                   />
+
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                     <Button
                       size="icon"
                       variant="secondary"
                       className="mr-2"
-                      onClick={() => setSelectedPhotoIndex(index)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedPhotoIndex(index);
+                      }}
                     >
                       <ZoomIn className="h-4 w-4" />
                     </Button>
                     {editable && (
-                      <Button
-                        size="icon"
-                        variant="destructive"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeletePhoto(index);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <>
+                        <Button
+                          size="icon"
+                          variant={index === featuredPhotoIndex ? 'default' : 'secondary'}
+                          className="mr-2"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSetFeatured(index);
+                          }}
+                          title="Set as cover photo"
+                        >
+                          <Star className={`h-4 w-4 ${index === featuredPhotoIndex ? 'fill-current' : ''}`} />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeletePhoto(index);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -230,8 +360,14 @@ export function PropertyPhotoGallery({
       >
         <DialogContent className="max-w-4xl p-0 overflow-hidden">
           <DialogHeader className="absolute top-0 left-0 right-0 z-10 p-4 bg-gradient-to-b from-black/50 to-transparent">
-            <DialogTitle className="text-white">
+            <DialogTitle className="text-white flex items-center gap-2">
               Photo {selectedPhotoIndex !== null ? selectedPhotoIndex + 1 : 0} of {photos.length}
+              {selectedPhotoIndex === featuredPhotoIndex && (
+                <Badge variant="secondary" className="ml-2">
+                  <Star className="h-3 w-3 mr-1 fill-current" />
+                  Cover Photo
+                </Badge>
+              )}
             </DialogTitle>
           </DialogHeader>
 
@@ -282,7 +418,7 @@ export function PropertyPhotoGallery({
                     {photos.map((photo, index) => (
                       <button
                         key={index}
-                        className={`w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 ring-2 transition-all ${
+                        className={`relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 ring-2 transition-all ${
                           index === selectedPhotoIndex
                             ? 'ring-primary'
                             : 'ring-transparent hover:ring-white/50'
@@ -294,6 +430,11 @@ export function PropertyPhotoGallery({
                           alt={`Thumbnail ${index + 1}`}
                           className="w-full h-full object-cover"
                         />
+                        {index === featuredPhotoIndex && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                            <Star className="h-4 w-4 text-white fill-current" />
+                          </div>
+                        )}
                       </button>
                     ))}
                   </div>
