@@ -49,31 +49,38 @@ export default function PropertyDetail() {
   
   const [property, setProperty] = useState<Property | null>(null);
   const [propertyPhotos, setPropertyPhotos] = useState<string[]>([]);
+  const [featuredPhotoIndex, setFeaturedPhotoIndex] = useState<number>(0);
 
   useEffect(() => {
     if (!propertiesLoading && id) {
       const found = properties.find(p => p.id === id);
       setProperty(found || null);
-      // Load photos from localStorage or property
+      // Load photos and featured index from localStorage or property
       const storedPhotos = localStorage.getItem(`property_photos_${id}`);
+      const storedFeaturedIndex = localStorage.getItem(`property_featured_photo_${id}`);
       if (storedPhotos) {
         setPropertyPhotos(JSON.parse(storedPhotos));
       } else if (found?.photos) {
         setPropertyPhotos(found.photos);
       }
+      if (storedFeaturedIndex) {
+        setFeaturedPhotoIndex(parseInt(storedFeaturedIndex, 10));
+      }
     }
   }, [properties, propertiesLoading, id]);
 
-  const handlePhotosChange = async (newPhotos: string[]) => {
+  const handlePhotosChange = (newPhotos: string[], newFeaturedIndex?: number) => {
     setPropertyPhotos(newPhotos);
+    if (newFeaturedIndex !== undefined) {
+      setFeaturedPhotoIndex(newFeaturedIndex);
+    }
     // Save to localStorage
     if (id) {
       localStorage.setItem(`property_photos_${id}`, JSON.stringify(newPhotos));
+      if (newFeaturedIndex !== undefined) {
+        localStorage.setItem(`property_featured_photo_${id}`, newFeaturedIndex.toString());
+      }
     }
-    toast({
-      title: 'Photos Updated',
-      description: 'Property photos have been updated.',
-    });
   };
 
   if (propertiesLoading || unitsLoading) {
@@ -318,6 +325,7 @@ export default function PropertyDetail() {
           <PropertyPhotoGallery
             propertyId={property.id}
             photos={propertyPhotos}
+            featuredPhotoIndex={featuredPhotoIndex}
             onPhotosChange={handlePhotosChange}
             editable={true}
           />
