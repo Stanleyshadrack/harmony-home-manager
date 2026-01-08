@@ -8,11 +8,12 @@ import { ForgotPasswordForm } from '@/components/auth/ForgotPasswordForm';
 import { ResetPasswordForm } from '@/components/auth/ResetPasswordForm';
 import { EmailVerificationForm } from '@/components/auth/EmailVerificationForm';
 import { TwoFactorVerification } from '@/components/auth/TwoFactorVerification';
+import { AwaitingApproval } from '@/components/auth/AwaitingApproval';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Building2 } from 'lucide-react';
 
-type AuthView = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'email-verification' | '2fa-verification';
+type AuthView = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'email-verification' | '2fa-verification' | 'awaiting-approval';
 
 export default function Auth() {
   const { t } = useTranslation();
@@ -22,6 +23,7 @@ export default function Auth() {
   const [verificationEmail, setVerificationEmail] = useState('');
   const [twoFactorEmail, setTwoFactorEmail] = useState('');
   const [pendingLoginRedirect, setPendingLoginRedirect] = useState<string | null>(null);
+  const [pendingApprovalData, setPendingApprovalData] = useState<{ email: string; role: string } | null>(null);
 
   // Redirect if already authenticated
   if (isAuthenticated) {
@@ -111,6 +113,10 @@ export default function Auth() {
                     setPendingLoginRedirect(redirect);
                     setAuthView('2fa-verification');
                   }}
+                  onAwaitingApproval={(email, role) => {
+                    setPendingApprovalData({ email, role });
+                    setAuthView('awaiting-approval');
+                  }}
                 />
               )}
               {authView === 'register' && (
@@ -153,6 +159,13 @@ export default function Auth() {
                     // Complete the login after 2FA verification
                     window.location.href = pendingLoginRedirect || '/dashboard';
                   }}
+                />
+              )}
+              {authView === 'awaiting-approval' && pendingApprovalData && (
+                <AwaitingApproval
+                  email={pendingApprovalData.email}
+                  role={pendingApprovalData.role}
+                  onBack={() => setAuthView('login')}
                 />
               )}
             </div>

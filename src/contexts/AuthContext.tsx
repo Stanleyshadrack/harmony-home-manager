@@ -23,7 +23,7 @@ interface AuthContextType {
   user: UserWithRole | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<{ error: string | null; redirect?: string }>;
+  login: (email: string, password: string) => Promise<{ error: string | null; redirect?: string; pendingApproval?: { email: string; role: string } }>;
   register: (data: RegisterData) => Promise<{ error: string | null }>;
   logout: () => Promise<void>;
 }
@@ -120,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   }, []);
 
-  const login = async (email: string, password: string): Promise<{ error: string | null; redirect?: string }> => {
+  const login = async (email: string, password: string): Promise<{ error: string | null; redirect?: string; pendingApproval?: { email: string; role: string } }> => {
     setIsLoading(true);
     try {
       const emailLower = email.toLowerCase();
@@ -150,9 +150,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: 'No account found with this email. Please register first.' };
       }
       
-      // Check approval status
+      // Check approval status - return pending approval data instead of error
       if (status === 'pending') {
-        return { error: 'Your account is pending approval. Please wait for admin approval.' };
+        return { error: null, pendingApproval: { email, role: role || 'tenant' } };
       }
       
       if (status === 'rejected') {
