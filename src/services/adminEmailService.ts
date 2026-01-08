@@ -337,3 +337,79 @@ export async function sendSubscriptionRenewalConfirmationEmail(
   
   return { success: true, messageId };
 }
+
+// User Invitation Email
+interface UserInvitationEmailData {
+  recipientEmail: string;
+  recipientName?: string;
+  inviterName: string;
+  inviterEmail: string;
+  role: string;
+  message?: string;
+  invitationToken: string;
+  expiresAt: string;
+}
+
+export async function sendUserInvitationEmail(
+  data: UserInvitationEmailData
+): Promise<{ success: boolean; messageId: string }> {
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const onboardingUrl = `${window.location.origin}/onboarding?token=${data.invitationToken}`;
+  
+  const emailLog: EmailLog = {
+    id: messageId,
+    type: 'user_invitation',
+    recipient: { name: data.recipientName || 'New User', email: data.recipientEmail },
+    subject: `🎉 You're Invited to Join PropManager as a ${data.role}`,
+    status: 'sent',
+    sentAt: new Date().toISOString(),
+    metadata: {
+      inviterName: data.inviterName,
+      inviterEmail: data.inviterEmail,
+      role: data.role,
+      invitationToken: data.invitationToken,
+      expiresAt: data.expiresAt,
+      onboardingUrl,
+    },
+  };
+  
+  saveEmailLog(emailLog);
+  
+  console.log('📧 User Invitation Email Sent:', {
+    to: data.recipientEmail,
+    subject: emailLog.subject,
+    body: generateInvitationEmailBody(data, onboardingUrl),
+  });
+  
+  return { success: true, messageId };
+}
+
+function generateInvitationEmailBody(data: UserInvitationEmailData, onboardingUrl: string): string {
+  return `
+Dear ${data.recipientName || 'User'},
+
+You have been invited to join PropManager as a ${data.role}!
+
+INVITATION DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Invited By: ${data.inviterName} (${data.inviterEmail})
+Role: ${data.role}
+Expires: ${new Date(data.expiresAt).toLocaleDateString()}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${data.message ? `Personal Message:\n"${data.message}"\n\n` : ''}
+
+To complete your registration, please click the link below:
+
+${onboardingUrl}
+
+After completing the onboarding process, your account will be reviewed and approved by an administrator.
+
+If you did not expect this invitation, you can safely ignore this email.
+
+Best regards,
+PropManager Team
+  `.trim();
+}

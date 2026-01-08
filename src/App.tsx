@@ -31,6 +31,7 @@ import WaterData from "./pages/WaterData";
 import Employees from "./pages/Employees";
 import NotificationLogs from "./pages/NotificationLogs";
 import PropertyDetail from "./pages/PropertyDetail";
+import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -47,6 +48,8 @@ const App = () => (
               <Routes>
                 {/* Public routes */}
                 <Route path="/" element={<Index />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/onboarding" element={<Onboarding />} />
                 <Route path="/auth" element={<Auth />} />
 
                 {/* Super Admin only routes */}

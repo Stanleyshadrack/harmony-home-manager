@@ -72,7 +72,9 @@ import { SystemLockControl } from '@/components/admin/SystemLockControl';
 import { UserPasswordReset } from '@/components/admin/UserPasswordReset';
 import { BulkEmailForm } from '@/components/admin/BulkEmailForm';
 import { SubscriptionRenewalDialog } from '@/components/landlords/SubscriptionRenewalDialog';
-import { sendSubscriptionRenewalConfirmationEmail } from '@/services/adminEmailService';
+import { sendSubscriptionRenewalConfirmationEmail, sendUserInvitationEmail } from '@/services/adminEmailService';
+import { InviteUserDialog } from '@/components/admin/InviteUserDialog';
+import { useInvitations } from '@/hooks/useInvitations';
 
 export default function AdminPortal() {
   const { t } = useTranslation();
@@ -107,6 +109,9 @@ export default function AdminPortal() {
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRenewalDialog, setShowRenewalDialog] = useState(false);
   const [renewalLandlord, setRenewalLandlord] = useState<Landlord | null>(null);
+  const [showInviteDialog, setShowInviteDialog] = useState(false);
+
+  const { createInvitation, invitations, getPendingInvitations } = useInvitations();
 
   const auditLogs = getAuditLogs();
   const activitySummary = getActivitySummary();
@@ -306,10 +311,16 @@ export default function AdminPortal() {
               Manage landlords, system settings, and user accounts
             </p>
           </div>
-          <Badge variant="outline" className="bg-primary/10 text-primary">
-            <Shield className="h-3 w-3 mr-1" />
-            Super Admin
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Button onClick={() => setShowInviteDialog(true)}>
+              <UserPlus className="h-4 w-4 mr-2" />
+              Invite User
+            </Button>
+            <Badge variant="outline" className="bg-primary/10 text-primary">
+              <Shield className="h-3 w-3 mr-1" />
+              Super Admin
+            </Badge>
+          </div>
         </div>
 
         {/* Platform Stats */}
@@ -1078,6 +1089,34 @@ export default function AdminPortal() {
           onRenew={handleRenewSubscription}
         />
       )}
+
+      {/* Invite User Dialog */}
+      <InviteUserDialog
+        open={showInviteDialog}
+        onOpenChange={setShowInviteDialog}
+        inviterRole={user?.role || 'super_admin'}
+        onInvite={async (data) => {
+          const userName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Admin';
+          const invitation = await createInvitation(
+            { email: data.email, firstName: data.firstName, lastName: data.lastName, role: data.role, message: data.message },
+            {
+              name: userName,
+              email: user?.email || 'admin@system.com',
+              role: user?.role || 'super_admin',
+            }
+          );
+          await sendUserInvitationEmail({
+            recipientEmail: data.email,
+            recipientName: data.firstName ? `${data.firstName} ${data.lastName || ''}`.trim() : undefined,
+            inviterName: userName,
+            inviterEmail: user?.email || 'admin@system.com',
+            role: data.role,
+            message: data.message,
+            invitationToken: invitation.token,
+            expiresAt: invitation.expiresAt,
+          });
+        }}
+      />
     </DashboardLayout>
   );
 }
