@@ -45,9 +45,10 @@ interface LoginFormProps {
   onSwitchToRegister: () => void;
   onForgotPassword: () => void;
   onRequire2FA?: (email: string, redirect: string | null) => void;
+  onAwaitingApproval?: (email: string, role: string) => void;
 }
 
-export function LoginForm({ onSwitchToRegister, onForgotPassword, onRequire2FA }: LoginFormProps) {
+export function LoginForm({ onSwitchToRegister, onForgotPassword, onRequire2FA, onAwaitingApproval }: LoginFormProps) {
   const { t } = useTranslation();
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -110,7 +111,13 @@ export function LoginForm({ onSwitchToRegister, onForgotPassword, onRequire2FA }
       return;
     }
 
-    const { error, redirect } = await login(data.email, data.password);
+    const { error, redirect, pendingApproval } = await login(data.email, data.password);
+    
+    // Check if user is awaiting approval
+    if (pendingApproval && onAwaitingApproval) {
+      onAwaitingApproval(data.email, pendingApproval.role);
+      return;
+    }
     
     if (error) {
       // Record failed attempt
