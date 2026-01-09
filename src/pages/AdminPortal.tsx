@@ -72,7 +72,7 @@ import { SystemLockControl } from '@/components/admin/SystemLockControl';
 import { UserPasswordReset } from '@/components/admin/UserPasswordReset';
 import { BulkEmailForm } from '@/components/admin/BulkEmailForm';
 import { SubscriptionRenewalDialog } from '@/components/landlords/SubscriptionRenewalDialog';
-import { sendSubscriptionRenewalConfirmationEmail, sendUserInvitationEmail } from '@/services/adminEmailService';
+import { sendSubscriptionRenewalConfirmationEmail, sendUserInvitationEmail, sendRegistrationApprovalEmail, sendRegistrationRejectionEmail } from '@/services/adminEmailService';
 import { InviteUserDialog } from '@/components/admin/InviteUserDialog';
 import { useInvitations } from '@/hooks/useInvitations';
 
@@ -234,9 +234,18 @@ export default function AdminPortal() {
       link: '/auth',
     });
 
+    // Send approval email (simulated)
+    await sendRegistrationApprovalEmail({
+      recipientName: `${registration.firstName} ${registration.lastName}`,
+      recipientPhone: registration.phone,
+      role: registration.requestedRole,
+      approvedBy: user?.email || 'Admin',
+      loginUrl: `${window.location.origin}/auth`,
+    });
+
     toast({
       title: 'Registration Approved',
-      description: `${registration.firstName} ${registration.lastName}'s ${registration.requestedRole} account has been approved.`,
+      description: `${registration.firstName} ${registration.lastName}'s ${registration.requestedRole} account has been approved. Check console for email preview.`,
     });
   };
 
@@ -252,9 +261,18 @@ export default function AdminPortal() {
         priority: 'high',
       });
 
+      // Send rejection email (simulated)
+      await sendRegistrationRejectionEmail({
+        recipientName: `${selectedRegistration.firstName} ${selectedRegistration.lastName}`,
+        recipientPhone: selectedRegistration.phone,
+        role: selectedRegistration.requestedRole,
+        rejectedBy: user?.email || 'Admin',
+        reason: rejectionReason,
+      });
+
       toast({
         title: 'Registration Rejected',
-        description: `${selectedRegistration.firstName} ${selectedRegistration.lastName}'s application has been rejected.`,
+        description: `${selectedRegistration.firstName} ${selectedRegistration.lastName}'s application has been rejected. Check console for email preview.`,
       });
       setShowRejectDialog(false);
       setSelectedRegistration(null);

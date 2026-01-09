@@ -409,3 +409,131 @@ Best regards,
 PropManager Team
   `.trim();
 }
+
+// Registration Approval Email
+interface RegistrationApprovalEmailData {
+  recipientName: string;
+  recipientPhone: string;
+  role: string;
+  approvedBy: string;
+  loginUrl: string;
+}
+
+export async function sendRegistrationApprovalEmail(
+  data: RegistrationApprovalEmailData
+): Promise<{ success: boolean; messageId: string }> {
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  const emailLog: EmailLog = {
+    id: messageId,
+    type: 'registration_approved',
+    recipient: { name: data.recipientName, email: data.recipientPhone },
+    subject: '✅ Your Account Has Been Approved!',
+    status: 'sent',
+    sentAt: new Date().toISOString(),
+    metadata: {
+      role: data.role,
+      approvedBy: data.approvedBy,
+      loginUrl: data.loginUrl,
+    },
+  };
+  
+  saveEmailLog(emailLog);
+  
+  const emailBody = `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ ACCOUNT APPROVED - PropManager
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Dear ${data.recipientName},
+
+Great news! Your ${data.role} account has been approved.
+
+ACCOUNT DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Role: ${data.role}
+Approved By: ${data.approvedBy}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You can now log in to access your account:
+${data.loginUrl}
+
+Welcome to PropManager!
+
+Best regards,
+PropManager Team
+  `.trim();
+  
+  console.log('📧 Registration Approval Email Sent:', {
+    to: data.recipientPhone,
+    subject: emailLog.subject,
+    body: emailBody,
+  });
+  
+  return { success: true, messageId };
+}
+
+// Registration Rejection Email
+interface RegistrationRejectionEmailData {
+  recipientName: string;
+  recipientPhone: string;
+  role: string;
+  rejectedBy: string;
+  reason: string;
+}
+
+export async function sendRegistrationRejectionEmail(
+  data: RegistrationRejectionEmailData
+): Promise<{ success: boolean; messageId: string }> {
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  const emailLog: EmailLog = {
+    id: messageId,
+    type: 'registration_rejected',
+    recipient: { name: data.recipientName, email: data.recipientPhone },
+    subject: '❌ Registration Not Approved',
+    status: 'sent',
+    sentAt: new Date().toISOString(),
+    metadata: {
+      role: data.role,
+      rejectedBy: data.rejectedBy,
+      reason: data.reason,
+    },
+  };
+  
+  saveEmailLog(emailLog);
+  
+  const emailBody = `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+❌ REGISTRATION NOT APPROVED - PropManager
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Dear ${data.recipientName},
+
+We regret to inform you that your ${data.role} registration was not approved.
+
+DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Role Requested: ${data.role}
+Reviewed By: ${data.rejectedBy}
+Reason: ${data.reason}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+If you believe this is an error or would like to appeal, please contact the property management office.
+
+Best regards,
+PropManager Team
+  `.trim();
+  
+  console.log('📧 Registration Rejection Email Sent:', {
+    to: data.recipientPhone,
+    subject: emailLog.subject,
+    body: emailBody,
+  });
+  
+  return { success: true, messageId };
+}

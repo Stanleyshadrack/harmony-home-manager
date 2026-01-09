@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { usePendingRegistrations, PendingRegistration } from '@/hooks/useRegistrations';
 import { useInAppNotifications } from '@/hooks/useInAppNotifications';
 import { useNotifications } from '@/hooks/useNotifications';
+import { sendRegistrationApprovalEmail, sendRegistrationRejectionEmail } from '@/services/adminEmailService';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -61,6 +62,15 @@ export function TenantApprovals() {
         link: '/auth',
       });
 
+      // Send approval email (simulated)
+      await sendRegistrationApprovalEmail({
+        recipientName: `${registration.firstName} ${registration.lastName}`,
+        recipientPhone: registration.phone,
+        role: 'Tenant',
+        approvedBy: user?.email || 'Landlord',
+        loginUrl: `${window.location.origin}/auth`,
+      });
+
       // Send SMS/WhatsApp notification
       if (registration.phone) {
         await sendQuickNotification(
@@ -74,7 +84,10 @@ export function TenantApprovals() {
         );
       }
 
-      toast.success(`${registration.firstName} ${registration.lastName}'s tenant account approved. Notification sent.`);
+      toast.success(`${registration.firstName} ${registration.lastName}'s tenant account approved. Email sent!`, {
+        description: 'Check console for email preview',
+        duration: 5000,
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -99,6 +112,15 @@ export function TenantApprovals() {
         priority: 'high',
       });
 
+      // Send rejection email (simulated)
+      await sendRegistrationRejectionEmail({
+        recipientName: `${selectedRegistration.firstName} ${selectedRegistration.lastName}`,
+        recipientPhone: selectedRegistration.phone,
+        role: 'Tenant',
+        rejectedBy: user?.email || 'Landlord',
+        reason: rejectionReason,
+      });
+
       // Send SMS/WhatsApp notification
       if (selectedRegistration.phone) {
         await sendQuickNotification(
@@ -112,7 +134,10 @@ export function TenantApprovals() {
         );
       }
 
-      toast.success('Registration rejected. Notification sent.');
+      toast.success('Registration rejected. Email sent!', {
+        description: 'Check console for email preview',
+        duration: 5000,
+      });
       setShowRejectDialog(false);
       setSelectedRegistration(null);
       setRejectionReason('');
