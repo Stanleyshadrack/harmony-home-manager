@@ -7,6 +7,7 @@ import { useMaintenance } from '@/hooks/useMaintenance';
 import { useAuth } from '@/contexts/AuthContext';
 import { useInAppNotifications } from '@/hooks/useInAppNotifications';
 import { useNotifications } from '@/hooks/useNotifications';
+import { sendRegistrationApprovalEmail, sendRegistrationRejectionEmail } from '@/services/adminEmailService';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -193,6 +194,15 @@ export function EmployeeManagement() {
         link: '/auth',
       });
 
+      // Send approval email (simulated)
+      await sendRegistrationApprovalEmail({
+        recipientName: `${registration.firstName} ${registration.lastName}`,
+        recipientPhone: registration.phone,
+        role: 'Employee',
+        approvedBy: user?.email || 'Landlord',
+        loginUrl: `${window.location.origin}/auth`,
+      });
+
       // Send SMS notification
       if (registration.phone) {
         await sendQuickNotification(
@@ -207,7 +217,10 @@ export function EmployeeManagement() {
         );
       }
 
-      toast.success(`${registration.firstName} ${registration.lastName}'s employee account approved. Notification sent.`);
+      toast.success(`${registration.firstName} ${registration.lastName}'s employee account approved. Email sent!`, {
+        description: 'Check console for email preview',
+        duration: 5000,
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -232,6 +245,15 @@ export function EmployeeManagement() {
         priority: 'high',
       });
 
+      // Send rejection email (simulated)
+      await sendRegistrationRejectionEmail({
+        recipientName: `${selectedRegistration.firstName} ${selectedRegistration.lastName}`,
+        recipientPhone: selectedRegistration.phone,
+        role: 'Employee',
+        rejectedBy: user?.email || 'Landlord',
+        reason: rejectionReason,
+      });
+
       // Send SMS notification
       if (selectedRegistration.phone) {
         await sendQuickNotification(
@@ -247,7 +269,10 @@ export function EmployeeManagement() {
         );
       }
 
-      toast.success('Registration rejected. Notification sent.');
+      toast.success('Registration rejected. Email sent!', {
+        description: 'Check console for email preview',
+        duration: 5000,
+      });
       setShowRejectDialog(false);
       setSelectedRegistration(null);
       setRejectionReason('');
