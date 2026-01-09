@@ -63,6 +63,7 @@ import {
   Home,
   User,
   ClipboardList,
+  CreditCard,
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 
@@ -184,7 +185,7 @@ export function EmployeeManagement() {
       
       // In-app notification
       addNotification({
-        userId: registration.email,
+        userId: registration.phone,
         title: 'Registration Approved!',
         message: 'Your employee account has been approved by the landlord. You can now log in.',
         category: 'registration_approved',
@@ -224,7 +225,7 @@ export function EmployeeManagement() {
       
       // In-app notification
       addNotification({
-        userId: selectedRegistration.email,
+        userId: selectedRegistration.phone,
         title: 'Registration Rejected',
         message: `Your employee registration was not approved. Reason: ${rejectionReason}`,
         category: 'registration_rejected',
@@ -596,15 +597,13 @@ export function EmployeeManagement() {
                           </p>
                           <div className="flex flex-col gap-1 mt-1 text-sm text-muted-foreground">
                             <span className="flex items-center gap-1">
-                              <Mail className="h-3 w-3" />
-                              {registration.email}
+                              <Phone className="h-3 w-3" />
+                              {registration.phone}
                             </span>
-                            {registration.phone && (
-                              <span className="flex items-center gap-1">
-                                <Phone className="h-3 w-3" />
-                                {registration.phone}
-                              </span>
-                            )}
+                            <span className="flex items-center gap-1">
+                              <CreditCard className="h-3 w-3" />
+                              ID: {registration.idNumber}
+                            </span>
                             <span className="flex items-center gap-1">
                               <Clock className="h-3 w-3" />
                               Applied {formatDistanceToNow(new Date(registration.submittedAt), { addSuffix: true })}

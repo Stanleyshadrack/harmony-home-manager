@@ -9,16 +9,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Loader2, User, Wrench, Building2, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2, User, Wrench, Building2, CheckCircle2, Phone, CreditCard, Users } from 'lucide-react';
 import { PasswordStrengthIndicator } from './PasswordStrengthIndicator';
 
 const registerSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
-  email: z.string().email('auth.emailInvalid'),
   phone: z.string().min(10, 'Phone number is required'),
   idNumber: z.string().min(5, 'ID number is required'),
+  emergencyContactName: z.string().optional(),
+  emergencyContactPhone: z.string().optional(),
+  relationship: z.string().optional(),
   password: z.string().min(8, 'auth.passwordTooShort'),
   confirmPassword: z.string().min(1, 'auth.passwordRequired'),
   termsAccepted: z.boolean().refine((val) => val === true, {
@@ -73,12 +76,18 @@ export function RegisterForm({ onSwitchToLogin, onEmailVerification }: RegisterF
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
+    defaultValues: {
+      termsAccepted: false,
+    },
   });
 
   const passwordValue = watch('password') || '';
+  const termsAccepted = watch('termsAccepted');
+  const isTenant = selectedRole === 'tenant';
 
   const selectedRoleConfig = roleOptions.find((r) => r.value === selectedRole);
 
@@ -86,32 +95,18 @@ export function RegisterForm({ onSwitchToLogin, onEmailVerification }: RegisterF
     setIsLoading(true);
     try {
       await submitRegistration({
-        email: data.email,
         firstName: data.firstName,
         lastName: data.lastName,
         phone: data.phone,
         idNumber: data.idNumber,
+        emergencyContactName: data.emergencyContactName,
+        emergencyContactPhone: data.emergencyContactPhone,
+        relationship: data.relationship,
         termsAccepted: data.termsAccepted,
         requestedRole: selectedRole,
       });
 
-      // Generate email verification code
-      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-      const verificationData = {
-        email: data.email,
-        code: verificationCode,
-        expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
-      };
-      localStorage.setItem('emailVerificationPending', JSON.stringify(verificationData));
-
-      // Trigger email verification flow
-      if (onEmailVerification) {
-        toast.success('Registration submitted! Please verify your email.', {
-          description: `Demo verification code: ${verificationCode}`,
-          duration: 15000,
-        });
-        onEmailVerification(data.email);
-      } else if (selectedRoleConfig?.requiresApproval) {
+      if (selectedRoleConfig?.requiresApproval) {
         setIsSubmitted(true);
       } else {
         toast.success(t('auth.registrationSuccess'));
@@ -207,28 +202,74 @@ export function RegisterForm({ onSwitchToLogin, onEmailVerification }: RegisterF
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="register-email">{t('auth.email')}</Label>
-        <Input
-          id="register-email"
-          type="email"
-          placeholder="name@example.com"
-          {...register('email')}
-          className={errors.email ? 'border-destructive' : ''}
-        />
-        {errors.email && (
-          <p className="text-sm text-destructive">{t(errors.email.message || '')}</p>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="phone">{t('auth.phone')}</Label>
+        <Label htmlFor="phone" className="flex items-center gap-2">
+          <Phone className="h-4 w-4" />
+          {t('auth.phone')}
+        </Label>
         <Input
           id="phone"
           type="tel"
           placeholder="+254 700 000 000"
           {...register('phone')}
+          className={errors.phone ? 'border-destructive' : ''}
         />
+        {errors.phone && (
+          <p className="text-sm text-destructive">{errors.phone.message}</p>
+        )}
       </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="idNumber" className="flex items-center gap-2">
+          <CreditCard className="h-4 w-4" />
+          ID Number
+        </Label>
+        <Input
+          id="idNumber"
+          placeholder="Enter your ID number"
+          {...register('idNumber')}
+          className={errors.idNumber ? 'border-destructive' : ''}
+        />
+        {errors.idNumber && (
+          <p className="text-sm text-destructive">{errors.idNumber.message}</p>
+        )}
+      </div>
+
+      {/* Emergency Contact - Tenant Only */}
+      {isTenant && (
+        <div className="space-y-4 p-4 rounded-lg border bg-muted/30">
+          <Label className="flex items-center gap-2 text-base">
+            <Users className="h-4 w-4" />
+            Emergency Contact (Optional)
+          </Label>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="emergencyContactName">Name</Label>
+              <Input
+                id="emergencyContactName"
+                placeholder="Contact name"
+                {...register('emergencyContactName')}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="emergencyContactPhone">Phone</Label>
+              <Input
+                id="emergencyContactPhone"
+                type="tel"
+                placeholder="+254 700 000 000"
+                {...register('emergencyContactPhone')}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="relationship">Relationship</Label>
+            <Input
+              id="relationship"
+              placeholder="e.g., Spouse, Parent, Sibling"
+              {...register('relationship')}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="register-password">{t('auth.password')}</Label>
@@ -289,6 +330,26 @@ export function RegisterForm({ onSwitchToLogin, onEmailVerification }: RegisterF
         )}
       </div>
 
+      {/* Terms and Conditions */}
+      <div className="flex items-start space-x-3 p-4 rounded-lg border bg-muted/30">
+        <Checkbox
+          id="termsAccepted"
+          checked={termsAccepted}
+          onCheckedChange={(checked) => setValue('termsAccepted', checked === true)}
+        />
+        <div className="space-y-1">
+          <Label htmlFor="termsAccepted" className="text-sm cursor-pointer">
+            I accept the Terms and Conditions
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            By registering, you agree to our terms of service and privacy policy.
+          </p>
+        </div>
+      </div>
+      {errors.termsAccepted && (
+        <p className="text-sm text-destructive">{errors.termsAccepted.message}</p>
+      )}
+
       <Button type="submit" className="w-full" disabled={isLoading}>
         {isLoading ? (
           <>
@@ -317,10 +378,6 @@ export function RegisterForm({ onSwitchToLogin, onEmailVerification }: RegisterF
         >
           {t('auth.login')}
         </Button>
-      </p>
-
-      <p className="text-center text-xs text-muted-foreground">
-        {t('auth.termsAgreement')}
       </p>
     </form>
   );

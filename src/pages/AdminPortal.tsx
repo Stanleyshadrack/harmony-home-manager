@@ -226,7 +226,7 @@ export default function AdminPortal() {
     await approveRegistration(registration.id, user?.email || 'Admin');
     
     addNotification({
-      userId: registration.email,
+      userId: registration.phone,
       title: 'Registration Approved!',
       message: `Your ${registration.requestedRole} account has been approved. You can now log in to the system.`,
       category: 'registration_approved',
@@ -245,7 +245,7 @@ export default function AdminPortal() {
       await rejectRegistration(selectedRegistration.id, user?.email || 'Admin', rejectionReason);
       
       addNotification({
-        userId: selectedRegistration.email,
+        userId: selectedRegistration.phone,
         title: 'Registration Rejected',
         message: `Your ${selectedRegistration.requestedRole} registration was not approved. Reason: ${rejectionReason}`,
         category: 'registration_rejected',
@@ -615,8 +615,8 @@ export default function AdminPortal() {
                         </TableCell>
                         <TableCell>
                           <div className="text-sm">
-                            <p>{reg.email}</p>
-                            {reg.phone && <p className="text-muted-foreground">{reg.phone}</p>}
+                            <p>{reg.phone}</p>
+                            <p className="text-muted-foreground">ID: {reg.idNumber}</p>
                           </div>
                         </TableCell>
                         <TableCell className="text-muted-foreground">
