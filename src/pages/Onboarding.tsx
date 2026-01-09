@@ -342,7 +342,6 @@ export default function Onboarding() {
                           id="firstName"
                           placeholder="John"
                           className="pl-10"
-                          defaultValue={invitation?.firstName || ''}
                           {...register('firstName')}
                         />
                       </div>
@@ -355,7 +354,6 @@ export default function Onboarding() {
                       <Input
                         id="lastName"
                         placeholder="Doe"
-                        defaultValue={invitation?.lastName || ''}
                         {...register('lastName')}
                       />
                       {errors.lastName && (

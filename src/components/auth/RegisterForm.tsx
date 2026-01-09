@@ -36,36 +36,14 @@ interface RegisterFormProps {
   onEmailVerification?: (email: string) => void;
 }
 
-const roleOptions: { value: UserRole; label: string; icon: React.ReactNode; description: string; requiresApproval: boolean }[] = [
-  { 
-    value: 'tenant', 
-    label: 'Tenant', 
-    icon: <User className="h-5 w-5" />, 
-    description: 'Apply for units, pay bills, submit requests',
-    requiresApproval: true,
-  },
-  { 
-    value: 'employee', 
-    label: 'Employee', 
-    icon: <Wrench className="h-5 w-5" />, 
-    description: 'Handle maintenance, record readings',
-    requiresApproval: true,
-  },
-  { 
-    value: 'landlord', 
-    label: 'Landlord', 
-    icon: <Building2 className="h-5 w-5" />, 
-    description: 'Manage properties, units, and tenants',
-    requiresApproval: false,
-  },
-];
+// Signup is always as tenant - no role selection
+const DEFAULT_ROLE: UserRole = 'tenant';
 
 export function RegisterForm({ onSwitchToLogin, onEmailVerification }: RegisterFormProps) {
   const { t } = useTranslation();
   const { submitRegistration } = usePendingRegistrations();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<UserRole>('tenant');
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
@@ -80,8 +58,6 @@ export function RegisterForm({ onSwitchToLogin, onEmailVerification }: RegisterF
 
   const passwordValue = watch('password') || '';
 
-  const selectedRoleConfig = roleOptions.find((r) => r.value === selectedRole);
-
   const onSubmit = async (data: RegisterFormData) => {
     setIsLoading(true);
     try {
@@ -92,7 +68,7 @@ export function RegisterForm({ onSwitchToLogin, onEmailVerification }: RegisterF
         phone: data.phone,
         idNumber: data.idNumber,
         termsAccepted: data.termsAccepted,
-        requestedRole: selectedRole,
+        requestedRole: DEFAULT_ROLE,
       });
 
       // Generate email verification code
@@ -111,11 +87,9 @@ export function RegisterForm({ onSwitchToLogin, onEmailVerification }: RegisterF
           duration: 15000,
         });
         onEmailVerification(data.email);
-      } else if (selectedRoleConfig?.requiresApproval) {
-        setIsSubmitted(true);
       } else {
-        toast.success(t('auth.registrationSuccess'));
-        onSwitchToLogin();
+        // Tenant signup always requires approval
+        setIsSubmitted(true);
       }
     } catch {
       toast.error('Registration failed. Please try again.');
@@ -132,7 +106,7 @@ export function RegisterForm({ onSwitchToLogin, onEmailVerification }: RegisterF
         </div>
         <h3 className="text-xl font-semibold">Registration Submitted!</h3>
         <p className="text-muted-foreground max-w-sm mx-auto">
-          Your {selectedRoleConfig?.label} account request has been submitted. 
+          Your Tenant account request has been submitted. 
           An administrator will review your application and you'll be notified once approved.
         </p>
         <Button onClick={onSwitchToLogin} className="mt-4">
@@ -144,39 +118,9 @@ export function RegisterForm({ onSwitchToLogin, onEmailVerification }: RegisterF
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {/* Role Selection */}
-      <div className="space-y-2">
-        <Label>Register as</Label>
-        <div className="grid grid-cols-1 gap-2">
-          {roleOptions.map((role) => (
-            <Card
-              key={role.value}
-              className={`cursor-pointer transition-all ${
-                selectedRole === role.value
-                  ? 'border-primary bg-primary/5'
-                  : 'hover:border-primary/50'
-              }`}
-              onClick={() => setSelectedRole(role.value)}
-            >
-              <CardContent className="p-3 flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${
-                  selectedRole === role.value ? 'bg-primary text-primary-foreground' : 'bg-muted'
-                }`}>
-                  {role.icon}
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-sm">{role.label}</p>
-                  <p className="text-xs text-muted-foreground">{role.description}</p>
-                </div>
-                {role.requiresApproval && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-warning/10 text-warning">
-                    Requires Approval
-                  </span>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+      {/* Info banner - signup is for tenants only */}
+      <div className="bg-muted/50 border rounded-lg p-3 text-sm text-muted-foreground">
+        <p><strong>Tenant Registration</strong> - For other roles (Employee, Landlord), you must be invited by an administrator.</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -297,12 +241,8 @@ export function RegisterForm({ onSwitchToLogin, onEmailVerification }: RegisterF
           </>
         ) : (
           <>
-            {selectedRoleConfig?.icon}
-            <span className="ml-2">
-              {selectedRoleConfig?.requiresApproval 
-                ? `Submit ${selectedRoleConfig.label} Application`
-                : t('auth.register')}
-            </span>
+            <User className="h-4 w-4 mr-2" />
+            Submit Tenant Application
           </>
         )}
       </Button>
