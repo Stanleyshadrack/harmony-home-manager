@@ -17,9 +17,13 @@ const registerSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
   email: z.string().email('auth.emailInvalid'),
-  phone: z.string().optional(),
+  phone: z.string().min(10, 'Phone number is required'),
+  idNumber: z.string().min(5, 'ID number is required'),
   password: z.string().min(8, 'auth.passwordTooShort'),
   confirmPassword: z.string().min(1, 'auth.passwordRequired'),
+  termsAccepted: z.boolean().refine((val) => val === true, {
+    message: 'You must accept the terms and conditions',
+  }),
 }).refine((data) => data.password === data.confirmPassword, {
   message: 'auth.passwordMismatch',
   path: ['confirmPassword'],
@@ -86,6 +90,8 @@ export function RegisterForm({ onSwitchToLogin, onEmailVerification }: RegisterF
         firstName: data.firstName,
         lastName: data.lastName,
         phone: data.phone,
+        idNumber: data.idNumber,
+        termsAccepted: data.termsAccepted,
         requestedRole: selectedRole,
       });
 
