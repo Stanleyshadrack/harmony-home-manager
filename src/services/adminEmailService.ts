@@ -341,9 +341,11 @@ export async function sendSubscriptionRenewalConfirmationEmail(
 // User Invitation Email
 interface UserInvitationEmailData {
   recipientEmail: string;
+  recipientName?: string;
   inviterName: string;
   inviterEmail: string;
   role: string;
+  message?: string;
   invitationToken: string;
   expiresAt: string;
 }
@@ -359,7 +361,7 @@ export async function sendUserInvitationEmail(
   const emailLog: EmailLog = {
     id: messageId,
     type: 'user_invitation',
-    recipient: { name: 'New User', email: data.recipientEmail },
+    recipient: { name: data.recipientName || 'New User', email: data.recipientEmail },
     subject: `🎉 You're Invited to Join PropManager as a ${data.role}`,
     status: 'sent',
     sentAt: new Date().toISOString(),
@@ -386,7 +388,7 @@ export async function sendUserInvitationEmail(
 
 function generateInvitationEmailBody(data: UserInvitationEmailData, onboardingUrl: string): string {
   return `
-Hello,
+Dear ${data.recipientName || 'User'},
 
 You have been invited to join PropManager as a ${data.role}!
 
@@ -396,6 +398,8 @@ Invited By: ${data.inviterName} (${data.inviterEmail})
 Role: ${data.role}
 Expires: ${new Date(data.expiresAt).toLocaleDateString()}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${data.message ? `Personal Message:\n"${data.message}"\n\n` : ''}
 
 To complete your registration, please click the link below:
 

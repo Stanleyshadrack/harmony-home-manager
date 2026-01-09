@@ -1098,7 +1098,7 @@ export default function AdminPortal() {
         onInvite={async (data) => {
           const userName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Admin';
           const invitation = await createInvitation(
-            { email: data.email, role: data.role },
+            { email: data.email, firstName: data.firstName, lastName: data.lastName, role: data.role, message: data.message },
             {
               name: userName,
               email: user?.email || 'admin@system.com',
@@ -1107,9 +1107,11 @@ export default function AdminPortal() {
           );
           await sendUserInvitationEmail({
             recipientEmail: data.email,
+            recipientName: data.firstName ? `${data.firstName} ${data.lastName || ''}`.trim() : undefined,
             inviterName: userName,
             inviterEmail: user?.email || 'admin@system.com',
             role: data.role,
+            message: data.message,
             invitationToken: invitation.token,
             expiresAt: invitation.expiresAt,
           });

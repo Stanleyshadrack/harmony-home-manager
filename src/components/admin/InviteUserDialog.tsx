@@ -28,7 +28,10 @@ import { toast } from 'sonner';
 
 const inviteSchema = z.object({
   email: z.string().email('Invalid email address'),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
   role: z.enum(['tenant', 'employee', 'landlord'] as const),
+  message: z.string().max(500).optional(),
 });
 
 type InviteFormData = z.infer<typeof inviteSchema>;
@@ -43,7 +46,7 @@ interface InviteUserDialogProps {
 const roleOptions = [
   { value: 'tenant', label: 'Tenant', icon: User, description: 'Renter of property units' },
   { value: 'employee', label: 'Employee', icon: Wrench, description: 'Staff member for maintenance' },
-  { value: 'landlord', label: 'Landlord', icon: Building2, description: 'Property owner' },
+  { value: 'landlord', label: 'Landlord', icon: Building2, description: 'Property owner (Admin only)' },
 ];
 
 export function InviteUserDialog({ open, onOpenChange, onInvite, inviterRole }: InviteUserDialogProps) {
@@ -68,9 +71,8 @@ export function InviteUserDialog({ open, onOpenChange, onInvite, inviterRole }: 
 
   // Filter role options based on inviter's role
   const availableRoles = roleOptions.filter(role => {
-    if (inviterRole === 'super_admin') return true; // Can invite any role
-    if (inviterRole === 'landlord') return true; // Can invite any role
-    if (inviterRole === 'employee') return role.value === 'tenant'; // Can only invite tenants
+    if (inviterRole === 'super_admin') return true;
+    if (inviterRole === 'landlord') return role.value !== 'landlord';
     return false;
   });
 
@@ -121,6 +123,25 @@ export function InviteUserDialog({ open, onOpenChange, onInvite, inviterRole }: 
             )}
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="firstName">First Name</Label>
+              <Input
+                id="firstName"
+                placeholder="John"
+                {...register('firstName')}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lastName">Last Name</Label>
+              <Input
+                id="lastName"
+                placeholder="Doe"
+                {...register('lastName')}
+              />
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label>Role *</Label>
             <Select
@@ -144,6 +165,19 @@ export function InviteUserDialog({ open, onOpenChange, onInvite, inviterRole }: 
             <p className="text-xs text-muted-foreground">
               {roleOptions.find(r => r.value === selectedRole)?.description}
             </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="message">Personal Message (Optional)</Label>
+            <Textarea
+              id="message"
+              placeholder="Add a personal message to include in the invitation email..."
+              rows={3}
+              {...register('message')}
+            />
+            {errors.message && (
+              <p className="text-sm text-destructive">{errors.message.message}</p>
+            )}
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
