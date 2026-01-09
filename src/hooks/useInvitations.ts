@@ -54,15 +54,12 @@ export function useInvitations() {
       const newInvitation: Invitation = {
         id: `inv-${Date.now()}`,
         email: data.email,
-        firstName: data.firstName,
-        lastName: data.lastName,
         role: data.role,
         status: 'pending',
         invitedBy: invitedBy.name,
         invitedByEmail: invitedBy.email,
         invitedByRole: invitedBy.role,
         token: generateToken(),
-        message: data.message,
         createdAt: new Date().toISOString(),
         expiresAt: expiresAt.toISOString(),
       };
