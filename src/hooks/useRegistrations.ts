@@ -5,7 +5,6 @@ export type RegistrationStatus = 'pending' | 'approved' | 'rejected';
 
 export interface PendingRegistration {
   id: string;
-  email: string;
   firstName: string;
   lastName: string;
   phone: string;

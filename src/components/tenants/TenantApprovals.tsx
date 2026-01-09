@@ -53,7 +53,7 @@ export function TenantApprovals() {
       
       // In-app notification
       addNotification({
-        userId: registration.email,
+        userId: registration.phone,
         title: 'Registration Approved!',
         message: 'Your tenant account has been approved by the landlord. You can now log in.',
         category: 'registration_approved',
@@ -92,7 +92,7 @@ export function TenantApprovals() {
       
       // In-app notification
       addNotification({
-        userId: selectedRegistration.email,
+        userId: selectedRegistration.phone,
         title: 'Registration Rejected',
         message: `Your tenant registration was not approved. Reason: ${rejectionReason}`,
         category: 'registration_rejected',
@@ -178,15 +178,12 @@ export function TenantApprovals() {
                     </p>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground mt-1">
                       <span className="flex items-center gap-1">
-                        <Mail className="h-3 w-3" />
-                        {registration.email}
+                        <Phone className="h-3 w-3" />
+                        {registration.phone}
                       </span>
-                      {registration.phone && (
-                        <span className="flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          {registration.phone}
-                        </span>
-                      )}
+                      <span className="flex items-center gap-1">
+                        ID: {registration.idNumber}
+                      </span>
                       <span className="flex items-center gap-1">
                         <Clock className="h-3 w-3" />
                         {formatDistanceToNow(new Date(registration.submittedAt), { addSuffix: true })}

@@ -137,7 +137,6 @@ export default function Onboarding() {
 
       // Create pending registration with extended data
       await submitRegistration({
-        email: invitation.email,
         firstName: data.firstName,
         lastName: data.lastName,
         phone: data.phone,
