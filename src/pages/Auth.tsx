@@ -9,9 +9,11 @@ import { ResetPasswordForm } from '@/components/auth/ResetPasswordForm';
 import { EmailVerificationForm } from '@/components/auth/EmailVerificationForm';
 import { TwoFactorVerification } from '@/components/auth/TwoFactorVerification';
 import { AwaitingApproval } from '@/components/auth/AwaitingApproval';
+import { TestSimulator } from '@/components/auth/TestSimulator';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
-import { Building2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Building2, FlaskConical } from 'lucide-react';
 
 type AuthView = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'email-verification' | '2fa-verification' | 'awaiting-approval';
 
@@ -24,6 +26,7 @@ export default function Auth() {
   const [twoFactorEmail, setTwoFactorEmail] = useState('');
   const [pendingLoginRedirect, setPendingLoginRedirect] = useState<string | null>(null);
   const [pendingApprovalData, setPendingApprovalData] = useState<{ email: string; role: string } | null>(null);
+  const [showTestSimulator, setShowTestSimulator] = useState(false);
 
   // Redirect if already authenticated
   if (isAuthenticated) {
@@ -84,6 +87,15 @@ export default function Auth() {
             <span className="font-bold text-lg">{t('common.appName')}</span>
           </div>
           <div className="flex items-center gap-2 ml-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowTestSimulator(!showTestSimulator)}
+              className="text-warning border-warning/50 hover:bg-warning/10"
+            >
+              <FlaskConical className="h-4 w-4 mr-1" />
+              Test
+            </Button>
             <LanguageSwitcher />
             <ThemeSwitcher />
           </div>
@@ -91,7 +103,12 @@ export default function Auth() {
 
         {/* Form Container */}
         <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8">
-          <div className="w-full max-w-md space-y-8">
+          <div className="w-full max-w-md space-y-6">
+            {/* Test Simulator */}
+            {showTestSimulator && (
+              <TestSimulator onClose={() => setShowTestSimulator(false)} />
+            )}
+
             {(authView === 'login' || authView === 'register') && (
               <div className="text-center">
                 <h2 className="text-2xl font-bold tracking-tight">
