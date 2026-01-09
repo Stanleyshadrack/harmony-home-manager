@@ -15,6 +15,7 @@ import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { useInvitations } from '@/hooks/useInvitations';
 import { usePendingRegistrations } from '@/hooks/useRegistrations';
 import { toast } from 'sonner';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Building2,
   Mail,
@@ -28,13 +29,24 @@ import {
   XCircle,
   Clock,
   AlertTriangle,
+  CreditCard,
+  UserCheck,
+  Users,
 } from 'lucide-react';
 
 const onboardingSchema = z
   .object({
     firstName: z.string().min(2, 'First name must be at least 2 characters'),
     lastName: z.string().min(2, 'Last name must be at least 2 characters'),
-    phone: z.string().optional(),
+    phone: z.string().min(10, 'Phone number is required'),
+    idNumber: z.string().min(5, 'ID number is required'),
+    // Tenant-only optional fields
+    emergencyContactName: z.string().optional(),
+    emergencyContactPhone: z.string().optional(),
+    relationship: z.string().optional(),
+    termsAccepted: z.boolean().refine((val) => val === true, {
+      message: 'You must accept the terms and conditions',
+    }),
     password: z.string().min(8, 'Password must be at least 8 characters'),
     confirmPassword: z.string(),
   })
@@ -72,12 +84,18 @@ export default function Onboarding() {
       firstName: '',
       lastName: '',
       phone: '',
+      idNumber: '',
+      emergencyContactName: '',
+      emergencyContactPhone: '',
+      relationship: '',
+      termsAccepted: false,
       password: '',
       confirmPassword: '',
     },
   });
 
   const password = watch('password');
+  const isTenant = invitation?.role === 'tenant';
 
   useEffect(() => {
     if (!token) {
@@ -117,12 +135,17 @@ export default function Onboarding() {
         return;
       }
 
-      // Create pending registration
+      // Create pending registration with extended data
       await submitRegistration({
         email: invitation.email,
         firstName: data.firstName,
         lastName: data.lastName,
         phone: data.phone,
+        idNumber: data.idNumber,
+        emergencyContactName: data.emergencyContactName,
+        emergencyContactPhone: data.emergencyContactPhone,
+        relationship: data.relationship,
+        termsAccepted: data.termsAccepted,
         requestedRole: invitation.role,
       });
 
@@ -342,7 +365,7 @@ export default function Onboarding() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="phone">Phone Number</Label>
+                    <Label htmlFor="phone">Phone Number *</Label>
                     <div className="relative">
                       <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
@@ -353,7 +376,71 @@ export default function Onboarding() {
                         {...register('phone')}
                       />
                     </div>
+                    {errors.phone && (
+                      <p className="text-sm text-destructive">{errors.phone.message}</p>
+                    )}
                   </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="idNumber">ID Number *</Label>
+                    <div className="relative">
+                      <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="idNumber"
+                        placeholder="Enter your ID number"
+                        className="pl-10"
+                        {...register('idNumber')}
+                      />
+                    </div>
+                    {errors.idNumber && (
+                      <p className="text-sm text-destructive">{errors.idNumber.message}</p>
+                    )}
+                  </div>
+
+                  {/* Tenant-only emergency contact fields */}
+                  {isTenant && (
+                    <div className="space-y-4 border-t pt-4">
+                      <h4 className="text-sm font-medium flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        Emergency Contact (Optional)
+                      </h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="emergencyContactName">Contact Name</Label>
+                          <div className="relative">
+                            <UserCheck className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              id="emergencyContactName"
+                              placeholder="Emergency contact name"
+                              className="pl-10"
+                              {...register('emergencyContactName')}
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="emergencyContactPhone">Contact Phone</Label>
+                          <div className="relative">
+                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              id="emergencyContactPhone"
+                              type="tel"
+                              placeholder="+254 700 000 000"
+                              className="pl-10"
+                              {...register('emergencyContactPhone')}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="relationship">Relationship</Label>
+                        <Input
+                          id="relationship"
+                          placeholder="e.g., Spouse, Parent, Sibling"
+                          {...register('relationship')}
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <Label htmlFor="password">Password *</Label>
@@ -397,6 +484,30 @@ export default function Onboarding() {
                     {errors.confirmPassword && (
                       <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>
                     )}
+                  </div>
+
+                  <div className="flex items-start space-x-3 pt-2">
+                    <Checkbox
+                      id="termsAccepted"
+                      onCheckedChange={(checked) => {
+                        const event = {
+                          target: { name: 'termsAccepted', value: checked },
+                        };
+                        register('termsAccepted').onChange(event as any);
+                      }}
+                      {...register('termsAccepted')}
+                    />
+                    <div className="space-y-1 leading-none">
+                      <Label htmlFor="termsAccepted" className="text-sm cursor-pointer">
+                        I accept the terms and conditions *
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        By checking this box, you agree to our Terms of Service and Privacy Policy.
+                      </p>
+                      {errors.termsAccepted && (
+                        <p className="text-sm text-destructive">{errors.termsAccepted.message}</p>
+                      )}
+                    </div>
                   </div>
 
                   <div className="bg-warning/10 border border-warning/30 rounded-lg p-3">

@@ -8,7 +8,13 @@ export interface PendingRegistration {
   email: string;
   firstName: string;
   lastName: string;
-  phone?: string;
+  phone: string;
+  idNumber: string;
+  // Tenant-only optional fields
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  relationship?: string;
+  termsAccepted: boolean;
   requestedRole: UserRole;
   status: RegistrationStatus;
   submittedAt: string;
