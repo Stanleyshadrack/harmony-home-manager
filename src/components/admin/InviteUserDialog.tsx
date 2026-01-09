@@ -14,7 +14,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -28,10 +27,7 @@ import { toast } from 'sonner';
 
 const inviteSchema = z.object({
   email: z.string().email('Invalid email address'),
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
   role: z.enum(['tenant', 'employee', 'landlord'] as const),
-  message: z.string().max(500).optional(),
 });
 
 type InviteFormData = z.infer<typeof inviteSchema>;
@@ -123,24 +119,6 @@ export function InviteUserDialog({ open, onOpenChange, onInvite, inviterRole }: 
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="firstName">First Name</Label>
-              <Input
-                id="firstName"
-                placeholder="John"
-                {...register('firstName')}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lastName">Last Name</Label>
-              <Input
-                id="lastName"
-                placeholder="Doe"
-                {...register('lastName')}
-              />
-            </div>
-          </div>
 
           <div className="space-y-2">
             <Label>Role *</Label>
@@ -167,18 +145,6 @@ export function InviteUserDialog({ open, onOpenChange, onInvite, inviterRole }: 
             </p>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="message">Personal Message (Optional)</Label>
-            <Textarea
-              id="message"
-              placeholder="Add a personal message to include in the invitation email..."
-              rows={3}
-              {...register('message')}
-            />
-            {errors.message && (
-              <p className="text-sm text-destructive">{errors.message.message}</p>
-            )}
-          </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
             <Button
