@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { tokenService } from '@/services/tokenService';
 
 // User roles enum matching database
 export type UserRole = 'super_admin' | 'landlord' | 'employee' | 'tenant';
@@ -23,7 +24,8 @@ interface AuthContextType {
   user: UserWithRole | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<{ error: string | null; redirect?: string; pendingApproval?: { email: string; role: string } }>;
+  login: (email: string, password: string) => Promise<{ error: string | null; redirect?: string; pendingApproval?: { email: string; role: string }; userId?: string }>;
+  completeLogin: (email: string) => void;
   register: (data: RegisterData) => Promise<{ error: string | null }>;
   logout: () => Promise<void>;
 }
@@ -120,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   }, []);
 
-  const login = async (email: string, password: string): Promise<{ error: string | null; redirect?: string; pendingApproval?: { email: string; role: string } }> => {
+  const login = async (email: string, password: string): Promise<{ error: string | null; redirect?: string; pendingApproval?: { email: string; role: string }; userId?: string }> => {
     setIsLoading(true);
     try {
       const emailLower = email.toLowerCase();
@@ -128,8 +130,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Check if it's a demo user first
       const demoUser = demoUsers[emailLower];
       if (demoUser && password === demoUser.password) {
+        const userId = `demo-${demoUser.role}`;
         const newUser: UserWithRole = {
-          id: `demo-${demoUser.role}`,
+          id: userId,
           email: emailLower,
           firstName: demoUser.firstName,
           lastName: demoUser.lastName,
@@ -138,9 +141,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           assignedPropertyId: demoUser.role === 'employee' ? '1' : undefined,
           assignedUnitId: demoUser.role === 'tenant' ? '1' : undefined,
         };
-        setUser(newUser);
-        saveUser(newUser);
-        return { error: null, redirect: roleRedirects[demoUser.role] };
+        // Don't set user here - wait for OTP verification
+        // Return userId for OTP flow
+        return { error: null, redirect: roleRedirects[demoUser.role], userId };
       }
       
       // Look up user in registrations
@@ -163,22 +166,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: 'Your account is not approved yet.' };
       }
       
-      // Approved user - log them in with their registered role
+      // Approved user - validate password and return userId for OTP flow
       if (role && password) {
-        const newUser: UserWithRole = {
-          id: registration?.id || `user-${Date.now()}`,
-          email,
-          firstName: registration?.firstName,
-          lastName: registration?.lastName,
-          phone: registration?.phone,
-          role,
-          isApproved: true,
-          assignedPropertyId: role === 'employee' ? registration?.assignedPropertyId : undefined,
-          assignedUnitId: role === 'tenant' ? registration?.assignedUnitId : undefined,
-        };
-        setUser(newUser);
-        saveUser(newUser);
-        return { error: null, redirect: roleRedirects[role] };
+        const userId = registration?.id || `user-${Date.now()}`;
+        // Don't set user here - wait for OTP verification
+        // Return userId for OTP flow
+        return { error: null, redirect: roleRedirects[role], userId };
       }
       
       return { error: 'Invalid credentials' };
@@ -186,6 +179,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: 'An error occurred during login' };
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Complete login after OTP verification
+  const completeLogin = (email: string) => {
+    const emailLower = email.toLowerCase();
+    
+    // Check if demo user
+    const demoUser = demoUsers[emailLower];
+    if (demoUser) {
+      const newUser: UserWithRole = {
+        id: `demo-${demoUser.role}`,
+        email: emailLower,
+        firstName: demoUser.firstName,
+        lastName: demoUser.lastName,
+        role: demoUser.role,
+        isApproved: true,
+        assignedPropertyId: demoUser.role === 'employee' ? '1' : undefined,
+        assignedUnitId: demoUser.role === 'tenant' ? '1' : undefined,
+      };
+      setUser(newUser);
+      saveUser(newUser);
+      return;
+    }
+    
+    // Check registered users
+    const { found, role, registration } = findUserRegistration(email);
+    if (found && role) {
+      const newUser: UserWithRole = {
+        id: registration?.id || `user-${Date.now()}`,
+        email,
+        firstName: registration?.firstName,
+        lastName: registration?.lastName,
+        phone: registration?.phone,
+        role,
+        isApproved: true,
+        assignedPropertyId: role === 'employee' ? registration?.assignedPropertyId : undefined,
+        assignedUnitId: role === 'tenant' ? registration?.assignedUnitId : undefined,
+      };
+      setUser(newUser);
+      saveUser(newUser);
     }
   };
 
@@ -206,6 +240,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setUser(null);
       saveUser(null);
+      tokenService.clearTokens();
     } finally {
       setIsLoading(false);
     }
@@ -218,6 +253,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         isAuthenticated: !!user,
         login,
+        completeLogin,
         register,
         logout,
       }}
