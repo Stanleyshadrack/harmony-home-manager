@@ -44,11 +44,11 @@ type LoginFormData = z.infer<typeof loginSchema>;
 interface LoginFormProps {
   onSwitchToRegister: () => void;
   onForgotPassword: () => void;
-  onRequire2FA?: (email: string, redirect: string | null) => void;
+  onRequireOTP?: (email: string, userId: string, redirect: string | null) => void;
   onAwaitingApproval?: (email: string, role: string) => void;
 }
 
-export function LoginForm({ onSwitchToRegister, onForgotPassword, onRequire2FA, onAwaitingApproval }: LoginFormProps) {
+export function LoginForm({ onSwitchToRegister, onForgotPassword, onRequireOTP, onAwaitingApproval }: LoginFormProps) {
   const { t } = useTranslation();
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -111,7 +111,7 @@ export function LoginForm({ onSwitchToRegister, onForgotPassword, onRequire2FA, 
       return;
     }
 
-    const { error, redirect, pendingApproval } = await login(data.email, data.password);
+    const { error, redirect, pendingApproval, userId } = await login(data.email, data.password);
     
     // Check if user is awaiting approval
     if (pendingApproval && onAwaitingApproval) {
@@ -135,14 +135,13 @@ export function LoginForm({ onSwitchToRegister, onForgotPassword, onRequire2FA, 
       resetAttempts(data.email);
       setAttemptsWarning(null);
       
-      // Check if 2FA is enabled for this user
-      const twoFactorData = localStorage.getItem(`2fa_${data.email}`);
-      if (twoFactorData) {
-        const parsedData = JSON.parse(twoFactorData);
-        if (parsedData.enabled && onRequire2FA) {
-          onRequire2FA(data.email, redirect || null);
-          return;
-        }
+      // Always require email OTP verification
+      if (onRequireOTP) {
+        toast.info('Verification required', {
+          description: 'A verification code will be sent to your email.',
+        });
+        onRequireOTP(data.email, userId || `user-${Date.now()}`, redirect || null);
+        return;
       }
       
       toast.success(t('auth.loginSuccess'));
