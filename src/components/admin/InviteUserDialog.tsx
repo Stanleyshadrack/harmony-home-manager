@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -24,10 +23,11 @@ import {
 import { UserPlus, Loader2, Mail, User, Building2, Wrench } from 'lucide-react';
 import { UserRole } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { inviteUserService } from '@/api/service/invite.user.service.api';
 
 const inviteSchema = z.object({
   email: z.string().email('Invalid email address'),
-  role: z.enum(['tenant', 'employee', 'landlord'] as const),
+  role: z.enum(['tenant', 'employee', 'landlord']),
 });
 
 type InviteFormData = z.infer<typeof inviteSchema>;
@@ -35,7 +35,6 @@ type InviteFormData = z.infer<typeof inviteSchema>;
 interface InviteUserDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onInvite: (data: InviteFormData) => Promise<void>;
   inviterRole: UserRole;
 }
 
@@ -45,8 +44,17 @@ const roleOptions = [
   { value: 'landlord', label: 'Landlord', icon: Building2, description: 'Property owner (Admin only)' },
 ];
 
-export function InviteUserDialog({ open, onOpenChange, onInvite, inviterRole }: InviteUserDialogProps) {
-  const { t } = useTranslation();
+const roleMap = {
+  tenant: 'TENANT',
+  employee: 'EMPLOYEE',
+  landlord: 'LANDLORD',
+} as const;
+
+export function InviteUserDialog({
+  open,
+  onOpenChange,
+  inviterRole,
+}: InviteUserDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
@@ -58,14 +66,11 @@ export function InviteUserDialog({ open, onOpenChange, onInvite, inviterRole }: 
     formState: { errors },
   } = useForm<InviteFormData>({
     resolver: zodResolver(inviteSchema),
-    defaultValues: {
-      role: 'tenant',
-    },
+    defaultValues: { role: 'tenant' },
   });
 
   const selectedRole = watch('role');
 
-  // Filter role options based on inviter's role
   const availableRoles = roleOptions.filter(role => {
     if (inviterRole === 'super_admin') return true;
     if (inviterRole === 'landlord') return role.value !== 'landlord';
@@ -75,13 +80,18 @@ export function InviteUserDialog({ open, onOpenChange, onInvite, inviterRole }: 
   const onSubmit = async (data: InviteFormData) => {
     setIsSubmitting(true);
     try {
-      await onInvite(data);
+      await inviteUserService({
+        email: data.email,
+        role: roleMap[data.role],
+      });
+
       toast.success('Invitation sent!', {
         description: `An invitation email has been sent to ${data.email}`,
       });
+
       reset();
       onOpenChange(false);
-    } catch (error) {
+    } catch {
       toast.error('Failed to send invitation');
     } finally {
       setIsSubmitting(false);
@@ -97,17 +107,16 @@ export function InviteUserDialog({ open, onOpenChange, onInvite, inviterRole }: 
             Invite User
           </DialogTitle>
           <DialogDescription>
-            Send an invitation email to add a new user to the system. They will complete onboarding and await approval.
+            Send an invitation email to add a new user to the system.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email Address *</Label>
+            <Label>Email Address *</Label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                id="email"
                 type="email"
                 placeholder="user@example.com"
                 className="pl-10"
@@ -119,22 +128,23 @@ export function InviteUserDialog({ open, onOpenChange, onInvite, inviterRole }: 
             )}
           </div>
 
-
           <div className="space-y-2">
             <Label>Role *</Label>
             <Select
               value={selectedRole}
-              onValueChange={(value) => setValue('role', value as 'tenant' | 'employee' | 'landlord')}
+              onValueChange={(value) =>
+                setValue('role', value as InviteFormData['role'])
+              }
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
               <SelectContent>
-                {availableRoles.map((role) => (
+                {availableRoles.map(role => (
                   <SelectItem key={role.value} value={role.value}>
                     <div className="flex items-center gap-2">
                       <role.icon className="h-4 w-4" />
-                      <span>{role.label}</span>
+                      {role.label}
                     </div>
                   </SelectItem>
                 ))}
@@ -145,14 +155,8 @@ export function InviteUserDialog({ open, onOpenChange, onInvite, inviterRole }: 
             </p>
           </div>
 
-
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}
-            >
+          <DialogFooter>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>

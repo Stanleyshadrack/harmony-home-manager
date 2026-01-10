@@ -116,6 +116,9 @@ export default function AdminPortal() {
   const auditLogs = getAuditLogs();
   const activitySummary = getActivitySummary();
 
+
+  // const inviteUser = 
+
   // Platform Stats
   const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
   const totalLandlords = landlords.length;
@@ -312,10 +315,13 @@ export default function AdminPortal() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+
+
             <Button onClick={() => setShowInviteDialog(true)}>
               <UserPlus className="h-4 w-4 mr-2" />
               Invite User
             </Button>
+
             <Badge variant="outline" className="bg-primary/10 text-primary">
               <Shield className="h-3 w-3 mr-1" />
               Super Admin
@@ -1092,29 +1098,11 @@ export default function AdminPortal() {
 
       {/* Invite User Dialog */}
       <InviteUserDialog
-        open={showInviteDialog}
-        onOpenChange={setShowInviteDialog}
-        inviterRole={user?.role || 'super_admin'}
-        onInvite={async (data) => {
-          const userName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Admin';
-          const invitation = await createInvitation(
-            { email: data.email, role: data.role },
-            {
-              name: userName,
-              email: user?.email || 'admin@system.com',
-              role: user?.role || 'super_admin',
-            }
-          );
-          await sendUserInvitationEmail({
-            recipientEmail: data.email,
-            inviterName: userName,
-            inviterEmail: user?.email || 'admin@system.com',
-            role: data.role,
-            invitationToken: invitation.token,
-            expiresAt: invitation.expiresAt,
-          });
-        }}
-      />
+  open={showInviteDialog}
+  onOpenChange={setShowInviteDialog}
+  inviterRole={user?.role || 'super_admin'}
+/>
+
     </DashboardLayout>
   );
 }

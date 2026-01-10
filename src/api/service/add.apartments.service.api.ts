@@ -1,7 +1,7 @@
 import { createRequest } from "@/apiActions/meta.payload.wrapper";
-import { apiRequest } from "./https";
-import { ADD_APARTMENT_URL } from "./constants/constants";
-import { ApartmentApiResponse, ApartmentFormData } from "./dto/apartmentApiResponse";
+import { apiRequest } from "../https";
+import { ADD_APARTMENT_URL } from "../constants/constants";
+import { ApartmentApiResponse, ApartmentFormData } from "../dto/apartmentApiResponse";
 
 export const ApartmentsApi = {
   add: async (data: ApartmentFormData) => {
