@@ -1,13 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { RegisterForm } from '@/components/auth/RegisterForm';
 import { ForgotPasswordForm } from '@/components/auth/ForgotPasswordForm';
 import { ResetPasswordForm } from '@/components/auth/ResetPasswordForm';
 import { EmailVerificationForm } from '@/components/auth/EmailVerificationForm';
-import { TwoFactorVerification } from '@/components/auth/TwoFactorVerification';
+import { OTPVerificationPage } from '@/components/auth/OTPVerificationPage';
 import { AwaitingApproval } from '@/components/auth/AwaitingApproval';
 import { TestSimulator } from '@/components/auth/TestSimulator';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
@@ -15,23 +15,58 @@ import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Button } from '@/components/ui/button';
 import { Building2, FlaskConical } from 'lucide-react';
 
-type AuthView = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'email-verification' | '2fa-verification' | 'awaiting-approval';
+type AuthView = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'email-verification' | 'verify-otp' | 'awaiting-approval';
 
 export default function Auth() {
   const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
-  const [authView, setAuthView] = useState<AuthView>('login');
+  const location = useLocation();
+  const navigate = useNavigate();
+  
+  // Determine initial view based on route
+  const getInitialView = (): AuthView => {
+    if (location.pathname === '/auth/verify-otp') {
+      return 'verify-otp';
+    }
+    return 'login';
+  };
+  
+  const [authView, setAuthView] = useState<AuthView>(getInitialView);
   const [resetEmail, setResetEmail] = useState('');
   const [verificationEmail, setVerificationEmail] = useState('');
-  const [twoFactorEmail, setTwoFactorEmail] = useState('');
+  const [otpEmail, setOtpEmail] = useState('');
   const [pendingLoginRedirect, setPendingLoginRedirect] = useState<string | null>(null);
   const [pendingApprovalData, setPendingApprovalData] = useState<{ email: string; role: string } | null>(null);
   const [showTestSimulator, setShowTestSimulator] = useState(false);
+
+  // Handle route changes
+  useEffect(() => {
+    if (location.pathname === '/auth/verify-otp') {
+      // Check if we have email in state, otherwise redirect to login
+      if (!otpEmail) {
+        navigate('/auth', { replace: true });
+      }
+    }
+  }, [location.pathname, otpEmail, navigate]);
 
   // Redirect if already authenticated
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
   }
+
+  const handleRequire2FA = (email: string, redirect: string | null) => {
+    setOtpEmail(email);
+    setPendingLoginRedirect(redirect);
+    setAuthView('verify-otp');
+    navigate('/auth/verify-otp');
+  };
+
+  const handleBackFromOTP = () => {
+    setOtpEmail('');
+    setPendingLoginRedirect(null);
+    setAuthView('login');
+    navigate('/auth');
+  };
 
   return (
     <div className="min-h-screen flex">
@@ -125,11 +160,7 @@ export default function Auth() {
                 <LoginForm 
                   onSwitchToRegister={() => setAuthView('register')} 
                   onForgotPassword={() => setAuthView('forgot-password')}
-                  onRequire2FA={(email, redirect) => {
-                    setTwoFactorEmail(email);
-                    setPendingLoginRedirect(redirect);
-                    setAuthView('2fa-verification');
-                  }}
+                  onRequire2FA={handleRequire2FA}
                   onAwaitingApproval={(email, role) => {
                     setPendingApprovalData({ email, role });
                     setAuthView('awaiting-approval');
@@ -168,14 +199,11 @@ export default function Auth() {
                   onSuccess={() => setAuthView('login')}
                 />
               )}
-              {authView === '2fa-verification' && (
-                <TwoFactorVerification
-                  email={twoFactorEmail}
-                  onBack={() => setAuthView('login')}
-                  onSuccess={() => {
-                    // Complete the login after 2FA verification
-                    window.location.href = pendingLoginRedirect || '/dashboard';
-                  }}
+              {authView === 'verify-otp' && otpEmail && (
+                <OTPVerificationPage
+                  email={otpEmail}
+                  redirectPath={pendingLoginRedirect}
+                  onBack={handleBackFromOTP}
                 />
               )}
               {authView === 'awaiting-approval' && pendingApprovalData && (
