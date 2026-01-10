@@ -49,8 +49,8 @@ const App = () => (
                 {/* Public routes */}
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
-                <Route path="/auth/verify-otp" element={<Auth />} />
                 <Route path="/onboarding" element={<Onboarding />} />
+                <Route path="/auth" element={<Auth />} />
 
                 {/* Super Admin only routes */}
                 <Route path="/admin-portal" element={

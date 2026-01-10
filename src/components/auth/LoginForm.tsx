@@ -131,14 +131,22 @@ export function LoginForm({ onSwitchToRegister, onForgotPassword, onRequire2FA, 
         toast.error(error);
       }
     } else {
-      // Reset attempts on successful credential validation
+      // Reset attempts on successful login
       resetAttempts(data.email);
       setAttemptsWarning(null);
       
-      // Always require MFA verification after successful login
-      if (onRequire2FA) {
-        onRequire2FA(data.email, redirect || null);
+      // Check if 2FA is enabled for this user
+      const twoFactorData = localStorage.getItem(`2fa_${data.email}`);
+      if (twoFactorData) {
+        const parsedData = JSON.parse(twoFactorData);
+        if (parsedData.enabled && onRequire2FA) {
+          onRequire2FA(data.email, redirect || null);
+          return;
+        }
       }
+      
+      toast.success(t('auth.loginSuccess'));
+      navigate(redirect || '/dashboard');
     }
   };
 
