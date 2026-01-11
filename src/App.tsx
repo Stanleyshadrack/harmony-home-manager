@@ -32,6 +32,7 @@ import Employees from "./pages/Employees";
 import NotificationLogs from "./pages/NotificationLogs";
 import PropertyDetail from "./pages/PropertyDetail";
 import Onboarding from "./pages/Onboarding";
+import EmailTemplates from "./pages/EmailTemplates";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -118,6 +119,11 @@ const App = () => (
                 <Route path="/notification-logs" element={
                   <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
                     <NotificationLogs />
+                  </ProtectedRoute>
+                } />
+                <Route path="/email-templates" element={
+                  <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
+                    <EmailTemplates />
                   </ProtectedRoute>
                 } />
 
