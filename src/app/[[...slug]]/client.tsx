@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic'
 
-const App = dynamic(() => import('../../App'), {
+const App = dynamic(() => import("./page"), {
   ssr: false,
   loading: () => (
     <div className="flex h-screen items-center justify-center text-muted-foreground">

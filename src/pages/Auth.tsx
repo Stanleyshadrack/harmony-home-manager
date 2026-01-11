@@ -127,9 +127,8 @@ export default function Auth() {
                 <LoginForm 
                   onSwitchToRegister={() => setAuthView('register')} 
                   onForgotPassword={() => setAuthView('forgot-password')}
-                  onRequireOTP={(email, userId, redirect) => {
+                  onRequireOTP={(email, redirect) => {
                     setOtpEmail(email);
-                    setOtpUserId(userId);
                     setPendingLoginRedirect(redirect);
                     setAuthView('email-otp');
                   }}
@@ -174,13 +173,13 @@ export default function Auth() {
               {authView === 'email-otp' && (
                 <EmailOTPVerification
                   email={otpEmail}
-                  userId={otpUserId}
+                
                   onBack={() => setAuthView('login')}
                   onSuccess={(tokens: AuthTokens) => {
                     console.log('Login successful with tokens:', {
                       accessToken: tokens.accessToken.substring(0, 20) + '...',
                       refreshToken: tokens.refreshToken.substring(0, 20) + '...',
-                      expiresAt: new Date(tokens.expiresAt).toISOString(),
+    
                     });
                     // Complete the login to set the user in context
                     completeLogin(otpEmail);

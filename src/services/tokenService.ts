@@ -2,8 +2,6 @@
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
-  expiresAt: number; // timestamp
-  refreshExpiresAt: number; // timestamp
 }
 
 const TOKEN_STORAGE_KEY = 'auth_tokens';
@@ -28,9 +26,7 @@ export const tokenService = {
     const now = Date.now();
     const tokens: AuthTokens = {
       accessToken: `${userId}_${generateToken(32)}_${now}`,
-      refreshToken: `refresh_${userId}_${generateToken(48)}`,
-      expiresAt: now + ACCESS_TOKEN_EXPIRY,
-      refreshExpiresAt: now + REFRESH_TOKEN_EXPIRY,
+      refreshToken: `refresh_${userId}_${generateToken(48)}`
     };
     return tokens;
   },
@@ -84,8 +80,6 @@ export const tokenService = {
     const newTokens: AuthTokens = {
       accessToken: `${userId}_${generateToken(32)}_${now}`,
       refreshToken: tokens.refreshToken, // Keep same refresh token
-      expiresAt: now + ACCESS_TOKEN_EXPIRY,
-      refreshExpiresAt: tokens.refreshExpiresAt, // Keep same expiry
     };
     
     this.storeTokens(newTokens);

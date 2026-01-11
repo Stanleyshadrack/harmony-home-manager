@@ -16,9 +16,7 @@ export async function apiRequest<TReq, TRes>({
   body,
 }: ApiRequestOptions<TReq>): Promise<TRes> {
 
-  const token = localStorage.getItem("access_token");
-
-  console.log(token)
+  const token = localStorage.getItem("accessToken");
 
   const res = await fetch(`${BASE_URL}${path}`, {
     method,
@@ -30,10 +28,19 @@ export async function apiRequest<TReq, TRes>({
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text);
+    let message = "Request failed";
+
+    try {
+      const errorJson = await res.json();
+      message = errorJson.message ?? message;
+    } catch {
+      message = await res.text();
+    }
+
+    throw new Error(message);
   }
 
   return res.json();
 }
+
 

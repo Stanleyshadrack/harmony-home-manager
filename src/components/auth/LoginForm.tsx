@@ -25,6 +25,7 @@ import {
   formatRemainingTime,
   getMaxAttempts,
 } from '@/services/loginSecurityService';
+import { loginService } from '@/api/service/login.service';
 
 const demoAccounts = [
   { label: 'Super Admin', email: 'admin@demo.com', password: 'admin123' },
@@ -44,9 +45,11 @@ type LoginFormData = z.infer<typeof loginSchema>;
 interface LoginFormProps {
   onSwitchToRegister: () => void;
   onForgotPassword: () => void;
-  onRequireOTP?: (email: string, userId: string, redirect: string | null) => void;
+ onRequireOTP?: (email: string, redirect: string | null) => void;
   onAwaitingApproval?: (email: string, role: string) => void;
 }
+
+
 
 export function LoginForm({ onSwitchToRegister, onForgotPassword, onRequireOTP, onAwaitingApproval }: LoginFormProps) {
   const { t } = useTranslation();
@@ -103,64 +106,75 @@ export function LoginForm({ onSwitchToRegister, onForgotPassword, onRequireOTP, 
   };
 
   const onSubmit = async (data: LoginFormData) => {
-    // Check if account is locked
-    const lockStatus = isAccountLocked(data.email);
-    if (lockStatus.locked) {
-      setLockoutInfo(lockStatus);
-      toast.error(`Account locked. Try again in ${formatRemainingTime(lockStatus.remainingMs)}`);
-      return;
-    }
+  const lockStatus = isAccountLocked(data.email);
+  if (lockStatus.locked) {
+    setLockoutInfo(lockStatus);
+    toast.error(
+      `Account locked. Try again in ${formatRemainingTime(lockStatus.remainingMs)}`
+    );
+    return;
+  }
 
-    const { error, redirect, pendingApproval, userId } = await login(data.email, data.password);
-    
-    // Check if user is awaiting approval
-    if (pendingApproval && onAwaitingApproval) {
-      onAwaitingApproval(data.email, pendingApproval.role);
-      return;
-    }
-    
-    if (error) {
-      // Record failed attempt
-      const result = recordFailedAttempt(data.email);
-      
-      if (result.locked) {
-        setLockoutInfo({ locked: true, remainingMs: 15 * 60 * 1000 });
-        toast.error(`Too many failed attempts. Account locked for 15 minutes.`);
-      } else {
-        setAttemptsWarning(`${result.attemptsRemaining} attempt${result.attemptsRemaining !== 1 ? 's' : ''} remaining before lockout`);
-        toast.error(error);
-      }
+  
+
+  try {
+    const res = await loginService({
+  email: data.email,
+  password: data.password,
+});
+
+// 🔐 MFA REQUIRED → STOP here
+if (res.mfaRequired) {
+  toast.info("Verification required", {
+    description: "A verification code has been sent to your email.",
+  });
+
+  onRequireOTP?.(data.email, null);
+  return; // DO NOT continue
+}
+
+// 🚀 Normal login (TypeScript knows tokens exist here)
+localStorage.setItem("access_token", res.accessToken);
+localStorage.setItem("refresh_token", res.refreshToken);
+
+toast.success(t("auth.loginSuccess"));
+navigate("/dashboard");
+
+
+  } catch (err: any) {
+    const result = recordFailedAttempt(data.email);
+
+    if (result.locked) {
+      setLockoutInfo({ locked: true, remainingMs: 15 * 60 * 1000 });
+      toast.error("Too many failed attempts. Account locked for 15 minutes.");
     } else {
-      // Reset attempts on successful login
-      resetAttempts(data.email);
-      setAttemptsWarning(null);
-      
-      // Always require email OTP verification
-      if (onRequireOTP) {
-        toast.info('Verification required', {
-          description: 'A verification code will be sent to your email.',
-        });
-        onRequireOTP(data.email, userId || `user-${Date.now()}`, redirect || null);
-        return;
-      }
-      
-      toast.success(t('auth.loginSuccess'));
-      navigate(redirect || '/dashboard');
+      setAttemptsWarning(
+        `${result.attemptsRemaining} attempt${
+          result.attemptsRemaining !== 1 ? "s" : ""
+        } remaining before lockout`
+      );
+      toast.error(err.message || "Invalid credentials");
     }
-  };
+  }
+};
+
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+
       {/* Lockout Alert */}
       {lockoutInfo.locked && (
-        <Alert variant="destructive">
-          <Lock className="h-4 w-4" />
-          <AlertDescription>
-            Account temporarily locked due to too many failed attempts. 
-            Try again in {formatRemainingTime(lockoutInfo.remainingMs)}.
-          </AlertDescription>
-        </Alert>
+  <Alert variant="destructive">
+    <Lock className="h-4 w-4" />
+    <AlertDescription>
+      Account temporarily locked due to too many failed attempts.
+      {lockoutInfo.remainingMs > 0 && (
+        <> Try again in {formatRemainingTime(lockoutInfo.remainingMs)}.</>
       )}
+    </AlertDescription>
+  </Alert>
+)}
+
 
       {/* Attempts Warning */}
       {attemptsWarning && !lockoutInfo.locked && (

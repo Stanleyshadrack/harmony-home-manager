@@ -5,6 +5,8 @@ export const dynamicParams = false; // 🚨 REQUIRED in Next 16
 export function generateStaticParams() {
   return [
     { slug: [] }, // root "/"
+     { slug: ["auth"] },
+    { slug: ["auth", "mfa"] },
   ];
 }
 
