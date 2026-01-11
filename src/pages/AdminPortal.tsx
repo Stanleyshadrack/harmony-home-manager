@@ -75,6 +75,7 @@ import { SubscriptionRenewalDialog } from '@/components/landlords/SubscriptionRe
 import { sendSubscriptionRenewalConfirmationEmail, sendUserInvitationEmail } from '@/services/adminEmailService';
 import { InviteUserDialog } from '@/components/admin/InviteUserDialog';
 import { useInvitations } from '@/hooks/useInvitations';
+import { EmailTemplates } from '@/components/admin/EmailTemplates';
 
 export default function AdminPortal() {
   const { t } = useTranslation();
@@ -790,14 +791,27 @@ export default function AdminPortal() {
           </TabsContent>
 
           {/* Announcements Tab - Bulk Email */}
-          <TabsContent value="announcements" className="space-y-4">
-            <div>
-              <h2 className="text-xl font-semibold">System Announcements</h2>
-              <p className="text-muted-foreground">
-                Send bulk email notifications to users across the platform
-              </p>
-            </div>
-            <BulkEmailForm recipientGroups={bulkEmailRecipientGroups} />
+          <TabsContent value="announcements" className="space-y-6">
+            <Tabs defaultValue="compose" className="space-y-4">
+              <TabsList>
+                <TabsTrigger value="compose">Compose Email</TabsTrigger>
+                <TabsTrigger value="templates">Email Templates</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="compose" className="space-y-4">
+                <div>
+                  <h2 className="text-xl font-semibold">System Announcements</h2>
+                  <p className="text-muted-foreground">
+                    Send bulk email notifications to users across the platform
+                  </p>
+                </div>
+                <BulkEmailForm recipientGroups={bulkEmailRecipientGroups} />
+              </TabsContent>
+              
+              <TabsContent value="templates">
+                <EmailTemplates />
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           {/* System Lock Tab */}
