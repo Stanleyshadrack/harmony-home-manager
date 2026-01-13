@@ -15,12 +15,15 @@ import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Button } from '@/components/ui/button';
 import { Building2, FlaskConical } from 'lucide-react';
 import { AuthTokens } from '@/services/tokenService';
+import { useNavigate } from 'react-router-dom';
+
+
 
 type AuthView = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'email-verification' | 'email-otp' | 'awaiting-approval';
 
 export default function Auth() {
   const { t } = useTranslation();
-  const { isAuthenticated, completeLogin } = useAuth();
+  const { isAuthenticated, completeLogin, isLoading } = useAuth();
   const [authView, setAuthView] = useState<AuthView>('login');
   const [resetEmail, setResetEmail] = useState('');
   const [verificationEmail, setVerificationEmail] = useState('');
@@ -29,11 +32,23 @@ export default function Auth() {
   const [pendingLoginRedirect, setPendingLoginRedirect] = useState<string | null>(null);
   const [pendingApprovalData, setPendingApprovalData] = useState<{ email: string; role: string } | null>(null);
   const [showTestSimulator, setShowTestSimulator] = useState(false);
+  const navigate = useNavigate();
 
-  // Redirect if already authenticated
-  if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
-  }
+
+if (isLoading) {
+  return (
+    <div className="flex h-screen items-center justify-center">
+      <span className="text-muted-foreground">Loading…</span>
+    </div>
+  );
+}
+
+
+// if (isAuthenticated && authView !== 'email-otp') {
+//   return <Navigate to="/dashboard" replace />
+// }
+
+
 
   return (
     <div className="min-h-screen flex">
@@ -182,8 +197,10 @@ export default function Auth() {
     
                     });
                     // Complete the login to set the user in context
-                    completeLogin(otpEmail);
-                    window.location.href = pendingLoginRedirect || '/dashboard';
+                   completeLogin(tokens.accessToken);
+                   // navigate AFTER state update
+                   navigate(pendingLoginRedirect || '/dashboard', { replace: true });
+
                   }}
                 />
               )}

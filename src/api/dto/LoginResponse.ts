@@ -1,5 +1,4 @@
-export type LoginResponse =
-  | {
+export type LoginResponse = {
       mfaRequired: true;
       accessToken: null;
       refreshToken: null;

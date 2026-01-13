@@ -1,8 +1,21 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { tokenService } from '@/services/tokenService';
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+  useCallback,
+} from "react";
 
-// User roles enum matching database
-export type UserRole = 'super_admin' | 'landlord' | 'employee' | 'tenant';
+import { jwtDecode } from "jwt-decode";
+import { tokenService } from "@/services/tokenService";
+import { JwtPayload } from "@/types/auth";
+
+/* =========================
+   Types
+========================= */
+
+export type UserRole = "super_admin" | "landlord" | "employee" | "tenant";
 
 export interface User {
   id: string;
@@ -11,8 +24,8 @@ export interface User {
   lastName?: string;
   phone?: string;
   avatarUrl?: string;
-  assignedPropertyId?: string; // For employees
-  assignedUnitId?: string; // For tenants
+  assignedPropertyId?: string;
+  assignedUnitId?: string;
 }
 
 export interface UserWithRole extends User {
@@ -22,239 +35,140 @@ export interface UserWithRole extends User {
 
 interface AuthContextType {
   user: UserWithRole | null;
-  isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<{ error: string | null; redirect?: string; pendingApproval?: { email: string; role: string }; userId?: string }>;
-  completeLogin: (email: string) => void;
-  register: (data: RegisterData) => Promise<{ error: string | null }>;
-  logout: () => Promise<void>;
+  isLoading: boolean;
+  login: (
+    email: string,
+    password: string
+  ) => Promise<{ error: string | null; redirect?: string }>;
+  completeLogin: (accessToken: string) => void;
+  logout: () => void;
 }
 
-interface RegisterData {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-  phone?: string;
-}
+/* =========================
+   Context
+========================= */
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const AUTH_STORAGE_KEY = 'auth_user';
-
-// Role to redirect path mapping
-const roleRedirects: Record<UserRole, string> = {
-  super_admin: '/admin-portal',
-  landlord: '/dashboard',
-  employee: '/employee-portal',
-  tenant: '/tenant-portal',
-};
-
-// Look up user registration by email to get their role
-const findUserRegistration = (email: string): { 
-  found: boolean; 
-  role?: UserRole; 
-  status?: string; 
-  registration?: any;
-  rejectionReason?: string;
-} => {
-  try {
-    const stored = localStorage.getItem('pending_registrations');
-    if (!stored) return { found: false };
-    
-    const registrations = JSON.parse(stored);
-    const userReg = registrations.find((r: any) => r.email.toLowerCase() === email.toLowerCase());
-    
-    if (!userReg) return { found: false };
-    
-    return { 
-      found: true, 
-      role: userReg.requestedRole,
-      status: userReg.status,
-      registration: userReg,
-      rejectionReason: userReg.rejectionReason,
-    };
-  } catch {
-    return { found: false };
-  }
-};
-
-// Demo user credentials for testing different roles
-const demoUsers: Record<string, { password: string; role: UserRole; firstName: string; lastName: string }> = {
-  'admin@demo.com': { password: 'admin123', role: 'super_admin', firstName: 'Super', lastName: 'Admin' },
-  'landlord@demo.com': { password: 'landlord123', role: 'landlord', firstName: 'Property', lastName: 'Manager' },
-  'employee@demo.com': { password: 'employee123', role: 'employee', firstName: 'James', lastName: 'Kamau' },
-  'tenant@demo.com': { password: 'tenant123', role: 'tenant', firstName: 'John', lastName: 'Doe' },
-};
-
-// Load user from localStorage
-const loadStoredUser = (): UserWithRole | null => {
-  try {
-    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-  } catch {
-    // Ignore errors
-  }
-  return null;
-};
-
-// Save user to localStorage
-const saveUser = (user: UserWithRole | null) => {
-  if (user) {
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
-  } else {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-  }
-};
+/* =========================
+   Provider
+========================= */
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserWithRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load stored user on mount
+  /* =========================
+     Bootstrap user from token
+  ========================= */
+
   useEffect(() => {
-    const storedUser = loadStoredUser();
-    if (storedUser) {
-      setUser(storedUser);
-    }
-    setIsLoading(false);
-  }, []);
+    console.log("🔁 Auth bootstrap starting...");
 
-  const login = async (email: string, password: string): Promise<{ error: string | null; redirect?: string; pendingApproval?: { email: string; role: string }; userId?: string }> => {
-    setIsLoading(true);
-    try {
-      const emailLower = email.toLowerCase();
-      
-      // Check if it's a demo user first
-      const demoUser = demoUsers[emailLower];
-      if (demoUser && password === demoUser.password) {
-        const userId = `demo-${demoUser.role}`;
-        const newUser: UserWithRole = {
-          id: userId,
-          email: emailLower,
-          firstName: demoUser.firstName,
-          lastName: demoUser.lastName,
-          role: demoUser.role,
-          isApproved: true,
-          assignedPropertyId: demoUser.role === 'employee' ? '1' : undefined,
-          assignedUnitId: demoUser.role === 'tenant' ? '1' : undefined,
-        };
-        // Don't set user here - wait for OTP verification
-        // Return userId for OTP flow
-        return { error: null, redirect: roleRedirects[demoUser.role], userId };
-      }
-      
-      // Look up user in registrations
-      const { found, role, status, registration, rejectionReason } = findUserRegistration(email);
-      
-      if (!found) {
-        return { error: 'No account found with this email. Please register first.' };
-      }
-      
-      // Check approval status - return pending approval data instead of error
-      if (status === 'pending') {
-        return { error: null, pendingApproval: { email, role: role || 'tenant' } };
-      }
-      
-      if (status === 'rejected') {
-        return { error: `Your registration was rejected. Reason: ${rejectionReason || 'Not specified'}` };
-      }
-      
-      if (status !== 'approved') {
-        return { error: 'Your account is not approved yet.' };
-      }
-      
-      // Approved user - validate password and return userId for OTP flow
-      if (role && password) {
-        const userId = registration?.id || `user-${Date.now()}`;
-        // Don't set user here - wait for OTP verification
-        // Return userId for OTP flow
-        return { error: null, redirect: roleRedirects[role], userId };
-      }
-      
-      return { error: 'Invalid credentials' };
-    } catch (err) {
-      return { error: 'An error occurred during login' };
-    } finally {
+    const token = tokenService.getAccessToken();
+    console.log("🔁 Stored access token:", token);
+
+    if (!token || typeof token !== "string" || !token.includes(".")) {
+      console.warn("⚠️ No valid JWT found in storage");
       setIsLoading(false);
-    }
-  };
-
-  // Complete login after OTP verification
-  const completeLogin = (email: string) => {
-    const emailLower = email.toLowerCase();
-    
-    // Check if demo user
-    const demoUser = demoUsers[emailLower];
-    if (demoUser) {
-      const newUser: UserWithRole = {
-        id: `demo-${demoUser.role}`,
-        email: emailLower,
-        firstName: demoUser.firstName,
-        lastName: demoUser.lastName,
-        role: demoUser.role,
-        isApproved: true,
-        assignedPropertyId: demoUser.role === 'employee' ? '1' : undefined,
-        assignedUnitId: demoUser.role === 'tenant' ? '1' : undefined,
-      };
-      setUser(newUser);
-      saveUser(newUser);
       return;
     }
-    
-    // Check registered users
-    const { found, role, registration } = findUserRegistration(email);
-    if (found && role) {
-      const newUser: UserWithRole = {
-        id: registration?.id || `user-${Date.now()}`,
-        email,
-        firstName: registration?.firstName,
-        lastName: registration?.lastName,
-        phone: registration?.phone,
-        role,
+
+    try {
+      const decoded = jwtDecode<JwtPayload>(token);
+      console.log("✅ JWT decoded on bootstrap:", decoded);
+
+      const userFromToken: UserWithRole = {
+        id: String(decoded.userId),
+        email: decoded.sub,
+        role: decoded.role.toLowerCase() as UserRole,
         isApproved: true,
-        assignedPropertyId: role === 'employee' ? registration?.assignedPropertyId : undefined,
-        assignedUnitId: role === 'tenant' ? registration?.assignedUnitId : undefined,
       };
-      setUser(newUser);
-      saveUser(newUser);
-    }
-  };
 
-  const register = async (data: RegisterData): Promise<{ error: string | null }> => {
-    setIsLoading(true);
-    try {
-      console.log('Register attempt:', { ...data, password: '***' });
-      return { error: null };
+      setUser(userFromToken);
     } catch (err) {
-      return { error: 'An error occurred during registration' };
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const logout = async () => {
-    setIsLoading(true);
-    try {
-      setUser(null);
-      saveUser(null);
+      console.error("❌ Failed to decode stored JWT:", err);
       tokenService.clearTokens();
     } finally {
       setIsLoading(false);
     }
+  }, []);
+
+  /* =========================
+     Login (pre-OTP)
+     Backend handles this
+  ========================= */
+
+  const login = async () => {
+    return { error: null };
   };
+
+  /* =========================
+     Complete Login (POST-OTP)
+     SINGLE SOURCE OF TRUTH
+  ========================= */
+
+  const completeLogin = useCallback((accessToken: string) => {
+    console.log("🔐 completeLogin called");
+    console.log("🔐 accessToken value:", accessToken);
+    console.log("🔐 accessToken type:", typeof accessToken);
+
+    if (!accessToken) {
+      console.error("❌ accessToken is empty or undefined");
+      return;
+    }
+
+    if (typeof accessToken !== "string") {
+      console.error("❌ accessToken is NOT a string:", accessToken);
+      return;
+    }
+
+    if (!accessToken.includes(".")) {
+      console.error("❌ accessToken is NOT a JWT:", accessToken);
+      return;
+    }
+
+    try {
+      const decoded = jwtDecode<JwtPayload>(accessToken);
+      console.log("✅ JWT decoded in completeLogin:", decoded);
+
+      const newUser: UserWithRole = {
+        id: String(decoded.userId),
+        email: decoded.sub,
+        role: decoded.role.toLowerCase() as UserRole,
+        isApproved: true,
+      };
+
+      setUser(newUser);
+    } catch (err) {
+      console.error("❌ jwtDecode failed in completeLogin:", err);
+      tokenService.clearTokens();
+    }
+  }, []);
+
+  /* =========================
+     Logout
+  ========================= */
+
+  const logout = () => {
+    console.log("🚪 Logging out user");
+    setUser(null);
+    tokenService.clearTokens();
+  };
+
+  /* =========================
+     Provider
+  ========================= */
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        isLoading,
         isAuthenticated: !!user,
+        isLoading,
         login,
         completeLogin,
-        register,
         logout,
       }}
     >
@@ -263,10 +177,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/* =========================
+   Hook
+========================= */
+
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    throw new Error("useAuth must be used within AuthProvider");
   }
-  return context;
+  return ctx;
 }

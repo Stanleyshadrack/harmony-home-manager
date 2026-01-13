@@ -123,6 +123,8 @@ export function LoginForm({ onSwitchToRegister, onForgotPassword, onRequireOTP, 
   password: data.password,
 });
 
+console.log(res)
+
 // 🔐 MFA REQUIRED → STOP here
 if (res.mfaRequired) {
   toast.info("Verification required", {
@@ -145,7 +147,7 @@ navigate("/dashboard");
     const result = recordFailedAttempt(data.email);
 
     if (result.locked) {
-      setLockoutInfo({ locked: true, remainingMs: 15 * 60 * 1000 });
+      setLockoutInfo({ locked: true, remainingMs: 0* 15 * 1000 });
       toast.error("Too many failed attempts. Account locked for 15 minutes.");
     } else {
       setAttemptsWarning(

@@ -1,15 +1,10 @@
-import { ClientOnly } from "./client";
 
-export const dynamicParams = false; // 🚨 REQUIRED in Next 16
-
+import { ClientOnly } from './client'
+ 
 export function generateStaticParams() {
-  return [
-    { slug: [] }, // root "/"
-     { slug: ["auth"] },
-    { slug: ["auth", "mfa"] },
-  ];
+  return [{ slug: [''] }]
 }
-
+ 
 export default function Page() {
-  return <ClientOnly />;
+  return <ClientOnly />
 }

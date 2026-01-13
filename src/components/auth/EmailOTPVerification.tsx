@@ -41,40 +41,42 @@ export function EmailOTPVerification({
   /** --------------------------------------------------
    * VERIFY OTP (EXPLICIT ACTION ONLY)
    * -------------------------------------------------- */
-  const verify = async () => {
-    if (code.length !== 6 || isVerifying) return;
+ const verify = async () => {
+  if (code.length !== 6 || isVerifying) return;
 
-    setIsVerifying(true);
+  setIsVerifying(true);
 
-    try {
-      const res = await verifyMfaService({
-        email,
-        otp: code,
-      });
+  try {
+    const res = await verifyMfaService({
+      email,
+      otp: code,
+    });
 
-      const tokens: AuthTokens = {
-        accessToken: res.accessToken,
-        refreshToken: res.refreshToken,
-      };
+    const tokens: AuthTokens = {
+      accessToken: res.accessToken,
+      refreshToken: res.refreshToken,
+    };
 
-      tokenService.storeTokens(tokens);
+    // ✅ CORRECT storage method
+    tokenService.setTokens(tokens);
 
-      toast.success("Verification successful", {
-        description: "You are now logged in.",
-      });
+    toast.success("Verification successful", {
+      description: "You are now logged in.",
+    });
 
-      onSuccess(tokens);
-    } catch (err: any) {
-      toast.error(
-        typeof err?.message === "string"
-          ? err.message
-          : "Invalid verification code"
-      );
-      setCode("");
-    } finally {
-      setIsVerifying(false);
-    }
-  };
+    onSuccess(tokens);
+  } catch (err: any) {
+    toast.error(
+      typeof err?.message === "string"
+        ? err.message
+        : "Invalid verification code"
+    );
+    setCode("");
+  } finally {
+    setIsVerifying(false);
+  }
+};
+
 
   /** --------------------------------------------------
    * RESEND OTP
