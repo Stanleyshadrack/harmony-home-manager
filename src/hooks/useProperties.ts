@@ -1,281 +1,244 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { PropertyApi } from '@/api/service/add.apartments.service.api';
 import { Property, PropertyFormData, Unit, UnitFormData } from '@/types/property';
-import { useAuth } from '@/contexts/AuthContext';
+import { toast } from '@/components/ui/use-toast';
 
-// Mock data - will be replaced with Supabase queries
-const mockProperties: Property[] = [
-  {
-    id: '1',
-    name: 'Sunset Apartments',
-    address: '123 Sunset Drive',
-    city: 'Nairobi',
-    state: 'Nairobi County',
-    country: 'Kenya',
-    postalCode: '00100',
-    propertyType: 'apartment',
-    totalUnits: 24,
-    occupiedUnits: 22,
-    amenities: ['Parking', 'Security', 'Water Tank', 'Generator'],
-    photos: [],
-    landlordId: 'landlord-1',
-    createdAt: '2024-01-01',
-    updatedAt: '2024-01-01',
-  },
-  {
-    id: '2',
-    name: 'Garden View Residences',
-    address: '456 Garden Road',
-    city: 'Mombasa',
-    state: 'Mombasa County',
-    country: 'Kenya',
-    postalCode: '80100',
-    propertyType: 'apartment',
-    totalUnits: 16,
-    occupiedUnits: 14,
-    amenities: ['Swimming Pool', 'Gym', 'Parking', 'Security'],
-    photos: [],
-    landlordId: 'landlord-1',
-    createdAt: '2024-02-15',
-    updatedAt: '2024-02-15',
-  },
-  {
-    id: '3',
-    name: 'Kilimani Heights',
-    address: '789 Kilimani Lane',
-    city: 'Nairobi',
-    state: 'Nairobi County',
-    country: 'Kenya',
-    postalCode: '00100',
-    propertyType: 'apartment',
-    totalUnits: 32,
-    occupiedUnits: 28,
-    amenities: ['Rooftop Terrace', 'Parking', 'Security', 'Elevator'],
-    photos: [],
-    landlordId: 'landlord-1',
-    createdAt: '2024-03-01',
-    updatedAt: '2024-03-01',
-  },
-];
+import { PropertyUnitApiResponse } from '@/api/dto/PropertyUnitApiResponse';
+import { mapPropertyFormToApi } from '@/api/mapper/mapPropertyFormToApi';
+import { PropertyUnitsApi } from '@/api/service/PropertyUnitsApi';
+import { mapUnitFormToApi } from '@/api/mapper/mapPropertyFormToCreateDTO';
+import { mapUnitFormToUpdateApi } from '@/api/mapper/mapUnitFormToUpdateApi';
 
-const mockUnits: Unit[] = [
-  {
-    id: '1',
-    propertyId: '1',
-    unitNumber: 'A101',
-    unitType: 'two_bedroom',
-    bedrooms: 2,
-    bathrooms: 1,
-    squareFeet: 850,
-    monthlyRent: 25000,
-    deposit: 25000,
-    status: 'occupied',
-    meterId: 'WM-001',
-    amenities: ['Balcony', 'Built-in Wardrobe'],
-    photos: [],
-    currentTenantId: 'tenant-1',
-    createdAt: '2024-01-01',
-    updatedAt: '2024-01-01',
-  },
-  {
-    id: '2',
-    propertyId: '1',
-    unitNumber: 'A102',
-    unitType: 'one_bedroom',
-    bedrooms: 1,
-    bathrooms: 1,
-    squareFeet: 550,
-    monthlyRent: 18000,
-    deposit: 18000,
-    status: 'vacant',
-    meterId: 'WM-002',
-    amenities: ['Balcony'],
-    photos: [],
-    createdAt: '2024-01-01',
-    updatedAt: '2024-01-01',
-  },
-  {
-    id: '3',
-    propertyId: '1',
-    unitNumber: 'A103',
-    unitType: 'studio',
-    bedrooms: 0,
-    bathrooms: 1,
-    squareFeet: 400,
-    monthlyRent: 12000,
-    deposit: 12000,
-    status: 'maintenance',
-    meterId: 'WM-003',
-    amenities: [],
-    photos: [],
-    createdAt: '2024-01-01',
-    updatedAt: '2024-01-01',
-  },
-  {
-    id: '4',
-    propertyId: '2',
-    unitNumber: 'B201',
-    unitType: 'three_bedroom',
-    bedrooms: 3,
-    bathrooms: 2,
-    squareFeet: 1200,
-    monthlyRent: 45000,
-    deposit: 45000,
-    status: 'occupied',
-    meterId: 'WM-004',
-    amenities: ['Balcony', 'En-suite', 'Walk-in Closet'],
-    photos: [],
-    currentTenantId: 'tenant-2',
-    createdAt: '2024-02-15',
-    updatedAt: '2024-02-15',
-  },
-];
+/* =========================
+   API → UI mapper
+========================= */
+const safe = (v?: string | null) => v ?? '';
+
+const mapApiProperty = (p: any): Property => ({
+  id: String(p.id),
+  name: safe(p.name),
+  address: safe(p.address),
+  city: safe(p.city),
+  state: safe(p.state),
+  country: safe(p.country),
+  postalCode: safe(p.postalCode),
+  propertyType: p.propertyType?.toLowerCase() ?? 'apartment',
+  totalUnits: p.totalUnits ?? 0,
+  occupiedUnits: p.occupiedUnits ?? 0,
+  amenities: p.amenities ?? [],
+  photos: [],
+  landlordId: String(p.landlordId ?? ''),
+  createdAt: p.createdAt,
+  updatedAt: p.updatedAt,
+});
+
 
 export function useProperties() {
-  const { user } = useAuth();
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  // Filter properties based on user role
+  /* =========================
+     FETCH PROPERTIES
+  ========================= */
+  const propertiesQuery = useQuery({
+    queryKey: ['properties'],
+    queryFn: PropertyApi.fetchAll,
+    select: (data) => data.map(mapApiProperty),
+    retry: false,
+  });
+
   useEffect(() => {
-    let filtered = mockProperties;
-    
-    if (user?.role === 'employee' && user.assignedPropertyId) {
-      // Employees only see their assigned property
-      filtered = mockProperties.filter(p => p.id === user.assignedPropertyId);
-    } else if (user?.role === 'landlord') {
-      // Landlords see all properties they own (for demo, show all)
-      filtered = mockProperties;
+    if (propertiesQuery.isError) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description:
+          (propertiesQuery.error as any)?.message ??
+          'Failed to fetch properties',
+      });
     }
-    // Super admin sees all
-    
-    setProperties(filtered);
-    setIsLoading(false);
-  }, [user]);
+  }, [propertiesQuery.isError]);
 
-  const addProperty = useCallback(async (data: PropertyFormData): Promise<Property> => {
-    setIsLoading(true);
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      
-      const newProperty: Property = {
-        id: `prop-${Date.now()}`,
-        ...data,
-        totalUnits: 0,
-        occupiedUnits: 0,
-        photos: [],
-        landlordId: 'current-user',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      
-      setProperties((prev) => [...prev, newProperty]);
-      return newProperty;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  /* =========================
+     CREATE PROPERTY
+  ========================= */
+const createMutation = useMutation({
+  mutationFn: (data: PropertyFormData) =>
+    PropertyApi.create(mapPropertyFormToApi(data)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['properties'] });
+      toast({
+        title: 'Success',
+        description: 'Property created successfully',
+      });
+    },
+    onError: (err: any) => {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: err?.message ?? 'Failed to create property',
+      });
+    },
+  });
 
-  const updateProperty = useCallback(async (id: string, data: Partial<PropertyFormData>): Promise<Property> => {
-    setIsLoading(true);
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      
-      let updatedProperty: Property | undefined;
-      setProperties((prev) =>
-        prev.map((p) => {
-          if (p.id === id) {
-            updatedProperty = { ...p, ...data, updatedAt: new Date().toISOString() };
-            return updatedProperty;
-          }
-          return p;
-        })
-      );
-      
-      if (!updatedProperty) throw new Error('Property not found');
-      return updatedProperty;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  /* =========================
+     UPDATE PROPERTY
+  ========================= */
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: PropertyFormData }) =>
+      PropertyApi.update(Number(id), data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['properties'] });
+      toast({
+        title: 'Success',
+        description: 'Property updated successfully',
+      });
+    },
+    onError: (err: any) => {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: err?.message ?? 'Failed to update property',
+      });
+    },
+  });
 
-  const deleteProperty = useCallback(async (id: string): Promise<void> => {
-    setIsLoading(true);
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      setProperties((prev) => prev.filter((p) => p.id !== id));
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  /* =========================
+     DELETE PROPERTY
+  ========================= */
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => PropertyApi.delete(Number(id)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['properties'] });
+      toast({
+        title: 'Success',
+        description: 'Property deleted successfully',
+      });
+    },
+    onError: (err: any) => {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: err?.message ?? 'Failed to delete property',
+      });
+    },
+  });
 
   return {
-    properties,
-    isLoading,
-    addProperty,
-    updateProperty,
-    deleteProperty,
+    properties: propertiesQuery.data ?? [],
+    isLoading: propertiesQuery.isLoading,
+
+    addProperty: createMutation.mutateAsync,
+
+    updateProperty: (id: string, data: PropertyFormData) =>
+      updateMutation.mutateAsync({ id, data }),
+
+    deleteProperty: deleteMutation.mutateAsync,
   };
 }
 
-export function useUnits(propertyId?: string) {
-  const [units, setUnits] = useState<Unit[]>(
-    propertyId ? mockUnits.filter((u) => u.propertyId === propertyId) : mockUnits
-  );
+
+// units mapper
+
+export function mapUnitFromApi(api: PropertyUnitApiResponse): Unit {
+  return {
+    id: String(api.id),
+    propertyId: String(api.propertyId),
+
+    unitNumber: api.unitNumber,
+    unitType: api.unitType.toLowerCase() as Unit["unitType"],
+
+
+    bedrooms: api.bedrooms,
+    bathrooms: api.bathrooms,
+    squareFeet: api.sqft,
+
+    monthlyRent: api.monthlyRent,
+    deposit: api.deposit,
+
+    status: api.status.toLowerCase() as Unit["status"],
+
+    meterId: api.meterId ?? "",
+    amenities: api.amenities ?? [],
+
+    photos: [],
+    currentTenantId: undefined,
+
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/* ======================================================
+   🔒 KEEP useUnits EXACTLY AS YOU HAVE IT
+====================================================== */
+
+export function useUnits() {
+  const [units, setUnits] = useState<Unit[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const addUnit = useCallback(async (data: UnitFormData): Promise<Unit> => {
+  /* =========================
+     📄 FETCH ALL UNITS
+  ========================= */
+  useEffect(() => {
     setIsLoading(true);
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      
-      const newUnit: Unit = {
-        id: `unit-${Date.now()}`,
-        ...data,
-        photos: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      
-      setUnits((prev) => [...prev, newUnit]);
-      return newUnit;
-    } finally {
-      setIsLoading(false);
-    }
+
+    PropertyUnitsApi.fetchAll()
+      .then((res) => setUnits(res.map(mapUnitFromApi)))
+      .finally(() => setIsLoading(false));
   }, []);
 
-  const updateUnit = useCallback(async (id: string, data: Partial<UnitFormData>): Promise<Unit> => {
+  /* =========================
+     ➕ ADD UNIT
+  ========================= */
+  const addUnit = async (data: UnitFormData) => {
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      
-      let updatedUnit: Unit | undefined;
-      setUnits((prev) =>
-        prev.map((u) => {
-          if (u.id === id) {
-            updatedUnit = { ...u, ...data, updatedAt: new Date().toISOString() };
-            return updatedUnit;
-          }
-          return u;
-        })
+      const apiUnit = await PropertyUnitsApi.create(
+        mapUnitFormToApi(data)
       );
-      
-      if (!updatedUnit) throw new Error('Unit not found');
-      return updatedUnit;
+      const unit = mapUnitFromApi(apiUnit);
+      setUnits((prev) => [...prev, unit]);
+      return unit;
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  };
 
-  const deleteUnit = useCallback(async (id: string): Promise<void> => {
+  /* =========================
+     ✏️ UPDATE UNIT
+  ========================= */
+  const updateUnit = async (id: string, data: UnitFormData) => {
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      const apiUnit = await PropertyUnitsApi.update(
+        id,
+        mapUnitFormToUpdateApi(data)
+      );
+      const updated = mapUnitFromApi(apiUnit);
+
+      setUnits((prev) =>
+        prev.map((u) => (u.id === id ? updated : u))
+      );
+
+      return updated;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /* =========================
+     🗑 DELETE UNIT
+  ========================= */
+  const deleteUnit = async (id: string) => {
+    setIsLoading(true);
+    try {
+      await PropertyUnitsApi.delete(id);
       setUnits((prev) => prev.filter((u) => u.id !== id));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  };
 
   return {
     units,

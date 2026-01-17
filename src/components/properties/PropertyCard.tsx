@@ -11,7 +11,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Building2, Home, MapPin, MoreVertical, Edit, Trash2, Eye } from 'lucide-react';
+import {
+  Building2,
+  Home,
+  MapPin,
+  MoreVertical,
+  Edit,
+  Trash2,
+  Eye,
+} from 'lucide-react';
+import { useUnits } from '@/hooks/useProperties';
 
 interface PropertyCardProps {
   property: Property;
@@ -19,12 +28,32 @@ interface PropertyCardProps {
   onDelete: (property: Property) => void;
 }
 
-export function PropertyCard({ property, onEdit, onDelete }: PropertyCardProps) {
+export function PropertyCard({
+  property,
+  onEdit,
+  onDelete,
+}: PropertyCardProps) {
   const { t } = useTranslation();
-  
-  const occupancyRate = property.totalUnits > 0 
-    ? Math.round((property.occupiedUnits / property.totalUnits) * 100) 
-    : 0;
+
+  /* =========================
+     🔗 UNITS → PROPERTY STATS
+  ========================= */
+  const { units } = useUnits();
+
+  const propertyUnits = units.filter(
+    (u) => u.propertyId === property.id
+  );
+
+  const totalUnits = propertyUnits.length;
+
+  const occupiedUnits = propertyUnits.filter(
+    (u) => u.status === 'occupied'
+  ).length;
+
+  const occupancyRate =
+    totalUnits > 0
+      ? Math.round((occupiedUnits / totalUnits) * 100)
+      : 0;
 
   const getOccupancyColor = (rate: number) => {
     if (rate >= 90) return 'bg-success text-success-foreground';
@@ -48,6 +77,7 @@ export function PropertyCard({ property, onEdit, onDelete }: PropertyCardProps) 
               </div>
             </div>
           </div>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -66,7 +96,7 @@ export function PropertyCard({ property, onEdit, onDelete }: PropertyCardProps) 
                 {t('common.edit')}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={() => onDelete(property)}
                 className="text-destructive"
               >
@@ -77,15 +107,18 @@ export function PropertyCard({ property, onEdit, onDelete }: PropertyCardProps) 
           </DropdownMenu>
         </div>
       </CardHeader>
+
       <CardContent>
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">{property.address}</p>
-          
+          <p className="text-sm text-muted-foreground">
+            {property.address}
+          </p>
+
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Home className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm">
-                {property.occupiedUnits}/{property.totalUnits} {t('properties.units')}
+                {occupiedUnits}/{totalUnits} {t('properties.units')}
               </span>
             </div>
             <Badge className={getOccupancyColor(occupancyRate)}>
@@ -96,7 +129,11 @@ export function PropertyCard({ property, onEdit, onDelete }: PropertyCardProps) 
           {property.amenities.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {property.amenities.slice(0, 3).map((amenity) => (
-                <Badge key={amenity} variant="secondary" className="text-xs">
+                <Badge
+                  key={amenity}
+                  variant="secondary"
+                  className="text-xs"
+                >
                   {amenity}
                 </Badge>
               ))}
@@ -109,7 +146,12 @@ export function PropertyCard({ property, onEdit, onDelete }: PropertyCardProps) 
           )}
 
           <div className="flex gap-2 pt-2">
-            <Button asChild variant="outline" size="sm" className="flex-1">
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="flex-1"
+            >
               <Link to={`/properties/${property.id}`}>
                 {t('properties.propertyDetails')}
               </Link>

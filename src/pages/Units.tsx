@@ -210,15 +210,20 @@ export default function Units() {
       )}
 
       {/* Unit Form Dialog */}
-      <UnitForm
-        open={isFormOpen}
-        onOpenChange={handleCloseForm}
-        unit={editingUnit}
-        properties={properties}
-        defaultPropertyId={filterProperty !== 'all' ? filterProperty : undefined}
-        onSubmit={editingUnit ? handleUpdateUnit : handleAddUnit}
-        isLoading={isLoading}
-      />
+    <UnitForm
+  open={isFormOpen}
+  onOpenChange={handleCloseForm}
+  unit={editingUnit}
+  properties={properties}
+  defaultPropertyId={
+    filterProperty !== 'all'
+      ? Number(filterProperty)
+      : undefined
+  }
+  onSubmit={editingUnit ? handleUpdateUnit : handleAddUnit}
+  isLoading={isLoading}
+/>
+
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deletingUnit} onOpenChange={() => setDeletingUnit(null)}>

@@ -1,31 +1,69 @@
-import { createRequest } from "@/apiActions/meta.payload.wrapper";
 import { apiRequest } from "../https";
+import { API_PATHS } from "../constants/constants";
+import {
+  CreatePropertyFormData,
+  PropertyApiResponse,
+  PropertyStatsResponse,
+} from "../dto/apartmentApiDTO";
+import { PropertyFormData } from "@/types/property";
 
-import { ApartmentApiResponse, ApartmentFormData } from "../dto/apartmentApiResponse";
-
-export const ApartmentsApi = {
-  add: async (data: ApartmentFormData) => {
-    const payload = createRequest(
-      {
-        name: data.name,
-        address: data.location,
-        status: data.status,
-        unitTypes: data.unitType,
-        waterUnitCost: data.waterUnitCost,
-      },
-      "ADD_APARTMENTS"
-    );
-
-    return apiRequest<typeof payload, ApartmentApiResponse>({
-      path: ADD_APARTMENT_URL,
+export const PropertyApi = Object.freeze({
+  /* =========================
+     ➕ Create property
+  ========================= */
+  create: async (
+    data: CreatePropertyFormData
+  ): Promise<PropertyApiResponse> => {
+    return apiRequest<CreatePropertyFormData, PropertyApiResponse>({
+      path: API_PATHS.PROPERTIES,
       method: "POST",
-      body: payload,
+      body: data,
     });
   },
 
+  /* =========================
+     📄 Fetch all properties
+  ========================= */
   fetchAll: () =>
-    apiRequest<null, ApartmentApiResponse[]>({
-      path: "apartments",
+    apiRequest<null, PropertyApiResponse[]>({
+      path: API_PATHS.PROPERTIES,
       method: "GET",
     }),
-};
+
+  /* =========================
+     🔍 Fetch property by ID
+  ========================= */
+  fetchById: (id: number) =>
+    apiRequest<null, PropertyApiResponse>({
+      path: API_PATHS.PROPERTY_BY_ID(id),
+      method: "GET",
+    }),
+
+  /* =========================
+     ✏️ Update property
+  ========================= */
+  update: (id: number, data: PropertyFormData) =>
+    apiRequest<PropertyFormData, PropertyApiResponse>({
+      path: API_PATHS.PROPERTY_BY_ID(id),
+      method: "PUT",
+      body: data,
+    }),
+
+  /* =========================
+     🗑 Delete property
+  ========================= */
+  delete: (id: number) =>
+    apiRequest<null, void>({
+      path: API_PATHS.PROPERTY_BY_ID(id),
+      method: "DELETE",
+    }),
+
+  /* =========================
+     📊 Fetch property stats
+  ========================= */
+  fetchStats: (propertyId: number) =>
+    apiRequest<null, PropertyStatsResponse>({
+      path: API_PATHS.PROPERTY_STATS(propertyId),
+      method: "GET",
+    }),
+});

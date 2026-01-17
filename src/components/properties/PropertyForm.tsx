@@ -3,9 +3,12 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Property, PropertyFormData } from '@/types/property';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { toast, useToast } from '@/components/ui/use-toast';
+
 import {
   Select,
   SelectContent,
@@ -24,6 +27,8 @@ import {
 import { Loader2, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useState, useEffect } from 'react';
+import { PropertyApi } from '@/api/service/add.apartments.service.api';
+import { mapPropertyFormToCreateDTO } from '@/api/mapper/mapPropertyForm';
 
 const propertySchema = z.object({
   name: z.string().min(1, 'Property name is required'),
@@ -39,9 +44,8 @@ interface PropertyFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   property?: Property | null;
-  onSubmit: (data: PropertyFormData) => Promise<void>;
-  isLoading?: boolean;
 }
+
 
 const COMMON_AMENITIES = [
   'Parking',
@@ -56,10 +60,13 @@ const COMMON_AMENITIES = [
   'CCTV',
 ];
 
-export function PropertyForm({ open, onOpenChange, property, onSubmit, isLoading }: PropertyFormProps) {
+export function PropertyForm({ open, onOpenChange, property }: PropertyFormProps) {
   const { t } = useTranslation();
   const [amenities, setAmenities] = useState<string[]>(property?.amenities || []);
   const [newAmenity, setNewAmenity] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const queryClient = useQueryClient();
+
 
   const {
     register,
@@ -101,12 +108,54 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isLoading
 
   const propertyType = watch('propertyType');
 
-  const handleFormSubmit = async (data: PropertyFormData) => {
-    await onSubmit({ ...data, amenities });
+//  const [submitting, setSubmitting] = useState(false);
+
+const handleFormSubmit = async (data: PropertyFormData) => {
+  try {
+    setSubmitting(true);
+
+    const payload = mapPropertyFormToCreateDTO({
+      ...data,
+      amenities,
+    });
+
+    console.log('CREATE PROPERTY PAYLOAD', payload);
+
+    await PropertyApi.create(payload);
+
+    queryClient.invalidateQueries({ queryKey: ['properties'] });
+
+    toast({
+      title: t('common.success'),
+      description: property
+        ? t('properties.updateSuccess', 'Property updated successfully')
+        : t('properties.createSuccess', 'Property created successfully'),
+    });
+
     reset();
     setAmenities([]);
     onOpenChange(false);
-  };
+
+  } catch (err: any) {
+    console.error('Failed to create property', err);
+
+    const message =
+      err?.message ||
+      t('common.unexpectedError', 'Something went wrong. Please try again.');
+
+    toast({
+      variant: 'destructive',
+      title: t('common.error'),
+      description: message,
+    });
+
+  } finally {
+    setSubmitting(false);
+  }
+};
+
+
+
 
   const addAmenity = (amenity: string) => {
     if (amenity && !amenities.includes(amenity)) {
@@ -288,8 +337,8 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isLoading
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {t('common.cancel')}
             </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? (
+            <Button type="submit" disabled={submitting}>
+              {submitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   {t('common.loading')}

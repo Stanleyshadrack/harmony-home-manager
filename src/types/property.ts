@@ -1,3 +1,5 @@
+import { UnitStatus, UnitType } from "./enums";
+
 export interface Property {
   id: string;
   name: string;
@@ -20,17 +22,17 @@ export interface Unit {
   id: string;
   propertyId: string;
   unitNumber: string;
-  unitType: 'studio' | 'one_bedroom' | 'two_bedroom' | 'three_bedroom' | 'penthouse';
+  unitType: UnitType;
   bedrooms: number;
   bathrooms: number;
   squareFeet: number;
   monthlyRent: number;
+   currentTenantId?: string | null;
   deposit: number;
-  status: 'vacant' | 'occupied' | 'maintenance';
+  status: UnitStatus;
   meterId: string;
   amenities: string[];
   photos: string[];
-  currentTenantId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -43,19 +45,19 @@ export interface PropertyFormData {
   country: string;
   postalCode: string;
   propertyType: Property['propertyType'];
-  amenities: string[];
+  amenities?: string[];
 }
 
 export interface UnitFormData {
-  propertyId: string;
+  propertyId: number;
   unitNumber: string;
-  unitType: Unit['unitType'];
+  unitType: UnitType;
   bedrooms: number;
   bathrooms: number;
   squareFeet: number;
   monthlyRent: number;
   deposit: number;
-  status: Unit['status'];
+  status: UnitStatus;
   meterId: string;
   amenities: string[];
 }

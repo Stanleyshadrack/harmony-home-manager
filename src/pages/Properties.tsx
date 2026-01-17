@@ -37,25 +37,22 @@ export default function Properties() {
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [deletingProperty, setDeletingProperty] = useState<Property | null>(null);
 
-  const filteredProperties = properties.filter((property) => {
-    const matchesSearch = 
-      property.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      property.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      property.city.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesType = filterType === 'all' || property.propertyType === filterType;
-    
-    return matchesSearch && matchesType;
+  const q = searchQuery.toLowerCase();
+
+const filteredProperties = properties.filter((property) => {
+  const matchesSearch =
+    property.name.toLowerCase().includes(q) ||
+    property.address.toLowerCase().includes(q) ||
+    property.city.toLowerCase().includes(q);
+
+  const matchesType =
+    filterType === 'all' || property.propertyType === filterType;
+
+  return matchesSearch && matchesType;
+
+
   });
 
-  const handleAddProperty = async (data: PropertyFormData) => {
-    try {
-      await addProperty(data);
-      toast.success('Property added successfully');
-    } catch (error) {
-      toast.error('Failed to add property');
-    }
-  };
 
   const handleUpdateProperty = async (data: PropertyFormData) => {
     if (!editingProperty) return;
@@ -159,13 +156,12 @@ export default function Properties() {
       )}
 
       {/* Property Form Dialog */}
-      <PropertyForm
-        open={isFormOpen}
-        onOpenChange={handleCloseForm}
-        property={editingProperty}
-        onSubmit={editingProperty ? handleUpdateProperty : handleAddProperty}
-        isLoading={isLoading}
-      />
+     <PropertyForm
+  open={isFormOpen}
+  onOpenChange={handleCloseForm}
+  property={editingProperty}
+/>
+
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deletingProperty} onOpenChange={() => setDeletingProperty(null)}>
