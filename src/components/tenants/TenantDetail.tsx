@@ -159,7 +159,12 @@ export function TenantDetail({ tenant, open, onOpenChange }: TenantDetailProps) 
                   </div>
                   <div className="flex items-center gap-3">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span>Move in: {new Date(tenant.moveInDate).toLocaleDateString()}</span>
+                    {tenant.moveInDate && (
+  <span>
+    Move in: {new Date(tenant.moveInDate).toLocaleDateString()}
+  </span>
+)}
+
                   </div>
                 </CardContent>
               </Card>

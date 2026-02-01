@@ -34,6 +34,7 @@ import PropertyDetail from "./pages/PropertyDetail";
 import Onboarding from "./pages/Onboarding";
 import EmailTemplates from "./pages/EmailTemplates";
 import NotFound from "./pages/NotFound";
+import SetPasswordPage from "./pages/SetPassword";
 
 const queryClient = new QueryClient();
 
@@ -52,6 +53,7 @@ const App = () => (
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/onboarding" element={<Onboarding />} />
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/set-password" element={<SetPasswordPage/>}/>
 
                 {/* Super Admin only routes */}
                 <Route path="/admin-portal" element={

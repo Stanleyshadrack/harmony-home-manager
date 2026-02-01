@@ -35,6 +35,7 @@ import { InvoiceCard } from '@/components/billing/InvoiceCard';
 import { MaintenanceForm } from '@/components/maintenance/MaintenanceForm';
 import { MaintenanceCard } from '@/components/maintenance/MaintenanceCard';
 import { Unit } from '@/types/property';
+import { useAvailableUnits } from '@/hooks/useAvailableUnits';
 
 // Mock current tenant data - would come from auth context in real app
 const MOCK_TENANT = {
@@ -66,7 +67,10 @@ export default function TenantPortal() {
   const tenantApplications = applications.filter(
     (app) => app.applicantEmail === MOCK_TENANT.email
   );
-  const vacantUnits = units.filter((u) => u.status === 'vacant');
+  const {
+  data: vacantUnits = [],
+  isLoading: unitsLoading,
+} = useAvailableUnits(MOCK_TENANT.id);
 
   // Stats
   const totalOutstanding = tenantInvoices
@@ -376,8 +380,11 @@ export default function TenantPortal() {
               <div>
                 <h2 className="text-xl font-semibold">Available Units</h2>
                 <p className="text-muted-foreground">
-                  {vacantUnits.length} units available for rent
-                </p>
+  {unitsLoading
+    ? "Loading available units..."
+    : `${vacantUnits.length} units available for rent`}
+</p>
+
               </div>
               {tenantApplications.length > 0 && (
                 <Badge variant="secondary">

@@ -3,8 +3,22 @@ import { apiRequest } from "../https";
 
 export const API_PATHS = {
   // -------------------- Tenants --------------------
-  TENANTS: "/v1/tenants",
-  TENANT_BY_ID: (id: number) => `/v1/tenants/${id}`,
+  TENANTS: "/api/tenants",
+
+  TENANT_BY_ID: (id: number) => `/api/tenants/${id}`,
+
+  APPROVE_TENANT: (id: number) =>
+    `/api/tenants/${id}/approve`,
+
+  ASSIGN_TENANT_UNIT: (tenantId: number, unitId: number) =>
+    `/api/tenants/${tenantId}/assign-unit/${unitId}`,
+
+  MOVE_OUT_TENANT: (id: number) =>
+    `/api/tenants/${id}/move-out`,
+
+  //----------------------- Approvals -------------------------
+   APPROVALS:(userId: number) => "/api/user-approvals/{userId}/approve",
+
 
   // -------------------- Apartments -----------------
   APARTMENTS: "/v1/apartments",
@@ -16,8 +30,8 @@ export const API_PATHS = {
   UNIT_BY_ID: (id: string) =>
     `/v1/apartment-units/${id}`,
 
-  UNITS_BY_PROPERTY: (propertyId: string) =>
-    `/v1/apartment-units/property/${propertyId}`,
+UNITS_BY_PROPERTY: (propertyId: number | string) =>
+  `/api/units/property/${propertyId}`,
 
       /* =========================
      📄 Fetch ALL units ✅
@@ -44,5 +58,8 @@ export const API_PATHS = {
   AUTH_LOGIN: "/api/auth/login",
   AUTH_VERIFY_MFA: "/api/auth/verify-mfa",
   AUTH_RESEND_OTP: "/api/auth/resend-otp",
+  AUTH_ONBOARDING: "/api/auth/onboarding",
+  AUTH_INVITE_VALIDATE: "/api/auth/validate",
+  AUTH_SET_PASSWORD:"/api/auth/set-password"
 
 } as const;

@@ -1,20 +1,24 @@
 export interface Tenant {
   id: string;
   userId: string;
+  email: string;
+
   firstName: string;
   lastName: string;
-  email: string;
   phone: string;
   emergencyContact?: string;
-  emergencyPhone?: string;
-  unitId: string;
-  unitNumber: string;
-  propertyName: string;
-  status: 'active' | 'pending' | 'inactive';
-  moveInDate: string;
-  createdAt: string;
-  avatarUrl?: string;
+   emergencyPhone?: string; // ✅ ADD THIS
+
+  unitId?: string;
+  unitNumber?: string;
+
+  status: 'ACTIVE' | 'PENDING' | 'MOVED_OUT';
+  moveInDate?: string;
+
+   avatarUrl?: string; 
+    propertyName?: string;
 }
+
 
 export interface Lease {
   id: string;
@@ -44,6 +48,7 @@ export interface TenantFormData {
   firstName: string;
   lastName: string;
   email: string;
+  userId: string;
   phone: string;
   emergencyContact?: string;
   emergencyPhone?: string;

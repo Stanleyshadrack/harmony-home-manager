@@ -9,7 +9,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <title>FamLink - Extended Family Governance Platform</title>
+        <title>Property Governance Platform</title>
         <meta
           name="description"
           content="Connect and manage your extended family with FamLink - a comprehensive platform for family trees, events, contributions, and heritage preservation."
