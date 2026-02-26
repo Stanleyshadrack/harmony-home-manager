@@ -38,7 +38,6 @@ import {
   Droplets,
   UsersRound,
   History,
-  Mail,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -70,6 +69,7 @@ const mainNavItems: NavItem[] = [
   { title: 'Employees', url: '/employees', icon: UsersRound, roles: ['super_admin', 'landlord'] },
   { title: 'navigation.billing', url: '/billing', icon: CreditCard, roles: ['super_admin', 'landlord'] },
   { title: 'Water Data', url: '/water-data', icon: Droplets, roles: ['super_admin', 'landlord'] },
+  { title: 'Water Meters', url: '/water-meters', icon: Droplets, roles: ['super_admin', 'landlord'] },
   { title: 'navigation.maintenance', url: '/maintenance', icon: Wrench, roles: ['super_admin', 'landlord'] },
   { title: 'navigation.messages', url: '/messages', icon: MessageSquare, roles: ['super_admin', 'landlord', 'employee', 'tenant'] },
   
@@ -85,7 +85,6 @@ const secondaryNavItems: NavItem[] = [
   { title: 'navigation.reports', url: '/reports', icon: BarChart3, roles: ['super_admin', 'landlord'] },
   { title: 'navigation.notifications', url: '/notifications', icon: Bell, roles: ['super_admin', 'landlord'] },
   { title: 'Notification Logs', url: '/notification-logs', icon: History, roles: ['super_admin', 'landlord'] },
-  { title: 'Email Templates', url: '/email-templates', icon: Mail, roles: ['super_admin', 'landlord'] },
   { title: 'navigation.auditLogs', url: '/audit-logs', icon: Shield, roles: ['super_admin', 'landlord'] },
   { title: 'navigation.settings', url: '/settings', icon: Settings, roles: ['super_admin', 'landlord', 'employee', 'tenant'] },
   { title: 'navigation.help', url: '/help', icon: HelpCircle, roles: ['super_admin', 'landlord', 'employee', 'tenant'] },

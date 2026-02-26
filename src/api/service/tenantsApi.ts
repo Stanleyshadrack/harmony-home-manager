@@ -47,5 +47,19 @@ export const TenantsApi = {
       path: API_PATHS.MOVE_OUT_TENANT(id),
       method: "PUT",
     }),
+
+    delete: (id: number) =>
+  apiRequest<null, void>({
+    path: `${API_PATHS.TENANTS}/${id}`,
+    method: "DELETE",
+  }),
+
+    // TenantsApi.ts
+update: (id: number, data: Partial<Tenant>) =>
+  apiRequest<Partial<Tenant>, Tenant>({
+    path: `${API_PATHS.TENANTS}/${id}`,
+    method: "PUT",
+    body: data,
+  }),
 };
 

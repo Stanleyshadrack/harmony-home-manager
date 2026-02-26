@@ -101,13 +101,21 @@ export default function Onboarding() {
 
     setSubmitting(true);
     try {
-      await completeOnboardingService({
-        token,
-        ...data,
-      });
+     const res = await completeOnboardingService({
+  token,
+  ...data,
+});
 
-      setCompleted(true);
-      toast.success("Onboarding completed. Awaiting approval.");
+
+if (res.approved && !res.passwordSet) {
+  navigate(`/set-password?token=${token}`);
+  return;
+}
+
+// not approved → stay on this page
+setCompleted(true);
+toast.success("Onboarding completed. Awaiting approval.");
+
     } catch (err: any) {
       toast.error(err?.message ?? "Failed to complete onboarding");
     } finally {

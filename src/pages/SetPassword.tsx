@@ -1,20 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
+import { XCircle, Eye, EyeOff, Lock, Loader2 } from "lucide-react";
+
+import { validateSetPasswordToken } from "@/api/service/validateSetPassword.service";
+import { setPasswordService } from "@/api/service/setPasswordApi";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { PasswordStrengthIndicator } from "@/components/auth/PasswordStrengthIndicator";
-
-import { Eye, EyeOff, Lock, Loader2 } from "lucide-react";
-import { setPasswordService } from "@/api/service/setPasswordApi";
 
 /* =========================
    Schema
@@ -31,14 +32,13 @@ const schema = z
 
 type FormData = z.infer<typeof schema>;
 
-/* =========================
-   Page
-========================= */
 export default function SetPasswordPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams?.get("token");
 
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -52,29 +52,78 @@ export default function SetPasswordPage() {
   });
 
   /* =========================
-     Submit
+     Token pre-validation
   ========================= */
-  const onSubmit = async (data: FormData) => {
+  useEffect(() => {
     if (!token) {
-      toast.error("Invalid or expired password setup link");
+      setError("Invalid or expired password setup link");
+      setLoading(false);
       return;
     }
 
-    setSubmitting(true);
-    try {
-      await setPasswordService({
-        token,
-        password: data.password,
+    validateSetPasswordToken(token)
+      .then(() => setLoading(false))
+      .catch((err) => {
+        setError(err?.message ?? "Invalid or expired password setup link");
+        setLoading(false);
       });
+  }, [token]);
 
-      toast.success("Password set successfully. You can now log in.");
-      router.push("/auth");
-    } catch (err: any) {
-      toast.error(err?.message ?? "Failed to set password");
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  /* =========================
+     Submit
+  ========================= */
+ const onSubmit = async (data: FormData) => {
+  if (!token) {
+    toast.error("Invalid or expired password setup link");
+    return;
+  }
+
+  setSubmitting(true);
+  try {
+    await setPasswordService({
+      token,
+      password: data.password,
+    });
+
+    toast.success("Password set successfully. Please log in.");
+
+    // ✅ NEXT.JS NAVIGATION
+    router.replace("/auth");
+
+  } catch (err: any) {
+    toast.error(err?.message ?? "Failed to set password");
+  } finally {
+    setSubmitting(false);
+  }
+};
+
+  /* =========================
+     Guarded UI states
+  ========================= */
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card className="max-w-md w-full">
+          <CardContent className="p-6 text-center space-y-4">
+            <XCircle className="h-10 w-10 text-destructive mx-auto" />
+            <h2 className="text-xl font-semibold">Link Invalid</h2>
+            <p className="text-muted-foreground">{error}</p>
+            <Button onClick={() => router.push("/auth")} className="w-full">
+              Go to Login
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   /* =========================
      UI
@@ -83,7 +132,6 @@ export default function SetPasswordPage() {
     <div className="min-h-screen flex items-center justify-center p-4">
       <Card className="max-w-md w-full">
         <CardContent className="p-6 space-y-6">
-          {/* Header */}
           <div className="text-center">
             <h2 className="text-2xl font-bold">Set Your Password</h2>
             <p className="text-sm text-muted-foreground mt-1">
@@ -99,7 +147,6 @@ export default function SetPasswordPage() {
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
                   className={`pl-10 pr-10 ${
                     errors.password ? "border-destructive" : ""
                   }`}
@@ -109,52 +156,28 @@ export default function SetPasswordPage() {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                  className="absolute right-0 top-0 h-full px-3"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-muted-foreground" />
-                  )}
+                  {showPassword ? <EyeOff /> : <Eye />}
                 </Button>
               </div>
-
-              {errors.password && (
-                <p className="text-sm text-destructive">
-                  {errors.password.message}
-                </p>
-              )}
 
               <PasswordStrengthIndicator password={watch("password")} />
             </div>
 
-            {/* Confirm Password */}
+            {/* Confirm */}
             <div className="space-y-2">
               <Label>Confirm Password</Label>
               <Input
                 type="password"
-                placeholder="••••••••"
                 className={errors.confirmPassword ? "border-destructive" : ""}
                 {...register("confirmPassword")}
               />
-              {errors.confirmPassword && (
-                <p className="text-sm text-destructive">
-                  {errors.confirmPassword.message}
-                </p>
-              )}
             </div>
 
-            {/* Submit */}
             <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Setting password...
-                </>
-              ) : (
-                "Set Password"
-              )}
+              {submitting ? "Setting password…" : "Set Password"}
             </Button>
           </form>
         </CardContent>

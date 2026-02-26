@@ -35,6 +35,7 @@ import Onboarding from "./pages/Onboarding";
 import EmailTemplates from "./pages/EmailTemplates";
 import NotFound from "./pages/NotFound";
 import SetPasswordPage from "./pages/SetPassword";
+import WaterMeters from "./pages/WaterMeters";
 
 const queryClient = new QueryClient();
 
@@ -78,6 +79,14 @@ const App = () => (
                     <PropertyDetail />
                   </ProtectedRoute>
                 } />
+
+
+ <Route path="/water-meters" element={
+                  <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
+                    <WaterMeters />
+                  </ProtectedRoute>
+                } />
+
                 <Route path="/units" element={
                   <ProtectedRoute allowedRoles={['super_admin', 'landlord', 'employee']}>
                     <Units />

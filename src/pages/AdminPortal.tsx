@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useApprovals } from "@/hooks/useApprovals";
+import { Approval } from "@/api/dto/approval.dto";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -61,7 +63,6 @@ import {
 import { useProperties } from '@/hooks/useProperties';
 import { useTenants } from '@/hooks/useTenants';
 import { useBilling } from '@/hooks/useBilling';
-import { usePendingRegistrations, PendingRegistration } from '@/hooks/useRegistrations';
 import { useInAppNotifications } from '@/hooks/useInAppNotifications';
 import { useLandlords, Landlord } from '@/hooks/useLandlords';
 import { getAuditLogs, getActivitySummary } from '@/services/auditService';
@@ -83,7 +84,14 @@ export default function AdminPortal() {
   const { tenants } = useTenants();
   const { invoices, payments } = useBilling();
   const { user } = useAuth();
-  const { registrations, approveRegistration, rejectRegistration, getPendingCount } = usePendingRegistrations();
+  const [showApprovalDetails, setShowApprovalDetails] = useState(false);
+  const {
+  approvals,
+  approve,
+  reject,
+  pendingCount
+} = useApprovals();
+
   const {
     landlords,
     subscriptionPlans,
@@ -104,7 +112,8 @@ export default function AdminPortal() {
   const [showLandlordDialog, setShowLandlordDialog] = useState(false);
   const [showLandlordForm, setShowLandlordForm] = useState(false);
   const [landlordFormMode, setLandlordFormMode] = useState<'add' | 'edit'>('add');
-  const [selectedRegistration, setSelectedRegistration] = useState<PendingRegistration | null>(null);
+const [selectedApproval, setSelectedApproval] = useState<Approval | null>(null);
+const [approvalLoading, setApprovalLoading] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRenewalDialog, setShowRenewalDialog] = useState(false);
@@ -225,54 +234,41 @@ export default function AdminPortal() {
 
   const { addNotification } = useInAppNotifications();
 
-  const handleApproveRegistration = async (registration: PendingRegistration) => {
-    await approveRegistration(registration.id, user?.email || 'Admin');
+  // const handleApproveRegistration = async (registration: PendingRegistration) => {
+  //   await approveRegistration(registration.id, user?.email || 'Admin');
     
-    addNotification({
-      userId: registration.phone,
-      title: 'Registration Approved!',
-      message: `Your ${registration.requestedRole} account has been approved. You can now log in to the system.`,
-      category: 'registration_approved',
-      priority: 'high',
-      link: '/auth',
-    });
+  //   addNotification({
+  //     userId: registration.phone,
+  //     title: 'Registration Approved!',
+  //     message: `Your ${registration.requestedRole} account has been approved. You can now log in to the system.`,
+  //     category: 'registration_approved',
+  //     priority: 'high',
+  //     link: '/auth',
+  //   });
 
-    toast({
-      title: 'Registration Approved',
-      description: `${registration.firstName} ${registration.lastName}'s ${registration.requestedRole} account has been approved.`,
-    });
-  };
+  //   toast({
+  //     title: 'Registration Approved',
+  //     description: `${registration.firstName} ${registration.lastName}'s ${registration.requestedRole} account has been approved.`,
+  //   });
+  // };
 
-  const handleRejectRegistration = async () => {
-    if (selectedRegistration && rejectionReason.trim()) {
-      await rejectRegistration(selectedRegistration.id, user?.email || 'Admin', rejectionReason);
-      
-      addNotification({
-        userId: selectedRegistration.phone,
-        title: 'Registration Rejected',
-        message: `Your ${selectedRegistration.requestedRole} registration was not approved. Reason: ${rejectionReason}`,
-        category: 'registration_rejected',
-        priority: 'high',
-      });
+  const handleRejectApproval = async () => {
+  if (!selectedApproval || !rejectionReason.trim()) return;
 
-      toast({
-        title: 'Registration Rejected',
-        description: `${selectedRegistration.firstName} ${selectedRegistration.lastName}'s application has been rejected.`,
-      });
-      setShowRejectDialog(false);
-      setSelectedRegistration(null);
-      setRejectionReason('');
-    } else {
-      toast({
-        title: 'Reason Required',
-        description: 'Please provide a reason for rejection.',
-        variant: 'destructive',
-      });
-    }
-  };
+  await reject(selectedApproval.id, rejectionReason);
 
-  const pendingRegistrations = registrations.filter((r) => r.status === 'pending');
-  const pendingCount = getPendingCount();
+  toast({
+    title: "Approval Rejected",
+    description: `Approval ${selectedApproval.id} rejected`,
+  });
+
+  setShowRejectDialog(false);
+  setSelectedApproval(null);
+  setRejectionReason("");
+};
+
+  // const pendingRegistrations = registrations.filter((r) => r.status === 'pending');
+  // const pendingCount = getPendingCount();
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -578,91 +574,97 @@ export default function AdminPortal() {
 
           {/* Approvals Tab */}
           <TabsContent value="approvals" className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-semibold">Registration Approvals</h2>
-                <p className="text-muted-foreground">
-                  Review and approve employee and tenant registration requests
-                </p>
-              </div>
-              {pendingCount > 0 && (
-                <Badge variant="destructive">{pendingCount} pending</Badge>
-              )}
-            </div>
+  <div className="flex items-center justify-between">
+    <div>
+      <h2 className="text-xl font-semibold">Approvals</h2>
+      <p className="text-muted-foreground">
+        Review and approve system requests
+      </p>
+    </div>
 
-            {pendingRegistrations.length > 0 ? (
-              <Card>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Applicant</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Contact</TableHead>
-                      <TableHead>Submitted</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {pendingRegistrations.map((reg) => (
-                      <TableRow key={reg.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm">
-                              {reg.firstName.charAt(0)}
-                            </div>
-                            <span className="font-medium">{reg.firstName} {reg.lastName}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary" className="flex items-center gap-1 w-fit">
-                            {getRoleIcon(reg.requestedRole)}
-                            <span className="capitalize">{reg.requestedRole}</span>
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            <p>{reg.phone}</p>
-                            <p className="text-muted-foreground">ID: {reg.idNumber}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {formatDate(reg.submittedAt)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Button size="sm" onClick={() => handleApproveRegistration(reg)}>
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Approve
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-destructive"
-                              onClick={() => {
-                                setSelectedRegistration(reg);
-                                setShowRejectDialog(true);
-                              }}
-                            >
-                              <XCircle className="h-4 w-4 mr-1" />
-                              Reject
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Card>
-            ) : (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Clock className="h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-lg font-medium">No Pending Registrations</p>
-                  <p className="text-muted-foreground">All registration requests have been processed</p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
+    {pendingCount > 0 && (
+      <Badge variant="destructive">
+        {pendingCount} pending
+      </Badge>
+    )}
+  </div>
+
+  {approvals.filter(a => a.status === "PENDING").length > 0 ? (
+    <Card>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Type</TableHead>
+            <TableHead>Target</TableHead>
+            <TableHead>Property</TableHead>
+            <TableHead>Requested</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+
+        <TableBody>
+          {approvals
+            .filter(a => a.status === "PENDING")
+            .map((approval) => (
+              <TableRow key={approval.id}>
+                <TableCell>
+                  <Badge variant="secondary">
+                    {approval.type}
+                  </Badge>
+                </TableCell>
+
+                <TableCell>{approval.targetId}</TableCell>
+
+                <TableCell>
+                  {approval.propertyId ?? "—"}
+                </TableCell>
+
+                <TableCell>
+                  {formatDate(approval.createdAt)}
+                </TableCell>
+
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-2">
+                    <Button
+  size="sm"
+  variant="outline"
+  onClick={() => {
+    setSelectedApproval(approval);
+    setShowApprovalDetails(true);
+  }}
+>
+  <Eye className="h-4 w-4 mr-1" />
+  View
+</Button>
+
+                  <Button
+  size="sm"
+  variant="outline"
+  className="text-destructive"
+  onClick={() => {
+    setSelectedApproval(approval);
+    setRejectionReason("");   // reset old reason
+    setShowRejectDialog(true);
+  }}
+>
+  Reject
+</Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Card>
+  ) : (
+    <Card>
+      <CardContent className="text-center py-12">
+        <Clock className="h-10 w-10 mx-auto text-muted-foreground mb-4" />
+        <p className="font-medium">No Pending Approvals</p>
+      </CardContent>
+    </Card>
+  )}
+</TabsContent>
 
           {/* Landlords Tab */}
           <TabsContent value="landlords" className="space-y-4">
@@ -1018,13 +1020,13 @@ export default function AdminPortal() {
               <XCircle className="h-5 w-5" />
               Reject Registration
             </DialogTitle>
-            <DialogDescription>
-              {selectedRegistration && (
-                <>
-                  Reject the registration request from <strong>{selectedRegistration.firstName} {selectedRegistration.lastName}</strong> ({selectedRegistration.requestedRole}).
-                </>
-              )}
-            </DialogDescription>
+           <DialogDescription>
+  {selectedApproval && (
+    <>
+      Reject approval <strong>#{selectedApproval.id}</strong> ({selectedApproval.type})
+    </>
+  )}
+</DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
@@ -1062,12 +1064,13 @@ export default function AdminPortal() {
             </div>
           </div>
 
+
           <DialogFooter className="gap-2 sm:gap-0">
             <Button
               variant="outline"
               onClick={() => {
                 setShowRejectDialog(false);
-                setSelectedRegistration(null);
+                setSelectedApproval(null);
                 setRejectionReason('');
               }}
             >
@@ -1075,11 +1078,11 @@ export default function AdminPortal() {
             </Button>
             <Button
               variant="destructive"
-              onClick={handleRejectRegistration}
+              onClick={handleRejectApproval}
               disabled={!rejectionReason.trim()}
             >
               <XCircle className="h-4 w-4 mr-2" />
-              Reject Registration
+             Reject Approval
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1102,6 +1105,93 @@ export default function AdminPortal() {
   onOpenChange={setShowInviteDialog}
   inviterRole={user?.role || 'super_admin'}
 />
+
+<Dialog
+  open={showApprovalDetails}
+  onOpenChange={setShowApprovalDetails}
+>
+  <DialogContent className="max-w-2xl">
+    <DialogHeader>
+      <DialogTitle>
+        Approval Details
+      </DialogTitle>
+      <DialogDescription>
+        Review approval request and take action
+      </DialogDescription>
+    </DialogHeader>
+
+    {selectedApproval && (
+      <div className="space-y-4 text-sm">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <p className="text-muted-foreground">Type</p>
+            <p className="font-medium">{selectedApproval.type}</p>
+          </div>
+
+          <div>
+            <p className="text-muted-foreground">Status</p>
+            <Badge variant="secondary">
+              {selectedApproval.status}
+            </Badge>
+          </div>
+        </div>
+
+        <div>
+          <p className="text-muted-foreground">Target ID</p>
+          <p className="font-medium">{selectedApproval.targetId}</p>
+        </div>
+
+        <div>
+          <p className="text-muted-foreground">Property</p>
+          <p>{selectedApproval.propertyId ?? "—"}</p>
+        </div>
+
+        <div>
+          <p className="text-muted-foreground">Requested At</p>
+          <p>{formatDate(selectedApproval.createdAt)}</p>
+        </div>
+
+        {/* Actions */}
+        {selectedApproval.status === "PENDING" && (
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowApprovalDetails(false)}
+            >
+              Close
+            </Button>
+
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setShowApprovalDetails(false);
+                setRejectionReason("");
+                setShowRejectDialog(true);
+              }}
+            >
+              Reject
+            </Button>
+
+            <Button
+              onClick={async () => {
+                await approve(selectedApproval.id);
+                toast({
+                  title: "Approval Approved",
+                  description: `Approval ${selectedApproval.id} approved`,
+                });
+                setShowApprovalDetails(false);
+                setSelectedApproval(null);
+              }}
+            >
+              Approve
+            </Button>
+          </div>
+        )}
+      </div>
+    )}
+  </DialogContent>
+</Dialog>
+
 
     </DashboardLayout>
   );

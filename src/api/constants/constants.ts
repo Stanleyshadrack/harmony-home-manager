@@ -16,9 +16,17 @@ export const API_PATHS = {
   MOVE_OUT_TENANT: (id: number) =>
     `/api/tenants/${id}/move-out`,
 
-  //----------------------- Approvals -------------------------
-   APPROVALS:(userId: number) => "/api/user-approvals/{userId}/approve",
+// ----------------------- Approvals -------------------------
+APPROVALS: "/api/approvals",
 
+APPROVAL_BY_ID: (id: number) =>
+  `/api/approvals/${id}`,
+
+APPROVE_APPROVAL: (id: number) =>
+  `/api/approvals/${id}/approve`,
+
+REJECT_APPROVAL: (id: number) =>
+  `/api/approvals/${id}/reject`,
 
   // -------------------- Apartments -----------------
   APARTMENTS: "/v1/apartments",
@@ -53,13 +61,14 @@ UNITS_BY_PROPERTY: (propertyId: number | string) =>
 
   // -----------------------------------------------------------
 
-  // -------------------- Auth -----------------------
-  AUTH_INVITE: "/api/auth/invite",
-  AUTH_LOGIN: "/api/auth/login",
-  AUTH_VERIFY_MFA: "/api/auth/verify-mfa",
-  AUTH_RESEND_OTP: "/api/auth/resend-otp",
-  AUTH_ONBOARDING: "/api/auth/onboarding",
-  AUTH_INVITE_VALIDATE: "/api/auth/validate",
-  AUTH_SET_PASSWORD:"/api/auth/set-password"
+// -------------------- Auth -----------------------
+AUTH_INVITE: "/api/auth/invite",
+AUTH_LOGIN: "/api/auth/login",
+AUTH_VERIFY_MFA: "/api/auth/verify-mfa",
+AUTH_RESEND_OTP: "/api/auth/resend-otp",
+AUTH_ONBOARDING: "/api/auth/onboarding",
+AUTH_INVITE_VALIDATE: "/api/auth/validate",
+AUTH_SET_PASSWORD: "/api/auth/set-password",
+AUTH_VALIDATE_SET_PASSWORD: "/api/auth/validate-set-password",
 
 } as const;

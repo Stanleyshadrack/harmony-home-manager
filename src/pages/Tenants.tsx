@@ -21,76 +21,83 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Users, Plus, Search, UserCheck, UserX, Clock, UserPlus } from 'lucide-react';
+import {
+  Users,
+  Search,
+  UserCheck,
+  UserX,
+  Clock,
+  UserPlus,
+} from 'lucide-react';
+
 import { useTenants } from '@/hooks/useTenants';
 import { usePendingRegistrations } from '@/hooks/useRegistrations';
 import { useAuth } from '@/contexts/AuthContext';
 import { TenantCard } from '@/components/tenants/TenantCard';
-import { TenantForm } from '@/components/tenants/TenantForm';
 import { TenantDetail } from '@/components/tenants/TenantDetail';
 import { TenantApprovals } from '@/components/tenants/TenantApprovals';
-import { Tenant, TenantFormData } from '@/types/tenant';
+import { Tenant } from '@/types/tenant';
 import { useToast } from '@/hooks/use-toast';
+import { InviteUserDialog } from '@/components/admin/InviteUserDialog';
 
 export default function Tenants() {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const { tenants, isLoading, addTenant, updateTenant, deleteTenant } = useTenants();
+  const { tenants, isLoading, updateTenant, deleteTenant } = useTenants();
   const { registrations } = usePendingRegistrations();
   const { user } = useAuth();
 
   const pendingTenantRegistrations = registrations.filter(
     r => r.requestedRole === 'tenant' && r.status === 'pending'
   );
-  const isLandlordOrAdmin = user?.role === 'landlord' || user?.role === 'super_admin';
 
+  const isLandlordOrAdmin =
+    user?.role === 'landlord' || user?.role === 'super_admin';
+
+  const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState('all');
-  const [showForm, setShowForm] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
   const [deletingTenant, setDeletingTenant] = useState<Tenant | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const filteredTenants = tenants.filter((tenant) => {
-    const matchesSearch =
-      `${tenant.firstName} ${tenant.lastName}`.toLowerCase().includes(search.toLowerCase()) ||
-      tenant.email.toLowerCase().includes(search.toLowerCase()) ||
-      tenant.unitNumber.toLowerCase().includes(search.toLowerCase());
+const searchTerm = search.toLowerCase();
 
-    if (activeTab === 'all') return matchesSearch;
-    return matchesSearch && tenant.status === activeTab;
-  });
+const filteredTenants = tenants.filter((tenant) => {
+  const fullName = `${tenant.firstName} ${tenant.lastName}`.toLowerCase();
+  const unit = tenant.unitNumber?.toLowerCase() ?? "";
+
+  const matchesSearch =
+    fullName.includes(searchTerm) ||
+    tenant.email.toLowerCase().includes(searchTerm) ||
+    unit.includes(searchTerm);
+
+  if (activeTab === "all") return matchesSearch;
+  return matchesSearch && tenant.status === activeTab;
+});
 
   const stats = {
     total: tenants.length,
-    active: tenants.filter((t) => t.status === 'active').length,
-    pending: tenants.filter((t) => t.status === 'pending').length,
-    inactive: tenants.filter((t) => t.status === 'inactive').length,
+    active: tenants.filter(t => t.status === 'ACTIVE').length,
+    pending: tenants.filter(t => t.status === 'PENDING').length,
+    inactive: tenants.filter(t => t.status === 'MOVED_OUT').length,
   };
 
-  const handleSubmit = async (data: TenantFormData) => {
+  const handleUpdate = async (data: Partial<Tenant>) => {
+    if (!editingTenant) return;
     setIsSubmitting(true);
     try {
-      if (editingTenant) {
-        await updateTenant(editingTenant.id, data);
-        toast({
-          title: t('tenants.updated'),
-          description: `${data.firstName} ${data.lastName} has been updated.`,
-        });
-      } else {
-        await addTenant(data);
-        toast({
-          title: t('tenants.created'),
-          description: `${data.firstName} ${data.lastName} has been added.`,
-        });
-      }
-      setShowForm(false);
+      await updateTenant(editingTenant.id, data);
+      toast({
+        title: t('tenants.updated'),
+        description: `${data.firstName} ${data.lastName} has been updated.`,
+      });
       setEditingTenant(null);
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
-        description: 'Failed to save tenant. Please try again.',
+        description: 'Failed to update user.',
         variant: 'destructive',
       });
     } finally {
@@ -107,10 +114,10 @@ export default function Tenants() {
         description: `${deletingTenant.firstName} ${deletingTenant.lastName} has been removed.`,
       });
       setDeletingTenant(null);
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
-        description: 'Failed to delete tenant. Please try again.',
+        description: 'Failed to delete user.',
         variant: 'destructive',
       });
     }
@@ -126,53 +133,27 @@ export default function Tenants() {
     >
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Users className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{stats.total}</p>
-              <p className="text-sm text-muted-foreground">{t('tenants.totalTenants')}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-green-500/10 rounded-lg">
-              <UserCheck className="h-5 w-5 text-green-500" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{stats.active}</p>
-              <p className="text-sm text-muted-foreground">{t('tenants.activeTenants')}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-yellow-500/10 rounded-lg">
-              <Clock className="h-5 w-5 text-yellow-500" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{stats.pending}</p>
-              <p className="text-sm text-muted-foreground">{t('tenants.pendingTenants')}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-muted rounded-lg">
-              <UserX className="h-5 w-5 text-muted-foreground" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{stats.inactive}</p>
-              <p className="text-sm text-muted-foreground">{t('tenants.inactiveTenants')}</p>
-            </div>
-          </CardContent>
-        </Card>
+        {[
+          { icon: Users, value: stats.total, label: t('tenants.totalTenants') },
+          { icon: UserCheck, value: stats.active, label: t('tenants.activeTenants'), color: 'text-green-500' },
+          { icon: Clock, value: stats.pending, label: t('tenants.pendingTenants'), color: 'text-yellow-500' },
+          { icon: UserX, value: stats.inactive, label: t('tenants.inactiveTenants') },
+        ].map(({ icon: Icon, value, label, color }) => (
+          <Card key={label}>
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="p-2 bg-muted rounded-lg">
+                <Icon className={`h-5 w-5 ${color ?? 'text-muted-foreground'}`} />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{value}</p>
+                <p className="text-sm text-muted-foreground">{label}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* Search and Add */}
+      {/* Search & Invite */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -183,25 +164,27 @@ export default function Tenants() {
             className="pl-9"
           />
         </div>
-        <Button onClick={() => setShowForm(true)} className="gap-2">
-          <Plus className="h-4 w-4" />
-          {t('tenants.addTenant')}
-        </Button>
+
+        {isLandlordOrAdmin && (
+          <Button onClick={() => setShowInviteDialog(true)}>
+            <UserPlus className="h-4 w-4 mr-2" />
+            Invite User
+          </Button>
+        )}
       </div>
 
-      {/* Tabs and List */}
+      {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="all">{t('common.all')} ({stats.total})</TabsTrigger>
-          <TabsTrigger value="active">{t('tenants.active')} ({stats.active})</TabsTrigger>
-          <TabsTrigger value="pending">{t('tenants.pending')} ({stats.pending})</TabsTrigger>
-          <TabsTrigger value="inactive">{t('tenants.inactive')} ({stats.inactive})</TabsTrigger>
+          <TabsTrigger value="all">All ({stats.total})</TabsTrigger>
+          <TabsTrigger value="active">Active ({stats.active})</TabsTrigger>
+          <TabsTrigger value="pending">Pending ({stats.pending})</TabsTrigger>
+          <TabsTrigger value="inactive">Inactive ({stats.inactive})</TabsTrigger>
           {isLandlordOrAdmin && (
-            <TabsTrigger value="approvals" className="flex items-center gap-2">
-              <UserPlus className="h-4 w-4" />
+            <TabsTrigger value="approvals">
               Approvals
               {pendingTenantRegistrations.length > 0 && (
-                <span className="ml-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center">
+                <span className="ml-2 h-5 w-5 rounded-full bg-destructive text-xs flex items-center justify-center">
                   {pendingTenantRegistrations.length}
                 </span>
               )}
@@ -213,67 +196,40 @@ export default function Tenants() {
           {activeTab === 'approvals' ? (
             <TenantApprovals />
           ) : isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-          ) : filteredTenants.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="flex justify-center py-12">Loading…</div>
+          ) : filteredTenants.length ? (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredTenants.map((tenant) => (
                 <TenantCard
                   key={tenant.id}
                   tenant={tenant}
                   onView={setSelectedTenant}
-                  onEdit={(t) => {
-                    setEditingTenant(t);
-                    setShowForm(true);
-                  }}
+                  onEdit={setEditingTenant}
                   onDelete={setDeletingTenant}
                 />
               ))}
             </div>
           ) : (
             <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                <Users className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">{t('tenants.noTenants')}</h3>
-                <p className="text-muted-foreground mb-4">{t('tenants.noTenantsDescription')}</p>
-                <Button onClick={() => setShowForm(true)} className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  {t('tenants.addTenant')}
-                </Button>
+              <CardContent className="py-12 text-center">
+                <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium mb-2">No users found</h3>
+                <p className="text-muted-foreground mb-4">
+                  Invite users to grant them access.
+                </p>
+                {isLandlordOrAdmin && (
+                  <Button onClick={() => setShowInviteDialog(true)}>
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Invite User
+                  </Button>
+                )}
               </CardContent>
             </Card>
           )}
         </TabsContent>
       </Tabs>
 
-      {/* Tenant Form Dialog */}
-      <Dialog
-        open={showForm}
-        onOpenChange={(open) => {
-          setShowForm(open);
-          if (!open) setEditingTenant(null);
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {editingTenant ? t('tenants.editTenant') : t('tenants.addTenant')}
-            </DialogTitle>
-          </DialogHeader>
-          <TenantForm
-            tenant={editingTenant || undefined}
-            onSubmit={handleSubmit}
-            onCancel={() => {
-              setShowForm(false);
-              setEditingTenant(null);
-            }}
-            isLoading={isSubmitting}
-          />
-        </DialogContent>
-      </Dialog>
-
-      {/* Tenant Detail Sheet */}
+      {/* Tenant Details */}
       <TenantDetail
         tenant={selectedTenant}
         open={!!selectedTenant}
@@ -281,24 +237,31 @@ export default function Tenants() {
       />
 
       {/* Delete Confirmation */}
-      <AlertDialog open={!!deletingTenant} onOpenChange={(open) => !open && setDeletingTenant(null)}>
+      <AlertDialog open={!!deletingTenant} onOpenChange={() => setDeletingTenant(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t('tenants.deleteTenant')}</AlertDialogTitle>
+            <AlertDialogTitle>Delete user?</AlertDialogTitle>
             <AlertDialogDescription>
-              {t('tenants.deleteConfirmation', {
-                name: `${deletingTenant?.firstName} ${deletingTenant?.lastName}`,
-              })}
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
-              {t('common.delete')}
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive">
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Invite Dialog */}
+      {isLandlordOrAdmin && (
+        <InviteUserDialog
+          open={showInviteDialog}
+          onOpenChange={setShowInviteDialog}
+          inviterRole={user?.role || 'landlord'}
+        />
+      )}
     </DashboardLayout>
   );
 }

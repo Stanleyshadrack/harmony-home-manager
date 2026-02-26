@@ -9,12 +9,17 @@ export type CompleteOnboardingPayload = {
   idNumber: string;
 };
 
+export type CompleteOnboardingResponse = {
+  approved: boolean;
+  passwordSet: boolean;
+};
+
 export const completeOnboardingService = async (
   payload: CompleteOnboardingPayload
 ) => {
   return apiRequest<
     CompleteOnboardingPayload,
-    { status: number; message: string }
+    CompleteOnboardingResponse
   >({
     path: API_PATHS.AUTH_ONBOARDING, // "/api/auth/onboarding"
     method: "POST",

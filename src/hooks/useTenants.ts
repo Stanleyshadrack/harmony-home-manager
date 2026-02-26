@@ -48,15 +48,38 @@ export function useTenants() {
 
   const getTenantsByStatus = (status: Tenant["status"]) =>
     tenants.filter((t) => t.status === status);
+   const updateTenant = async (
+  id: string,
+  data: Partial<Tenant>
+): Promise<Tenant> => {
+  const updated = await TenantsApi.update(Number(id), data);
+
+  setTenants((prev) =>
+    prev.map((t) => (t.id === id ? updated : t))
+  );
+
+  return updated;
+};
+
+const deleteTenant = async (id: string): Promise<void> => {
+  await TenantsApi.delete(Number(id));
+
+  setTenants((prev) =>
+    prev.filter((t) => t.id !== id)
+  );
+};
 
   return {
     tenants,
     isLoading,
     addTenant,
     approveTenant,
+    deleteTenant,
+    updateTenant,
     moveOutTenant,
     getTenantsByStatus,
   };
+
 }
 
 /* =========================

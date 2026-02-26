@@ -99,7 +99,7 @@ export default function WaterData() {
     value,
   }));
 
-  const properties = [...new Set(readings.map(r => r.propertyName))];
+  const properties = Array.from(new Set(readings.map(r => r.propertyName)));
 
   const filteredReadings = readings.filter(r => {
     const matchesSearch = 
