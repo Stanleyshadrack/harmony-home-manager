@@ -72,7 +72,9 @@ export function LandlordForm({
           phone: landlord.phone,
           company: landlord.company || '',
           subscription: landlord.subscription,
-          subscriptionEndDate: landlord.subscriptionEndDate.split('T')[0],
+          subscriptionEndDate: landlord.subscriptionEndDate
+  ? landlord.subscriptionEndDate.split('T')[0]
+  : "",
         }
       : {
           subscription: 'basic',

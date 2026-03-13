@@ -25,6 +25,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { WaterReadingResponse as WaterReading } from '@/api/dto/water.readings.dto';
 import { Label } from '@/components/ui/label';
 import { 
   BarChart, 
@@ -40,10 +41,11 @@ import {
   Pie,
   Cell
 } from 'recharts';
-import { useWaterData, WaterReading } from '@/hooks/useWaterData';
+
 import { useAuth } from '@/contexts/AuthContext';
 import { WaterReadingForm } from '@/components/billing/WaterReadingForm';
 import { useToast } from '@/hooks/use-toast';
+import { useWaterData } from '@/hooks/useWaterData';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--info))', 'hsl(var(--warning))', 'hsl(var(--success))'];
 
@@ -51,17 +53,17 @@ export default function WaterData() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { 
-    readings, 
-    getConsumptionStats, 
-    getHighConsumptionUnits,
-    getPendingReadings,
-    canAddReading,
-    canApprove,
-    approveReading,
-    rejectReading,
-    addReading
-  } = useWaterData();
+  const {
+  readings,
+  stats,
+  monthlyStats,
+  highUsage,
+  canAddReading,
+  canApprove,
+  approveReading,
+  rejectReading,
+  addReading
+} = useWaterData();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [propertyFilter, setPropertyFilter] = useState<string>('all');
@@ -72,43 +74,50 @@ export default function WaterData() {
   const [selectedReading, setSelectedReading] = useState<WaterReading | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
 
-  const stats = getConsumptionStats();
-  const highConsumptionUnits = getHighConsumptionUnits();
-  const pendingReadings = getPendingReadings();
+  const pendingReadings = readings.filter(r => r.status === "PENDING");
+const highConsumptionUnits = highUsage;
 
   // Prepare chart data
-  const monthlyChartData = Object.entries(stats.monthlyData).map(([month, data]) => ({
-    month: month.split(' ')[0],
-    consumption: data.consumption,
-    revenue: data.revenue,
-    count: data.count,
-  }));
+const monthlyChartData = monthlyStats.map((m) => ({
+  month: m.month,
+  consumption: m.consumption,
+  revenue: m.revenue,
+  count: m.count,
+}));
+
+
 
   const propertyConsumption = readings.reduce((acc, r) => {
-    if (r.status === 'approved') {
-      if (!acc[r.propertyName]) {
-        acc[r.propertyName] = 0;
-      }
-      acc[r.propertyName] += r.consumption;
-    }
-    return acc;
-  }, {} as Record<string, number>);
+  if (!acc[r.property]) acc[r.property] = 0;
+  acc[r.property] += r.consumption;
+  return acc;
+}, {} as Record<string, number>);
+
 
   const propertyChartData = Object.entries(propertyConsumption).map(([name, value]) => ({
     name,
     value,
   }));
 
-  const properties = Array.from(new Set(readings.map(r => r.propertyName)));
+  const properties = Array.from(new Set(readings.map(r => r.property)));
 
-  const filteredReadings = readings.filter(r => {
-    const matchesSearch = 
-      r.unitNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.tenantName.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesProperty = propertyFilter === 'all' || r.propertyName === propertyFilter;
-    const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
-    return matchesSearch && matchesProperty && matchesStatus;
-  });
+  const filteredReadings = readings.filter((r) => {
+  const unit = r.unitNumber?.toLowerCase() || "";
+  const tenant = r.tenantName?.toLowerCase() || "";
+  const query = searchQuery.toLowerCase();
+
+  const matchesSearch =
+    unit.includes(query) ||
+    tenant.includes(query);
+
+  const matchesProperty =
+    propertyFilter === "all" || r.property === propertyFilter;
+
+  const matchesStatus =
+    statusFilter === "all" || r.status === statusFilter;
+
+  return matchesSearch && matchesProperty && matchesStatus;
+});
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -117,69 +126,65 @@ export default function WaterData() {
     }).format(amount);
   };
 
-  const handleApprove = (reading: WaterReading) => {
-    const success = approveReading(reading.id);
-    if (success) {
-      toast({
-        title: 'Reading Approved',
-        description: `Water reading for ${reading.unitNumber} has been approved.`,
-      });
-    }
-  };
+ const handleApprove = async (reading: WaterReading) => {
+  try {
+    const success = await approveReading(Number(reading.id));
 
-  const handleReject = () => {
-    if (!selectedReading || !rejectionReason.trim()) return;
-    
-    const success = rejectReading(selectedReading.id, rejectionReason);
-    if (success) {
-      toast({
-        title: 'Reading Rejected',
-        description: `Water reading for ${selectedReading.unitNumber} has been rejected.`,
-        variant: 'destructive',
-      });
-    }
-    setShowRejectDialog(false);
-    setSelectedReading(null);
-    setRejectionReason('');
-  };
+    if (!success) return;
+
+    toast({
+      title: 'Reading Approved',
+      description: `Water reading for ${reading.unitNumber} has been approved.`,
+    });
+
+  } catch (error) {
+    toast({
+      title: "Approval Failed",
+      description: "Could not approve water reading.",
+      variant: "destructive",
+    });
+  }
+};
+
+  const handleReject = async () => {
+  if (!selectedReading || !rejectionReason.trim()) return;
+
+  const success = await rejectReading(Number(selectedReading.id));
+
+  if (success) {
+    toast({
+      title: "Reading Rejected",
+      description: `Water reading for ${selectedReading.unitNumber} has been rejected.`,
+      variant: "destructive",
+    });
+  }
+
+  setShowRejectDialog(false);
+  setSelectedReading(null);
+  setRejectionReason("");
+};
 
   const openRejectDialog = (reading: WaterReading) => {
     setSelectedReading(reading);
     setShowRejectDialog(true);
   };
 
-  const handleAddReading = (data: any) => {
-    const result = addReading({
-      unitId: data.unitId,
-      unitNumber: data.unitNumber || 'N/A',
-      propertyName: data.propertyName || 'Unknown Property',
-      propertyId: data.propertyId || '1',
-      tenantName: data.tenantName || 'Unknown Tenant',
-      meterId: data.meterId,
-      previousReading: data.previousReading,
-      currentReading: data.currentReading,
-      ratePerUnit: data.ratePerUnit,
-      readingDate: data.readingDate,
-      billingPeriod: data.billingPeriod,
-      recordedBy: user ? `${user.firstName} ${user.lastName}` : 'Unknown',
-    });
-
-    if (result) {
-      toast({
-        title: user?.role === 'landlord' ? 'Reading Added & Approved' : 'Reading Submitted',
-        description: user?.role === 'landlord' 
-          ? 'The water reading has been added and auto-approved.'
-          : 'The water reading has been submitted for approval.',
-      });
-      setShowAddDialog(false);
-    }
-  };
+ const handleAddReading = async (data: any) => {
+  const result = await addReading({
+    unitId: data.unitId,
+    meterId: data.meterId,
+    currentReading: data.currentReading,
+    ratePerUnit: data.ratePerUnit,
+    readingDate: data.readingDate,
+    billingPeriod: data.billingPeriod,
+  });
+};
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'approved':
+      case 'APPROVED':
         return <Badge className="bg-success/10 text-success border-success/20"><Check className="h-3 w-3 mr-1" />Approved</Badge>;
-      case 'rejected':
+      case 'REJECTED':
         return <Badge variant="destructive"><X className="h-3 w-3 mr-1" />Rejected</Badge>;
       default:
         return <Badge variant="outline" className="border-warning/50 text-warning"><Clock className="h-3 w-3 mr-1" />Pending</Badge>;
@@ -214,7 +219,9 @@ export default function WaterData() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Consumption</p>
-                <p className="text-2xl font-bold">{stats.totalConsumption.toLocaleString()} m³</p>
+                <p className="text-2xl font-bold">
+  {(stats?.totalConsumption ?? 0).toLocaleString()} m³
+</p>
               </div>
             </CardContent>
           </Card>
@@ -226,7 +233,7 @@ export default function WaterData() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Water Revenue</p>
-                <p className="text-2xl font-bold">{formatCurrency(stats.totalRevenue)}</p>
+                <p className="text-2xl font-bold">{formatCurrency(stats?.totalRevenue ?? 0)}</p>
               </div>
             </CardContent>
           </Card>
@@ -238,7 +245,9 @@ export default function WaterData() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Avg. Consumption</p>
-                <p className="text-2xl font-bold">{stats.avgConsumption.toFixed(1)} m³</p>
+                <p className="text-2xl font-bold">
+  {(stats?.avgConsumption ?? 0).toFixed(1)} m³
+</p>
               </div>
             </CardContent>
           </Card>
@@ -250,7 +259,7 @@ export default function WaterData() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Pending Approval</p>
-                <p className="text-2xl font-bold">{stats.pendingCount}</p>
+                <p className="text-2xl font-bold">{stats?.pendingCount ?? 0}</p>
               </div>
             </CardContent>
           </Card>
@@ -262,7 +271,7 @@ export default function WaterData() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">High Usage Units</p>
-                <p className="text-2xl font-bold">{highConsumptionUnits.length}</p>
+                <p className="text-2xl font-bold">{highUsage.length}</p>
               </div>
             </CardContent>
           </Card>
@@ -426,9 +435,9 @@ export default function WaterData() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
+                  <SelectItem value="APPROVED">Approved</SelectItem>
+                  <SelectItem value="PENDING">Pending</SelectItem>
+                  <SelectItem value="REJECTED">Rejected</SelectItem>
                 </SelectContent>
               </Select>
               <Button variant="outline">
@@ -472,12 +481,12 @@ export default function WaterData() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        {formatCurrency(reading.totalAmount)}
+                       {formatCurrency(Number(reading.amount))}
                       </TableCell>
                       <TableCell>{getStatusBadge(reading.status)}</TableCell>
                       {canApprove && (
                         <TableCell>
-                          {reading.status === 'pending' && (
+                          {reading.status === 'PENDING' && (
                             <div className="flex gap-2">
                               <Button size="sm" variant="ghost" className="text-success" onClick={() => handleApprove(reading)}>
                                 <Check className="h-4 w-4" />
@@ -529,7 +538,7 @@ export default function WaterData() {
                                   Unit {reading.unitNumber} - {reading.tenantName}
                                 </p>
                                 <p className="text-sm text-muted-foreground">
-                                  {reading.propertyName} • {reading.billingPeriod}
+                                  {reading.property} • {reading.billingPeriod}
                                 </p>
                                 <p className="text-xs text-muted-foreground mt-1">
                                   Recorded by: {reading.recordedBy} ({reading.recordedByRole})
@@ -541,7 +550,7 @@ export default function WaterData() {
                             <div className="text-right">
                               <p className="font-medium">{reading.consumption} m³</p>
                               <p className="text-sm text-muted-foreground">
-                                {formatCurrency(reading.totalAmount)}
+                                {formatCurrency(Number(reading.amount))}
                               </p>
                             </div>
                             <div className="flex gap-2">
@@ -575,7 +584,7 @@ export default function WaterData() {
                 <CardContent>
                   <div className="h-[300px]">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={readings.filter(r => r.status === 'approved').slice(0, 6)} layout="vertical">
+                      <BarChart data={readings.filter(r => r.status === 'APPROVED').slice(0, 6)} layout="vertical">
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                         <XAxis type="number" className="text-xs" />
                         <YAxis dataKey="unitNumber" type="category" className="text-xs" width={60} />
@@ -599,11 +608,11 @@ export default function WaterData() {
                 <CardContent className="space-y-4">
                   <div className="p-4 bg-muted/50 rounded-lg">
                     <p className="text-sm text-muted-foreground">Average Consumption</p>
-                    <p className="text-2xl font-bold">{stats.avgConsumption.toFixed(2)} m³</p>
+                    <p className="text-2xl font-bold">{(stats?.avgConsumption ?? 0).toFixed(2)} m³ m³</p>
                   </div>
                   <div className="p-4 bg-muted/50 rounded-lg">
                     <p className="text-sm text-muted-foreground">Total Approved Readings</p>
-                    <p className="text-2xl font-bold">{stats.totalReadings}</p>
+                    <p className="text-2xl font-bold">{stats?.totalReadings ?? 0}</p>
                   </div>
                   <div className="p-4 bg-muted/50 rounded-lg">
                     <p className="text-sm text-muted-foreground">Rate per Unit</p>
@@ -627,40 +636,42 @@ export default function WaterData() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {highConsumptionUnits.length === 0 ? (
+                {highUsage.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                     <Droplets className="h-12 w-12 mb-4 opacity-50" />
                     <p>No high consumption alerts</p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    {highConsumptionUnits.map((reading) => (
-                      <div
-                        key={reading.id}
-                        className="flex items-center justify-between p-4 bg-warning/5 border border-warning/20 rounded-lg"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="p-2 rounded-full bg-warning/10">
-                            <TrendingUp className="h-5 w-5 text-warning" />
-                          </div>
-                          <div>
-                            <p className="font-medium">
-                              Unit {reading.unitNumber} - {reading.tenantName}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {reading.propertyName} • {reading.billingPeriod}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <Badge variant="destructive">{reading.consumption} m³</Badge>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {formatCurrency(reading.totalAmount)}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                 <div className="space-y-3">
+  {highConsumptionUnits.map((reading) => (
+    <div
+      key={reading.unitId}
+      className="flex items-center justify-between p-4 bg-warning/5 border border-warning/20 rounded-lg"
+    >
+      <div className="flex items-center gap-4">
+        <div className="p-2 rounded-full bg-warning/10">
+          <TrendingUp className="h-5 w-5 text-warning" />
+        </div>
+
+        <div>
+          <p className="font-medium">
+            Unit {reading.unitId}
+          </p>
+
+          <p className="text-sm text-muted-foreground">
+            {reading.property} • {reading.billingPeriod}
+          </p>
+        </div>
+      </div>
+
+      <div className="text-right">
+        <Badge variant="destructive">
+          {reading.consumption} m³
+        </Badge>
+      </div>
+    </div>
+  ))}
+</div>
                 )}
               </CardContent>
             </Card>

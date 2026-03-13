@@ -1,12 +1,13 @@
 import { tokenService } from "@/services/tokenService";
 
-type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
+type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 
 interface ApiRequestOptions<T> {
   path: string;
   method?: HttpMethod;
   body?: T;
   retry?: boolean;
+  timeout?: number;
 }
 
 const BASE_URL =
@@ -17,22 +18,48 @@ export async function apiRequest<TReq, TRes>({
   method = "POST",
   body,
   retry = true,
+  timeout = 15000,
 }: ApiRequestOptions<TReq>): Promise<TRes> {
   const token = tokenService.getAccessToken();
 
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: method === "GET" ? undefined : JSON.stringify(body),
-  });
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+
+  let res: Response;
+
+  try {
+    res = await fetch(`${BASE_URL}${path}`, {
+      method,
+      signal: controller.signal,
+      headers: {
+        ...(body instanceof FormData
+          ? {}
+          : { "Content-Type": "application/json" }),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body:
+        method === "GET"
+          ? undefined
+          : body instanceof FormData
+          ? body
+          : JSON.stringify(body),
+    });
+  } catch (error: any) {
+    clearTimeout(id);
+
+    if (error.name === "AbortError") {
+      throw new Error("Request timed out. Please try again.");
+    }
+
+    throw new Error("Network error. Please check your connection.");
+  }
+
+  clearTimeout(id);
 
   /* =========================
      🔄 Handle expired token
   ========================= */
-  if (res.status === 401 && retry) {
+  if (res.status === 401 && retry && !path.includes("/auth/refresh")) {
     const refreshed = await refreshAccessToken();
 
     if (refreshed) {
@@ -53,16 +80,38 @@ export async function apiRequest<TReq, TRes>({
   ========================= */
   if (!res.ok) {
     let message = "Request failed";
+
     try {
-      const errorJson = await res.json();
-      message = errorJson.message ?? message;
+      const contentType = res.headers.get("content-type");
+
+      if (contentType?.includes("application/json")) {
+        const errorJson = await res.json();
+        message = errorJson.message ?? message;
+      } else {
+        message = await res.text();
+      }
     } catch {
-      message = await res.text();
+      message = "Unexpected server error";
     }
+
     throw new Error(message);
   }
 
-  return res.json();
+  /* =========================
+     Handle empty responses
+  ========================= */
+
+  if (res.status === 204) {
+    return null as TRes;
+  }
+
+  const contentType = res.headers.get("content-type");
+
+  if (contentType?.includes("application/json")) {
+    return res.json();
+  }
+
+  return null as TRes;
 }
 
 /* =========================

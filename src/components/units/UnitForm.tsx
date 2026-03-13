@@ -3,7 +3,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useEffect } from "react";
+
 import { Unit, UnitFormData, Property } from "@/types/property";
+import { useMeters } from "@/hooks/useMeters";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
 import {
   Dialog,
   DialogContent,
@@ -23,11 +27,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
 import { Loader2 } from "lucide-react";
 
 /* =========================
    Validation Schema
 ========================= */
+
 const unitSchema = z.object({
   propertyId: z.coerce.number().min(1, "Property is required"),
   unitNumber: z.string().min(1, "Unit number is required"),
@@ -66,7 +72,18 @@ export function UnitForm({
   onSubmit,
   isLoading,
 }: UnitFormProps) {
+
   const { t } = useTranslation();
+
+  /* =========================
+     METERS
+  ========================= */
+
+  const { meters, loading: metersLoading } = useMeters();
+
+  /* =========================
+     FORM
+  ========================= */
 
   const {
     register,
@@ -95,8 +112,27 @@ export function UnitForm({
   });
 
   /* =========================
-     Reset on Open / Edit
+     WATCHERS
   ========================= */
+
+  const propertyId = watch("propertyId");
+  const unitType = watch("unitType");
+  const status = watch("status");
+
+  /* =========================
+     FILTER METERS
+  ========================= */
+
+  const availableMeters = meters.filter(
+    (m) =>
+      String(m.propertyId) === String(propertyId) &&
+      !m.unitId
+  );
+
+  /* =========================
+     RESET FORM
+  ========================= */
+
   useEffect(() => {
     if (!open) return;
 
@@ -115,11 +151,12 @@ export function UnitForm({
       meterId: unit?.meterId ?? "",
       amenities: unit?.amenities ?? [],
     });
+
   }, [open, unit, defaultPropertyId, reset]);
 
-  const propertyId = watch("propertyId");
-  const unitType = watch("unitType");
-  const status = watch("status");
+  /* =========================
+     SUBMIT
+  ========================= */
 
   const handleFormSubmit = async (data: UnitFormData) => {
     await onSubmit(data);
@@ -127,7 +164,12 @@ export function UnitForm({
     onOpenChange(false);
   };
 
+  /* =========================
+     UNIT TYPE LOGIC
+  ========================= */
+
   const handleUnitTypeChange = (type: UnitFormData["unitType"]) => {
+
     setValue("unitType", type, { shouldValidate: true });
 
     const bedroomMap: Record<UnitFormData["unitType"], number> = {
@@ -141,13 +183,19 @@ export function UnitForm({
     setValue("bedrooms", bedroomMap[type], { shouldValidate: true });
   };
 
+  /* =========================
+     UI
+  ========================= */
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+
         <DialogHeader>
           <DialogTitle>
             {unit ? t("units.editUnit") : t("units.addUnit")}
           </DialogTitle>
+
           <DialogDescription>
             {unit
               ? "Update the unit details below."
@@ -156,122 +204,186 @@ export function UnitForm({
         </DialogHeader>
 
         <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2">
-            {/* Property */}
-            <div className="space-y-2 sm:col-span-2">
-              <Label>Property *</Label>
-              <Select
-                value={propertyId ? String(propertyId) : ""}
-                onValueChange={(value) =>
-                  setValue("propertyId", Number(value), {
-                    shouldValidate: true,
-                  })
-                }
-              >
-                <SelectTrigger
-                  className={errors.propertyId ? "border-destructive" : ""}
-                >
-                  <SelectValue placeholder="Select a property" />
-                </SelectTrigger>
-                <SelectContent>
-                  {properties.map((property) => (
-                    <SelectItem
-                      key={property.id}
-                      value={String(property.id)}
-                    >
-                      {property.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.propertyId && (
-                <p className="text-sm text-destructive">
-                  {errors.propertyId.message}
-                </p>
-              )}
-            </div>
 
-            {/* Unit Number */}
-            <div className="space-y-2">
-              <Label>{t("units.unitNumber")} *</Label>
-              <Input {...register("unitNumber")} />
-            </div>
+  {/* PROPERTY */}
+  <div className="space-y-2">
+    <Label>Property *</Label>
 
-            {/* Unit Type */}
-            <div className="space-y-2">
-              <Label>{t("units.unitType")} *</Label>
-              <Select value={unitType} onValueChange={handleUnitTypeChange}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="studio">Studio</SelectItem>
-                  <SelectItem value="one_bedroom">1 Bedroom</SelectItem>
-                  <SelectItem value="two_bedroom">2 Bedroom</SelectItem>
-                  <SelectItem value="three_bedroom">3 Bedroom</SelectItem>
-                  <SelectItem value="penthouse">Penthouse</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+    <Select
+      value={propertyId ? String(propertyId) : ""}
+      onValueChange={(value) =>
+        setValue("propertyId", Number(value), { shouldValidate: true })
+      }
+    >
+      <SelectTrigger>
+        <SelectValue placeholder="Select a property" />
+      </SelectTrigger>
 
-            {/* Bedrooms / Bathrooms / Size */}
-            <Input type="number" {...register("bedrooms")} />
-            <Input type="number" {...register("bathrooms")} />
-            <Input type="number" {...register("squareFeet")} />
+      <SelectContent>
+        {properties.map((property) => (
+          <SelectItem key={property.id} value={String(property.id)}>
+            {property.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
 
-            {/* Status */}
-            <div className="space-y-2">
-              <Label>{t("units.status")} *</Label>
-              <Select
-                value={status}
-                onValueChange={(value) =>
-                  setValue("status", value as UnitFormData["status"], {
-                    shouldValidate: true,
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="vacant">{t("units.vacant")}</SelectItem>
-                  <SelectItem value="occupied">
-                    {t("units.occupied")}
-                  </SelectItem>
-                  <SelectItem value="maintenance">
-                    {t("units.maintenance")}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+    {errors.propertyId && (
+      <p className="text-sm text-destructive">
+        {errors.propertyId.message}
+      </p>
+    )}
+  </div>
 
-            {/* Rent / Deposit */}
-            <Input type="number" {...register("monthlyRent")} />
-            <Input type="number" {...register("deposit")} />
+  {/* MAIN GRID */}
+  <div className="grid grid-cols-2 gap-4">
 
-            {/* Meter */}
-            <div className="space-y-2 sm:col-span-2">
-              <Label>{t("units.meterId")} *</Label>
-              <Input {...register("meterId")} />
-            </div>
-          </div>
+    {/* UNIT NUMBER */}
+    <div className="space-y-2">
+      <Label>Unit Number *</Label>
+      <Input {...register("unitNumber")} placeholder="A101" />
+    </div>
 
-          <DialogFooter>
-            <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
-              {t("common.cancel")}
-            </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {t("common.loading")}
-                </>
-              ) : (
-                t("common.save")
-              )}
-            </Button>
-          </DialogFooter>
-        </form>
+    {/* UNIT TYPE */}
+    <div className="space-y-2">
+      <Label>Unit Type *</Label>
+
+      <Select value={unitType} onValueChange={handleUnitTypeChange}>
+        <SelectTrigger>
+          <SelectValue />
+        </SelectTrigger>
+
+        <SelectContent>
+          <SelectItem value="studio">Studio</SelectItem>
+          <SelectItem value="one_bedroom">1 Bedroom</SelectItem>
+          <SelectItem value="two_bedroom">2 Bedroom</SelectItem>
+          <SelectItem value="three_bedroom">3 Bedroom</SelectItem>
+          <SelectItem value="penthouse">Penthouse</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+
+    {/* BEDROOMS */}
+    <div className="space-y-2">
+      <Label>Bedrooms</Label>
+      <Input type="number" {...register("bedrooms")} />
+    </div>
+
+    {/* BATHROOMS */}
+    <div className="space-y-2">
+      <Label>Bathrooms</Label>
+      <Input type="number" {...register("bathrooms")} />
+    </div>
+
+    {/* SQUARE FEET */}
+    <div className="space-y-2">
+      <Label>Square Feet</Label>
+      <Input type="number" {...register("squareFeet")} />
+    </div>
+
+    {/* STATUS */}
+    <div className="space-y-2">
+      <Label>Status *</Label>
+
+      <Select
+        value={status}
+        onValueChange={(value) =>
+          setValue("status", value as UnitFormData["status"], {
+            shouldValidate: true,
+          })
+        }
+      >
+        <SelectTrigger>
+          <SelectValue />
+        </SelectTrigger>
+
+        <SelectContent>
+          <SelectItem value="vacant">Vacant</SelectItem>
+          <SelectItem value="occupied">Occupied</SelectItem>
+          <SelectItem value="maintenance">Maintenance</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+
+    {/* MONTHLY RENT */}
+    <div className="space-y-2">
+      <Label>Monthly Rent</Label>
+      <Input type="number" {...register("monthlyRent")} />
+    </div>
+
+    {/* DEPOSIT */}
+    <div className="space-y-2">
+      <Label>Deposit</Label>
+      <Input type="number" {...register("deposit")} />
+    </div>
+
+  </div>
+
+  {/* WATER METER */}
+  <div className="space-y-2">
+    <Label>Water Meter ID *</Label>
+
+    <Select
+      value={watch("meterId")}
+      onValueChange={(value) =>
+        setValue("meterId", value, { shouldValidate: true })
+      }
+    >
+      <SelectTrigger>
+        <SelectValue placeholder="Select water meter" />
+      </SelectTrigger>
+
+      <SelectContent>
+        {metersLoading ? (
+          <SelectItem value="loading" disabled>
+            Loading meters...
+          </SelectItem>
+        ) : availableMeters.length === 0 ? (
+          <SelectItem value="none" disabled>
+            No available meters
+          </SelectItem>
+        ) : (
+          availableMeters.map((meter) => (
+            <SelectItem key={meter.id} value={meter.meterId}>
+              {meter.meterId}
+            </SelectItem>
+          ))
+        )}
+      </SelectContent>
+    </Select>
+
+    {errors.meterId && (
+      <p className="text-sm text-destructive">
+        {errors.meterId.message}
+      </p>
+    )}
+  </div>
+
+  {/* FOOTER */}
+  <DialogFooter>
+
+    <Button
+      variant="outline"
+      type="button"
+      onClick={() => onOpenChange(false)}
+    >
+      Cancel
+    </Button>
+
+    <Button type="submit" disabled={isLoading}>
+      {isLoading ? (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Saving...
+        </>
+      ) : (
+        "Save"
+      )}
+    </Button>
+
+  </DialogFooter>
+
+</form>
       </DialogContent>
     </Dialog>
   );

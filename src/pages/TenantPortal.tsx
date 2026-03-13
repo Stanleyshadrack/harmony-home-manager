@@ -62,7 +62,9 @@ export default function TenantPortal() {
   const [isLoading, setIsLoading] = useState(false);
 
   // Filter data for current tenant
-  const tenantInvoices = invoices.filter((inv) => inv.tenantId === MOCK_TENANT.id);
+const tenantInvoices = invoices.filter(
+  (inv) => inv.tenantId === Number(MOCK_TENANT.id)
+);
   const tenantRequests = requests.filter((req) => req.tenantId === MOCK_TENANT.id);
   const tenantApplications = applications.filter(
     (app) => app.applicantEmail === MOCK_TENANT.email

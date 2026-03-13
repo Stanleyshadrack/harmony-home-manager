@@ -147,8 +147,8 @@ navigate("/dashboard");
     const result = recordFailedAttempt(data.email);
 
     if (result.locked) {
-      setLockoutInfo({ locked: true, remainingMs: 0* 15 * 1000 });
-      toast.error("Too many failed attempts. Account locked for 15 minutes.");
+      setLockoutInfo({ locked: true, remainingMs: 0* 5 * 1000 });
+      toast.error("Too many failed attempts. Account locked for 5 minutes.");
     } else {
       setAttemptsWarning(
         `${result.attemptsRemaining} attempt${

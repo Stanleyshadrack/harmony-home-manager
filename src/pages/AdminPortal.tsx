@@ -64,7 +64,7 @@ import { useProperties } from '@/hooks/useProperties';
 import { useTenants } from '@/hooks/useTenants';
 import { useBilling } from '@/hooks/useBilling';
 import { useInAppNotifications } from '@/hooks/useInAppNotifications';
-import { useLandlords, Landlord } from '@/hooks/useLandlords';
+import { useLandlords } from '@/hooks/useLandlords';
 import { getAuditLogs, getActivitySummary } from '@/services/auditService';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -76,6 +76,9 @@ import { SubscriptionRenewalDialog } from '@/components/landlords/SubscriptionRe
 import { sendSubscriptionRenewalConfirmationEmail, sendUserInvitationEmail } from '@/services/adminEmailService';
 import { InviteUserDialog } from '@/components/admin/InviteUserDialog';
 import { useInvitations } from '@/hooks/useInvitations';
+import { AssignPropertiesDialog } from '@/components/properties/AssignPropertiesDialog';
+import { LandlordTypes } from '@/types/LandlordTypes';
+import { SubscriptionPlan } from '@/api/dto/SubscriptionResponse';
 
 export default function AdminPortal() {
   const { t } = useTranslation();
@@ -108,7 +111,7 @@ export default function AdminPortal() {
   
   const [activeTab, setActiveTab] = useState('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedLandlord, setSelectedLandlord] = useState<Landlord | null>(null);
+  const [selectedLandlord, setSelectedLandlord] = useState<LandlordTypes  | null>(null);
   const [showLandlordDialog, setShowLandlordDialog] = useState(false);
   const [showLandlordForm, setShowLandlordForm] = useState(false);
   const [landlordFormMode, setLandlordFormMode] = useState<'add' | 'edit'>('add');
@@ -117,8 +120,22 @@ const [approvalLoading, setApprovalLoading] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRenewalDialog, setShowRenewalDialog] = useState(false);
-  const [renewalLandlord, setRenewalLandlord] = useState<Landlord | null>(null);
+  const [renewalLandlord, setRenewalLandlord] = useState<LandlordTypes  | null>(null);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
+   const [showAssignPropertiesDialog, setShowAssignPropertiesDialog] = useState(false);
+  const [assignPropertiesLandlord, setAssignPropertiesLandlord] = useState<LandlordTypes  | null>(null);
+  // Track property assignments per landlord (landlordId -> propertyId[])
+  const [propertyAssignments, setPropertyAssignments] = useState<Record<string, string[]>>(() => {
+    try {
+      const stored = localStorage.getItem('property_assignments');
+      return stored ? JSON.parse(stored) : {
+        '1': ['1', '2'],
+        '2': ['3'],
+      };
+    } catch {
+      return {};
+    }
+  });
 
   const { createInvitation, invitations, getPendingInvitations } = useInvitations();
 
@@ -142,12 +159,12 @@ const [approvalLoading, setApprovalLoading] = useState(false);
       l.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleViewLandlord = (landlord: Landlord) => {
+  const handleViewLandlord = (landlord: LandlordTypes ) => {
     setSelectedLandlord(landlord);
     setShowLandlordDialog(true);
   };
 
-  const handleEditLandlord = (landlord: Landlord) => {
+  const handleEditLandlord = (landlord: LandlordTypes ) => {
     setSelectedLandlord(landlord);
     setLandlordFormMode('edit');
     setShowLandlordForm(true);
@@ -180,48 +197,84 @@ const [approvalLoading, setApprovalLoading] = useState(false);
     setShowLandlordForm(false);
   };
 
-  const handleSuspendLandlord = (id: string) => {
-    suspendLandlord(id);
+  const handleSuspendLandlord = (id: number) => {
+    suspendLandlord(Number(id));
     toast({
       title: 'Landlord Suspended',
       description: 'The landlord account has been suspended.',
     });
   };
 
-  const handleActivateLandlord = (id: string) => {
-    activateLandlord(id);
+  const handleActivateLandlord = (id: number) => {
+    activateLandlord(Number(id));
     toast({
       title: 'Landlord Activated',
       description: 'The landlord account has been activated.',
     });
   };
 
-  const handleOpenRenewalDialog = (landlord: Landlord) => {
+  const handleOpenRenewalDialog = (landlord: LandlordTypes ) => {
     setRenewalLandlord(landlord);
     setShowRenewalDialog(true);
   };
 
-  const handleRenewSubscription = async (landlordId: string, plan: string, paymentData: any) => {
-    const landlord = landlords.find(l => l.id === landlordId);
-    if (!landlord) return;
+ const handleRenewSubscription = async (
+  plan: string,
+  paymentData: any
+) => {
+  if (!renewalLandlord) return;
 
-    const planDetails = subscriptionPlans.find(p => p.id === plan);
+  const landlordId = renewalLandlord.id;
+
+  const landlord = landlords.find(l => l.id === landlordId);
+  if (!landlord) return;
+
+  const planDetails = subscriptionPlans.find(p => p.id === plan);
+
+  // Process renewal
+ await updateSubscription(
+  landlordId,
+  plan as SubscriptionPlan,
+  "MONTHLY"
+);
+
+  // Send confirmation email
+  await sendSubscriptionRenewalConfirmationEmail({
+    landlordName: `${landlord.firstName} ${landlord.lastName}`,
+    landlordEmail: landlord.email,
+    planName: planDetails?.name || plan,
+    amount: (planDetails?.price || 0) * 12,
+    newExpirationDate: new Date(
+      Date.now() + 365 * 24 * 60 * 60 * 1000
+    ).toISOString(),
+    transactionId: `TXN-${Date.now()}`,
+  });
+
+  setShowRenewalDialog(false);
+  setRenewalLandlord(null);
+};
+  
+  // Handle property assignment
+  const handleOpenAssignProperties = (landlord: LandlordTypes ) => {
+    setAssignPropertiesLandlord(landlord);
+    setShowAssignPropertiesDialog(true);
+  };
+  const handleSavePropertyAssignment = (landlordId: string, propertyIds: string[]) => {
+    const updated = { ...propertyAssignments, [landlordId]: propertyIds };
+    setPropertyAssignments(updated);
+    localStorage.setItem('property_assignments', JSON.stringify(updated));
     
-    // Process renewal
-    updateSubscription(landlordId, plan as any);
-
-    // Send confirmation email
-    await sendSubscriptionRenewalConfirmationEmail({
-      landlordName: `${landlord.firstName} ${landlord.lastName}`,
-      landlordEmail: landlord.email,
-      planName: planDetails?.name || plan,
-      amount: (planDetails?.price || 0) * 12,
-      newExpirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-      transactionId: `TXN-${Date.now()}`,
+    // Update landlord's currentProperties count
+    updateLandlord(Number(landlordId), {
+  currentProperties: propertyIds.length
+});
+    toast({
+      title: 'Properties Assigned',
+      description: `${propertyIds.length} property(ies) assigned successfully.`,
     });
-
-    setShowRenewalDialog(false);
-    setRenewalLandlord(null);
+  };
+  const getAssignedPropertyIds = (landlordId: string): string[] => {
+    return propertyAssignments[landlordId] || [];
   };
 
   // Recipient groups for bulk email
@@ -233,24 +286,6 @@ const [approvalLoading, setApprovalLoading] = useState(false);
   ];
 
   const { addNotification } = useInAppNotifications();
-
-  // const handleApproveRegistration = async (registration: PendingRegistration) => {
-  //   await approveRegistration(registration.id, user?.email || 'Admin');
-    
-  //   addNotification({
-  //     userId: registration.phone,
-  //     title: 'Registration Approved!',
-  //     message: `Your ${registration.requestedRole} account has been approved. You can now log in to the system.`,
-  //     category: 'registration_approved',
-  //     priority: 'high',
-  //     link: '/auth',
-  //   });
-
-  //   toast({
-  //     title: 'Registration Approved',
-  //     description: `${registration.firstName} ${registration.lastName}'s ${registration.requestedRole} account has been approved.`,
-  //   });
-  // };
 
   const handleRejectApproval = async () => {
   if (!selectedApproval || !rejectionReason.trim()) return;
@@ -267,8 +302,6 @@ const [approvalLoading, setApprovalLoading] = useState(false);
   setRejectionReason("");
 };
 
-  // const pendingRegistrations = registrations.filter((r) => r.status === 'pending');
-  // const pendingCount = getPendingCount();
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -460,8 +493,14 @@ const [approvalLoading, setApprovalLoading] = useState(false);
                           {landlord.firstName.charAt(0)}
                         </div>
                         <div>
-                          <p className="font-medium">{landlord.firstName} {landlord.lastName}</p>
+
+                          <p className="font-medium">
+  {landlord.firstName || landlord.lastName
+    ? `${landlord.firstName ?? ""} ${landlord.lastName ?? ""}`.trim()
+    : landlord.email}
+</p>
                           <p className="text-sm text-muted-foreground">{landlord.email}</p>
+
                         </div>
                       </div>
                       <div className="text-right">
@@ -703,7 +742,9 @@ const [approvalLoading, setApprovalLoading] = useState(false);
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm">
-                            {landlord.firstName.charAt(0)}
+                            {(landlord.firstName || landlord.email)
+  .charAt(0)
+  .toUpperCase()}
                           </div>
                           <div>
                             <span className="font-medium">{landlord.firstName} {landlord.lastName}</span>
@@ -743,7 +784,14 @@ const [approvalLoading, setApprovalLoading] = useState(false);
                         </Badge>
                       </TableCell>
                       <TableCell className={isSubscriptionExpired(landlord) ? 'text-destructive' : 'text-muted-foreground'}>
-                        {formatDate(landlord.subscriptionEndDate)}
+                        {landlord.subscriptionEndDate
+  ? formatDate(landlord.subscriptionEndDate)
+  : (
+      <Badge variant="outline" className="text-muted-foreground">
+        Not set
+      </Badge>
+    )
+}
                         {isSubscriptionExpired(landlord) && (
                           <Badge variant="destructive" className="ml-2 text-xs">Expired</Badge>
                         )}
@@ -764,10 +812,14 @@ const [approvalLoading, setApprovalLoading] = useState(false);
                               <Edit className="h-4 w-4 mr-2" />
                               Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleOpenRenewalDialog(landlord)}>
-                              <RefreshCw className="h-4 w-4 mr-2" />
-                              Renew Subscription
+                            <DropdownMenuItem onClick={() => handleOpenAssignProperties(landlord)}>
+                              <Building2 className="h-4 w-4 mr-2" />
+                              Assign Properties
                             </DropdownMenuItem>
+                           <DropdownMenuItem onClick={() => handleOpenRenewalDialog(landlord)}>
+  <RefreshCw className="h-4 w-4 mr-2" />
+  Renew Subscription
+</DropdownMenuItem>
                             {landlord.status === 'active' ? (
                               <DropdownMenuItem
                                 onClick={() => handleSuspendLandlord(landlord.id)}
@@ -953,6 +1005,30 @@ const [approvalLoading, setApprovalLoading] = useState(false);
                 </div>
               </div>
 
+              {/* Assigned Properties */}
+              {(() => {
+                const assignedIds = getAssignedPropertyIds(selectedLandlord.id.toString());
+                const assignedProps = properties.filter(p => assignedIds.includes(p.id));
+                return assignedProps.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Assigned Properties</p>
+                    <div className="space-y-1">
+                      {assignedProps.map(p => (
+                        <div key={p.id} className="flex items-center gap-2 p-2 bg-muted/50 rounded text-sm">
+                          <Building2 className="h-3 w-3 text-muted-foreground" />
+                          <span>{p.name}</span>
+                          <span className="text-muted-foreground">• {p.city}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-muted/50 rounded-lg text-center">
+                    <p className="text-sm text-muted-foreground">No properties assigned</p>
+                  </div>
+                );
+              })()}
+
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Phone</span>
@@ -1088,15 +1164,16 @@ const [approvalLoading, setApprovalLoading] = useState(false);
         </DialogContent>
       </Dialog>
 
+
       {/* Subscription Renewal Dialog */}
       {renewalLandlord && (
         <SubscriptionRenewalDialog
-          open={showRenewalDialog}
-          onOpenChange={setShowRenewalDialog}
-          landlord={renewalLandlord}
-          subscriptionPlans={subscriptionPlans}
-          onRenew={handleRenewSubscription}
-        />
+  open={showRenewalDialog}
+  onOpenChange={setShowRenewalDialog}
+  landlord={renewalLandlord}
+  subscriptionPlans={subscriptionPlans}
+  onRenew={handleRenewSubscription}
+/>
       )}
 
       {/* Invite User Dialog */}
@@ -1192,6 +1269,15 @@ const [approvalLoading, setApprovalLoading] = useState(false);
   </DialogContent>
 </Dialog>
 
+  {/* Assign Properties Dialog */}
+      <AssignPropertiesDialog
+        open={showAssignPropertiesDialog}
+        onOpenChange={setShowAssignPropertiesDialog}
+        landlord={assignPropertiesLandlord}
+        properties={properties}
+        assignedPropertyIds={assignPropertiesLandlord ? getAssignedPropertyIds(assignPropertiesLandlord.id.toString()) : []}
+        onSave={handleSavePropertyAssignment}
+      />
 
     </DashboardLayout>
   );

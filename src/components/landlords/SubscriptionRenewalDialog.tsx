@@ -52,7 +52,7 @@ export function SubscriptionRenewalDialog({
   subscriptionPlans,
   onRenew,
 }: SubscriptionRenewalDialogProps) {
-  const { addPayment } = useSubscriptionPayments();
+  const { renew, upgrade } = useSubscriptionPayments();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'renew' | 'history'>('renew');
   const [selectedPlan, setSelectedPlan] = useState(landlord.subscription);
@@ -103,24 +103,42 @@ export function SubscriptionRenewalDialog({
       const newExpiryDate = new Date();
       newExpiryDate.setFullYear(newExpiryDate.getFullYear() + 1);
 
-      addPayment({
-        landlordId: landlord.id,
-        landlordName: `${landlord.firstName} ${landlord.lastName}`,
-        landlordEmail: landlord.email,
-        planId: selectedPlan,
-        planName: newPlan?.name || selectedPlan,
-        amount: (newPlan?.price || 0) * 12,
-        paymentMethod: 'card',
-        transactionRef: `TXN-${Date.now()}`,
-        cardLast4: paymentData.cardNumber.slice(-4),
-        status: 'completed',
-        renewalPeriod: '1 Year',
-        previousExpiryDate: landlord.subscriptionEndDate,
-        newExpiryDate: newExpiryDate.toISOString(),
-        paymentDate: new Date().toISOString(),
-      });
+      const handleProcessPayment = async () => {
+  if (!paymentData.cardNumber || !paymentData.expiryDate || !paymentData.cvv) {
+    toast({
+      title: "Missing Information",
+      description: "Please fill in all payment details.",
+      variant: "destructive",
+    });
+    return;
+  }
 
-      await onRenew(landlord.id, selectedPlan, paymentData);
+  setIsProcessing(true);
+
+  try {
+    // 🔐 Call backend
+    if (selectedPlan !== landlord.subscription) {
+      await upgrade(selectedPlan.toUpperCase() as any);
+    } else {
+      await renew();
+    }
+
+    setStep("success");
+
+    toast({
+      title: "Subscription Renewed",
+      description: `Successfully renewed to ${newPlan?.name} plan.`,
+    });
+  } catch {
+    toast({
+      title: "Payment Failed",
+      description: "Unable to process payment.",
+      variant: "destructive",
+    });
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
       setStep('success');
       
@@ -265,7 +283,7 @@ export function SubscriptionRenewalDialog({
             </TabsContent>
 
             <TabsContent value="history" className="mt-4">
-              <SubscriptionPaymentHistory landlordId={landlord.id} showTitle={false} />
+              <SubscriptionPaymentHistory showTitle={false} />
             </TabsContent>
           </Tabs>
         )}

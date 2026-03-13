@@ -9,7 +9,7 @@ import { PropertyFormData } from "@/types/property";
 
 export const PropertyApi = Object.freeze({
   /* =========================
-     ➕ Create property
+      Create property
   ========================= */
   create: async (
     data: CreatePropertyFormData
@@ -22,7 +22,7 @@ export const PropertyApi = Object.freeze({
   },
 
   /* =========================
-     📄 Fetch all properties
+      Fetch all properties
   ========================= */
   fetchAll: () =>
     apiRequest<null, PropertyApiResponse[]>({
@@ -65,5 +65,39 @@ export const PropertyApi = Object.freeze({
     apiRequest<null, PropertyStatsResponse>({
       path: API_PATHS.PROPERTY_STATS(propertyId),
       method: "GET",
+    }),
+
+  /* =========================
+     🏢 Fetch property units
+  ========================= */
+  fetchUnits: (propertyId: number) =>
+    apiRequest<null, any[]>({
+      path: API_PATHS.PROPERTY_UNITS(propertyId),
+      method: "GET",
+    }),
+
+  /* =========================
+     👤 Assign property to landlord
+  ========================= */
+  assignLandlord: (propertyId: number, landlordId: number) =>
+    apiRequest<
+      { propertyId: number; landlordId: number },
+      PropertyApiResponse
+    >({
+      path: API_PATHS.ASSIGN_PROPERTY,
+      method: "POST",
+      body: {
+        propertyId,
+        landlordId,
+      },
+    }),
+
+  /* =========================
+     ❌ Unassign landlord
+  ========================= */
+  unassignLandlord: (propertyId: number) =>
+    apiRequest<null, PropertyApiResponse>({
+      path: API_PATHS.UNASSIGN_PROPERTY(propertyId),
+      method: "DELETE",
     }),
 });

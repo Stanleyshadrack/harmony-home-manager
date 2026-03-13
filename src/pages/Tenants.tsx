@@ -34,11 +34,11 @@ import { useTenants } from '@/hooks/useTenants';
 import { usePendingRegistrations } from '@/hooks/useRegistrations';
 import { useAuth } from '@/contexts/AuthContext';
 import { TenantCard } from '@/components/tenants/TenantCard';
-import { TenantDetail } from '@/components/tenants/TenantDetail';
 import { TenantApprovals } from '@/components/tenants/TenantApprovals';
 import { Tenant } from '@/types/tenant';
 import { useToast } from '@/hooks/use-toast';
 import { InviteUserDialog } from '@/components/admin/InviteUserDialog';
+import { TenantDetail } from '@/components/tenants/TenantDetail';
 
 export default function Tenants() {
   const { t } = useTranslation();

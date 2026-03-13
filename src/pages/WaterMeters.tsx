@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useProperties, useUnits } from "@/hooks/useProperties";
 import {
   Dialog,
   DialogContent,
@@ -42,118 +43,16 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { useMeters } from "@/hooks/useMeters";
+import { WaterMeter } from "@/api/dto/WaterMeterDTO";
+import { MeterForm } from '@/types/MeterForm';
 
-interface WaterMeter {
-  id: string;
-  meterId: string;
-  propertyId: string;
-  propertyName: string;
-  unitId: string;
-  unitNumber: string;
-  installationDate: Date;
-  lastReadingDate: Date | null;
-  lastReading: number;
-  status: 'active' | 'inactive' | 'maintenance';
-  meterType: 'analog' | 'digital' | 'smart';
-  manufacturer: string;
-  model: string;
-  serialNumber: string;
-  notes: string;
-}
 
-// Mock data for water meters
-const mockMeters: WaterMeter[] = [
-  {
-    id: '1',
-    meterId: 'WM-001',
-    propertyId: '1',
-    propertyName: 'Sunset Apartments',
-    unitId: '101',
-    unitNumber: 'A101',
-    installationDate: new Date('2023-01-15'),
-    lastReadingDate: new Date('2024-01-20'),
-    lastReading: 1245.5,
-    status: 'active',
-    meterType: 'digital',
-    manufacturer: 'Sensus',
-    model: 'iPERL',
-    serialNumber: 'SN-2023-001',
-    notes: 'Regular maintenance scheduled',
-  },
-  {
-    id: '2',
-    meterId: 'WM-002',
-    propertyId: '1',
-    propertyName: 'Sunset Apartments',
-    unitId: '102',
-    unitNumber: 'A102',
-    installationDate: new Date('2023-01-15'),
-    lastReadingDate: new Date('2024-01-18'),
-    lastReading: 987.2,
-    status: 'active',
-    meterType: 'smart',
-    manufacturer: 'Kamstrup',
-    model: 'flowIQ 2200',
-    serialNumber: 'SN-2023-002',
-    notes: '',
-  },
-  {
-    id: '3',
-    meterId: 'WM-003',
-    propertyId: '2',
-    propertyName: 'Ocean View Complex',
-    unitId: '201',
-    unitNumber: 'B201',
-    installationDate: new Date('2022-06-10'),
-    lastReadingDate: new Date('2024-01-15'),
-    lastReading: 2156.8,
-    status: 'maintenance',
-    meterType: 'analog',
-    manufacturer: 'Neptune',
-    model: 'T-10',
-    serialNumber: 'SN-2022-015',
-    notes: 'Needs calibration check',
-  },
-  {
-    id: '4',
-    meterId: 'WM-004',
-    propertyId: '2',
-    propertyName: 'Ocean View Complex',
-    unitId: '202',
-    unitNumber: 'B202',
-    installationDate: new Date('2022-06-10'),
-    lastReadingDate: null,
-    lastReading: 0,
-    status: 'inactive',
-    meterType: 'digital',
-    manufacturer: 'Badger Meter',
-    model: 'E-Series',
-    serialNumber: 'SN-2022-016',
-    notes: 'Unit currently vacant',
-  },
-  {
-    id: '5',
-    meterId: 'WM-005',
-    propertyId: '3',
-    propertyName: 'Green Valley Residences',
-    unitId: '301',
-    unitNumber: 'C301',
-    installationDate: new Date('2023-08-20'),
-    lastReadingDate: new Date('2024-01-22'),
-    lastReading: 456.3,
-    status: 'active',
-    meterType: 'smart',
-    manufacturer: 'Itron',
-    model: 'Cyble',
-    serialNumber: 'SN-2023-045',
-    notes: 'Remote reading enabled',
-  },
-];
 
 export default function WaterMeters() {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const [meters, setMeters] = useState<WaterMeter[]>(mockMeters);
+  const { meters, stats, loading, createMeter, updateMeter, deleteMeter } = useMeters();
   const [searchQuery, setSearchQuery] = useState('');
   const [propertyFilter, setPropertyFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -161,61 +60,93 @@ export default function WaterMeters() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const { properties } = useProperties();
+  const { units } = useUnits();
   const [selectedMeter, setSelectedMeter] = useState<WaterMeter | null>(null);
-  const [formData, setFormData] = useState({
-    meterId: '',
-    propertyName: '',
-    unitNumber: '',
-    meterType: 'digital' as WaterMeter['meterType'],
-    manufacturer: '',
-    model: '',
-    serialNumber: '',
-    notes: '',
+  const [formData, setFormData] = useState<MeterForm>({
+    meterId: "",
+    propertyId: "",
+    meterType: "DIGITAL",
+    manufacturer: "",
+    model: "",
+    serialNumber: "",
+    notes: "",
+    lastReading:0
   });
 
-  const properties = useMemo(() => {
-    return Array.from(new Set(meters.map((m) => m.propertyName)));
-  }, [meters]);
+  const resetForm = () => {
+    setFormData({
+      meterId: "",
+      propertyId: "",
+      meterType: "DIGITAL",
+      manufacturer: "",
+      model: "",
+      serialNumber: "",
+      notes: "",
+      lastReading:0
+    });
+  };
+
+
+
+  const propertyMap = useMemo(() => {
+    const map = new Map();
+    properties.forEach(p => map.set(p.id, p));
+    return map;
+  }, [properties]);
+
+  const unitMap = useMemo(() => {
+    const map = new Map();
+    units.forEach(u => map.set(u.id, u));
+    return map;
+  }, [units]);
+
 
   const filteredMeters = useMemo(() => {
     return meters.filter((m) => {
       const matchesSearch =
         m.meterId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        m.unitNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        m.serialNumber.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesProperty = propertyFilter === 'all' || m.propertyName === propertyFilter;
+        unitMap.get(m.unitId)?.unitNumber
+          ?.toLowerCase()
+          .includes(searchQuery.toLowerCase()) ||
+        propertyMap.get(m.propertyId)?.name
+          ?.toLowerCase()
+          .includes(searchQuery.toLowerCase()) ||
+        m.serialNumber?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesProperty = propertyFilter === 'all' || m.propertyId === propertyFilter;
       const matchesStatus = statusFilter === 'all' || m.status === statusFilter;
       const matchesType = typeFilter === 'all' || m.meterType === typeFilter;
       return matchesSearch && matchesProperty && matchesStatus && matchesType;
     });
-  }, [meters, searchQuery, propertyFilter, statusFilter, typeFilter]);
+  }, [
+    meters,
+    searchQuery,
+    propertyFilter,
+    statusFilter,
+    typeFilter,
+    propertyMap,
+    unitMap
+  ]);
 
-  const stats = useMemo(() => {
-    return {
-      total: meters.length,
-      active: meters.filter((m) => m.status === 'active').length,
-      inactive: meters.filter((m) => m.status === 'inactive').length,
-      maintenance: meters.filter((m) => m.status === 'maintenance').length,
-    };
-  }, [meters]);
+
 
   const getStatusBadge = (status: WaterMeter['status']) => {
     switch (status) {
-      case 'active':
+      case 'ACTIVE':
         return (
           <Badge className="bg-success/10 text-success border-success/20">
             <CheckCircle2 className="h-3 w-3 mr-1" />
             Active
           </Badge>
         );
-      case 'inactive':
+      case 'INACTIVE':
         return (
           <Badge variant="secondary">
             <XCircle className="h-3 w-3 mr-1" />
             Inactive
           </Badge>
         );
-      case 'maintenance':
+      case 'MAINTENANCE':
         return (
           <Badge className="bg-warning/10 text-warning border-warning/20">
             <AlertTriangle className="h-3 w-3 mr-1" />
@@ -227,47 +158,45 @@ export default function WaterMeters() {
 
   const getMeterTypeBadge = (type: WaterMeter['meterType']) => {
     switch (type) {
-      case 'smart':
+      case 'SMART':
         return <Badge variant="outline" className="border-primary/50 text-primary">Smart</Badge>;
-      case 'digital':
+      case 'DIGITAL':
         return <Badge variant="outline">Digital</Badge>;
-      case 'analog':
+      case 'ANALOG':
         return <Badge variant="outline" className="border-muted-foreground/50">Analog</Badge>;
     }
   };
 
-  const resetForm = () => {
-    setFormData({
-      meterId: '',
-      propertyName: '',
-      unitNumber: '',
-      meterType: 'digital',
-      manufacturer: '',
-      model: '',
-      serialNumber: '',
-      notes: '',
-    });
-  };
+  const sortedMeters = useMemo(() => {
+    return [...filteredMeters].sort((a, b) =>
+      a.meterId.localeCompare(b.meterId)
+    );
+  }, [filteredMeters]);
 
-  const handleAddMeter = () => {
-    const newMeter: WaterMeter = {
-      id: Date.now().toString(),
+
+
+  const handleAddMeter = async () => {
+   if (!formData.meterId || !formData.propertyId) {
+      toast({
+        title: "Validation Error",
+       description: "Meter ID and property are required.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const newMeter: Partial<WaterMeter> = {
       meterId: formData.meterId,
-      propertyId: '1',
-      propertyName: formData.propertyName,
-      unitId: '1',
-      unitNumber: formData.unitNumber,
-      installationDate: new Date(),
-      lastReadingDate: null,
-      lastReading: 0,
-      status: 'active',
-      meterType: formData.meterType,
-      manufacturer: formData.manufacturer,
-      model: formData.model,
-      serialNumber: formData.serialNumber,
-      notes: formData.notes,
+  propertyId: formData.propertyId,
+  meterType: formData.meterType,
+  manufacturer: formData.manufacturer,
+  model: formData.model,
+  serialNumber: formData.serialNumber,
+  notes: formData.notes,
+  lastReading: formData.lastReading,
     };
-    setMeters([...meters, newMeter]);
+
+    await createMeter(newMeter as WaterMeter);
+
     setShowAddDialog(false);
     resetForm();
     toast({
@@ -276,25 +205,25 @@ export default function WaterMeters() {
     });
   };
 
-  const handleEditMeter = () => {
+  const handleEditMeter = async () => {
     if (!selectedMeter) return;
-    setMeters(
-      meters.map((m) =>
-        m.id === selectedMeter.id
-          ? {
-              ...m,
-              meterId: formData.meterId,
-              propertyName: formData.propertyName,
-              unitNumber: formData.unitNumber,
-              meterType: formData.meterType,
-              manufacturer: formData.manufacturer,
-              model: formData.model,
-              serialNumber: formData.serialNumber,
-              notes: formData.notes,
-            }
-          : m
-      )
-    );
+
+    const updated: Partial<WaterMeter> = {
+      meterId: formData.meterId,
+      propertyId: formData.propertyId,
+      meterType: formData.meterType,
+      manufacturer: formData.manufacturer,
+      model: formData.model,
+      serialNumber: formData.serialNumber,
+      notes: formData.notes,
+       lastReading: formData.lastReading,
+    };
+
+    await updateMeter(Number(selectedMeter.id), {
+      ...selectedMeter,
+      ...updated,
+    });
+
     setShowEditDialog(false);
     setSelectedMeter(null);
     resetForm();
@@ -304,9 +233,11 @@ export default function WaterMeters() {
     });
   };
 
-  const handleDeleteMeter = () => {
+  const handleDeleteMeter = async () => {
     if (!selectedMeter) return;
-    setMeters(meters.filter((m) => m.id !== selectedMeter.id));
+
+    await deleteMeter(Number(selectedMeter.id));
+
     setShowDeleteDialog(false);
     setSelectedMeter(null);
     toast({
@@ -318,16 +249,18 @@ export default function WaterMeters() {
 
   const openEditDialog = (meter: WaterMeter) => {
     setSelectedMeter(meter);
-    setFormData({
-      meterId: meter.meterId,
-      propertyName: meter.propertyName,
-      unitNumber: meter.unitNumber,
-      meterType: meter.meterType,
-      manufacturer: meter.manufacturer,
-      model: meter.model,
-      serialNumber: meter.serialNumber,
-      notes: meter.notes,
-    });
+
+   setFormData({
+  meterId: meter.meterId ?? "",
+  propertyId: meter.propertyId ?? "",
+  meterType: meter.meterType ?? "DIGITAL",
+  manufacturer: meter.manufacturer ?? "",
+  model: meter.model ?? "",
+  serialNumber: meter.serialNumber ?? "",
+  notes: meter.notes ?? "",
+  lastReading: meter.lastReading ?? 0,
+});
+
     setShowEditDialog(true);
   };
 
@@ -336,7 +269,19 @@ export default function WaterMeters() {
     setShowDeleteDialog(true);
   };
 
+  if (loading) {
+    return (
+      <DashboardLayout title="Water Meters">
+        <div className="p-6 text-muted-foreground">
+          Loading water meters...
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+
   return (
+
     <DashboardLayout
       title="Water Meters"
       breadcrumbs={[
@@ -354,7 +299,7 @@ export default function WaterMeters() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Meters</p>
-                <p className="text-2xl font-bold">{stats.total}</p>
+                <p className="text-2xl font-bold">{stats?.total ?? 0}</p>
               </div>
             </CardContent>
           </Card>
@@ -366,7 +311,7 @@ export default function WaterMeters() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Active</p>
-                <p className="text-2xl font-bold">{stats.active}</p>
+                <p className="text-2xl font-bold">{stats?.active ?? 0}</p>
               </div>
             </CardContent>
           </Card>
@@ -378,7 +323,7 @@ export default function WaterMeters() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Inactive</p>
-                <p className="text-2xl font-bold">{stats.inactive}</p>
+                <p className="text-2xl font-bold">{stats?.inactive ?? 0}</p>
               </div>
             </CardContent>
           </Card>
@@ -390,11 +335,13 @@ export default function WaterMeters() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Maintenance</p>
-                <p className="text-2xl font-bold">{stats.maintenance}</p>
+                <p className="text-2xl font-bold">{stats?.maintenance ?? 0}</p>
               </div>
             </CardContent>
           </Card>
         </div>
+
+
 
         {/* Filters and Actions */}
         <div className="flex flex-col sm:flex-row gap-4">
@@ -415,10 +362,11 @@ export default function WaterMeters() {
             <SelectContent>
               <SelectItem value="all">All Properties</SelectItem>
               {properties.map((p) => (
-                <SelectItem key={p} value={p}>
-                  {p}
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name}
                 </SelectItem>
               ))}
+
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -427,9 +375,9 @@ export default function WaterMeters() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
-              <SelectItem value="maintenance">Maintenance</SelectItem>
+              <SelectItem value="ACTIVE">Active</SelectItem>
+              <SelectItem value="INACTIVE">Inactive</SelectItem>
+              <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
             </SelectContent>
           </Select>
           <Select value={typeFilter} onValueChange={setTypeFilter}>
@@ -438,12 +386,17 @@ export default function WaterMeters() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="smart">Smart</SelectItem>
-              <SelectItem value="digital">Digital</SelectItem>
-              <SelectItem value="analog">Analog</SelectItem>
+              <SelectItem value="SMART">Smart</SelectItem>
+              <SelectItem value="DIGITAL">Digital</SelectItem>
+              <SelectItem value="ANALOG">Analog</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={() => setShowAddDialog(true)} className="gap-2">
+          <Button
+            onClick={() => {
+              resetForm();
+              setShowAddDialog(true);
+            }}
+            className="gap-2">
             <Plus className="h-4 w-4" />
             Add Meter
           </Button>
@@ -471,28 +424,36 @@ export default function WaterMeters() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredMeters.map((meter) => (
+                sortedMeters.map((meter) => (
                   <TableRow key={meter.id}>
                     <TableCell className="font-medium">{meter.meterId}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Building2 className="h-4 w-4 text-muted-foreground" />
-                        {meter.propertyName}
+                        {propertyMap.get(meter.propertyId)?.name ?? meter.propertyId}
                       </div>
                     </TableCell>
+
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Home className="h-4 w-4 text-muted-foreground" />
-                        {meter.unitNumber}
+                        {meter.unitId ? (
+  unitMap.get(meter.unitId)?.unitNumber ?? meter.unitId
+) : (
+  <Badge variant="outline">Unassigned</Badge>
+)}
                       </div>
                     </TableCell>
                     <TableCell>{getMeterTypeBadge(meter.meterType)}</TableCell>
                     <TableCell>
                       {meter.lastReadingDate ? (
                         <div>
-                          <p className="font-medium">{meter.lastReading.toLocaleString()} m³</p>
+                          <p className="font-medium">
+                            {(meter.lastReading ?? 0).toLocaleString()} m³
+                          </p>
+
                           <p className="text-xs text-muted-foreground">
-                            {format(meter.lastReadingDate, 'MMM d, yyyy')}
+                            {format(meter.lastReadingDate, "MMM d, yyyy")}
                           </p>
                         </div>
                       ) : (
@@ -564,22 +525,27 @@ export default function WaterMeters() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="propertyName">Property</Label>
-                  <Input
-                    id="propertyName"
-                    value={formData.propertyName}
-                    onChange={(e) => setFormData({ ...formData, propertyName: e.target.value })}
-                    placeholder="Sunset Apartments"
-                  />
+                  <Select
+                    value={formData.propertyId}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, propertyId: value })
+                    }
+
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Property" />
+                    </SelectTrigger>
+
+                    <SelectContent>
+                      {properties.map((property) => (
+                        <SelectItem key={property.id} value={property.id}>
+                          {property.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="unitNumber">Unit Number</Label>
-                  <Input
-                    id="unitNumber"
-                    value={formData.unitNumber}
-                    onChange={(e) => setFormData({ ...formData, unitNumber: e.target.value })}
-                    placeholder="A101"
-                  />
-                </div>
+                
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -594,9 +560,9 @@ export default function WaterMeters() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="smart">Smart</SelectItem>
-                      <SelectItem value="digital">Digital</SelectItem>
-                      <SelectItem value="analog">Analog</SelectItem>
+                      <SelectItem value="SMART">Smart</SelectItem>
+                      <SelectItem value="DIGITAL">Digital</SelectItem>
+                      <SelectItem value="ANALOG">Analog</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -619,6 +585,26 @@ export default function WaterMeters() {
                   placeholder="iPERL"
                 />
               </div>
+              <div className="space-y-2">
+  <Label htmlFor="lastReading">Last Reading</Label>
+
+  <Input
+    id="lastReading"
+    type="number"
+    value={formData.lastReading}
+    onChange={(e) =>
+      setFormData({
+        ...formData,
+        lastReading: Number(e.target.value),
+      })
+    }
+    placeholder="0"
+  />
+
+  <p className="text-xs text-muted-foreground">
+    Initial meter reading (can be edited)
+  </p>
+</div>
               <div className="space-y-2">
                 <Label htmlFor="notes">Notes</Label>
                 <Input

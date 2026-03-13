@@ -38,6 +38,7 @@ import {
   Droplets,
   UsersRound,
   History,
+  CreditCard as CreditCardIcon,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -68,6 +69,7 @@ const mainNavItems: NavItem[] = [
   { title: 'navigation.tenants', url: '/tenants', icon: Users, roles: ['super_admin', 'landlord', 'employee'] },
   { title: 'Employees', url: '/employees', icon: UsersRound, roles: ['super_admin', 'landlord'] },
   { title: 'navigation.billing', url: '/billing', icon: CreditCard, roles: ['super_admin', 'landlord'] },
+  { title: 'Subscription Plans', url: '/subscription-plans', icon: CreditCardIcon, roles: ['landlord'] },
   { title: 'Water Data', url: '/water-data', icon: Droplets, roles: ['super_admin', 'landlord'] },
   { title: 'Water Meters', url: '/water-meters', icon: Droplets, roles: ['super_admin', 'landlord'] },
   { title: 'navigation.maintenance', url: '/maintenance', icon: Wrench, roles: ['super_admin', 'landlord'] },

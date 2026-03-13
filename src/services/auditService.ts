@@ -132,7 +132,7 @@ export const filterAuditLogs = (filters: {
     logs = logs.filter(log => log.severity === filters.severity);
   }
   if (filters.resource) {
-    logs = logs.filter(log => log.resource.toLowerCase().includes(filters.resource.toLowerCase()));
+    logs = logs.filter(log => log.resource.toLowerCase().includes(filters.resource!.toLowerCase()));
   }
   if (filters.startDate) {
     logs = logs.filter(log => log.timestamp >= filters.startDate!);

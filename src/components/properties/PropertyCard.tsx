@@ -4,6 +4,11 @@ import { Property } from '@/types/property';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { useLandlords } from '@/hooks/useLandlords';
+import { useQuery } from "@tanstack/react-query";
+import { PropertyApi } from "@/api/service/add.apartments.service.api";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,7 +16,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+
 import {
+  Phone,
   Building2,
   Home,
   MapPin,
@@ -20,7 +27,6 @@ import {
   Trash2,
   Eye,
 } from 'lucide-react';
-import { useUnits } from '@/hooks/useProperties';
 
 interface PropertyCardProps {
   property: Property;
@@ -33,22 +39,23 @@ export function PropertyCard({
   onEdit,
   onDelete,
 }: PropertyCardProps) {
+
   const { t } = useTranslation();
+  const { getLandlordById } = useLandlords();
+
+  const landlord = getLandlordById(Number(property.landlordId));
 
   /* =========================
-     🔗 UNITS → PROPERTY STATS
+     PROPERTY STATS (API)
   ========================= */
-  const { units } = useUnits();
 
-  const propertyUnits = units.filter(
-    (u) => u.propertyId === property.id
-  );
+  const { data: stats } = useQuery({
+    queryKey: ["propertyStats", property.id],
+    queryFn: () => PropertyApi.fetchStats(Number(property.id)),
+  });
 
-  const totalUnits = propertyUnits.length;
-
-  const occupiedUnits = propertyUnits.filter(
-    (u) => u.status === 'occupied'
-  ).length;
+  const totalUnits = stats?.totalUnits ?? 0;
+  const occupiedUnits = stats?.occupiedUnits ?? 0;
 
   const occupancyRate =
     totalUnits > 0
@@ -65,12 +72,15 @@ export function PropertyCard({
     <Card className="hover:shadow-md transition-shadow">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
+
           <div className="flex items-center gap-3">
             <div className="p-2 bg-primary/10 rounded-lg">
               <Building2 className="h-5 w-5 text-primary" />
             </div>
+
             <div>
               <h3 className="font-semibold text-lg">{property.name}</h3>
+
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 <MapPin className="h-3 w-3" />
                 {property.city}, {property.country}
@@ -84,6 +94,7 @@ export function PropertyCard({
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
+
             <DropdownMenuContent align="end">
               <DropdownMenuItem asChild>
                 <Link to={`/properties/${property.id}`}>
@@ -91,11 +102,14 @@ export function PropertyCard({
                   {t('common.actions')}
                 </Link>
               </DropdownMenuItem>
+
               <DropdownMenuItem onClick={() => onEdit(property)}>
                 <Edit className="mr-2 h-4 w-4" />
                 {t('common.edit')}
               </DropdownMenuItem>
+
               <DropdownMenuSeparator />
+
               <DropdownMenuItem
                 onClick={() => onDelete(property)}
                 className="text-destructive"
@@ -105,29 +119,70 @@ export function PropertyCard({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
         </div>
       </CardHeader>
 
       <CardContent>
         <div className="space-y-4">
+
           <p className="text-sm text-muted-foreground">
             {property.address}
           </p>
 
+          {/* Units + Occupancy */}
           <div className="flex items-center justify-between">
+
             <div className="flex items-center gap-2">
               <Home className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm">
                 {occupiedUnits}/{totalUnits} {t('properties.units')}
               </span>
             </div>
+
             <Badge className={getOccupancyColor(occupancyRate)}>
               {occupancyRate}% {t('dashboard.occupancyRate')}
             </Badge>
+
           </div>
 
+          {/* Landlord */}
+          {landlord && (
+            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+
+              <Avatar className="h-9 w-9">
+                <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+                  {landlord.firstName[0]}{landlord.lastName[0]}
+                </AvatarFallback>
+              </Avatar>
+
+              <div className="flex-1 min-w-0">
+
+                <p className="text-sm font-medium truncate">
+                  {landlord.firstName} {landlord.lastName}
+                </p>
+
+                {landlord.company && (
+                  <p className="text-xs text-muted-foreground truncate">
+                    {landlord.company}
+                  </p>
+                )}
+
+                <div className="flex items-center gap-3 mt-0.5">
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Phone className="h-3 w-3" />
+                    {landlord.phone}
+                  </span>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* Amenities */}
           {property.amenities.length > 0 && (
             <div className="flex flex-wrap gap-1">
+
               {property.amenities.slice(0, 3).map((amenity) => (
                 <Badge
                   key={amenity}
@@ -137,15 +192,19 @@ export function PropertyCard({
                   {amenity}
                 </Badge>
               ))}
+
               {property.amenities.length > 3 && (
                 <Badge variant="outline" className="text-xs">
                   +{property.amenities.length - 3}
                 </Badge>
               )}
+
             </div>
           )}
 
+          {/* Actions */}
           <div className="flex gap-2 pt-2">
+
             <Button
               asChild
               variant="outline"
@@ -156,12 +215,15 @@ export function PropertyCard({
                 {t('properties.propertyDetails')}
               </Link>
             </Button>
+
             <Button asChild size="sm" className="flex-1">
               <Link to={`/units?property=${property.id}`}>
                 {t('properties.units')}
               </Link>
             </Button>
+
           </div>
+
         </div>
       </CardContent>
     </Card>

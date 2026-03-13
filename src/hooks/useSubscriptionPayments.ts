@@ -1,117 +1,121 @@
-import { useState, useCallback, useEffect } from 'react';
-import { SubscriptionPayment } from '@/types/subscription';
+import { useState, useEffect, useCallback } from "react";
 
-const STORAGE_KEY = 'subscription_payments';
+import { SubscriptionPayment } from "@/types/subscription";
+import { SubscriptionResponse } from "@/api/dto/SubscriptionResponse";
+import { fetchMySubscription, renewMySubscription, upgradeMySubscription } from "@/api/service/subscription.service";
 
-const mockPayments: SubscriptionPayment[] = [
-  {
-    id: 'sp-1',
-    landlordId: '1',
-    landlordName: 'Alice Wanjiku',
-    landlordEmail: 'alice@landlord.com',
-    planId: 'premium',
-    planName: 'Premium Plan',
-    amount: 948,
-    paymentMethod: 'card',
-    transactionRef: 'TXN-1704067200000',
-    cardLast4: '4242',
-    status: 'completed',
-    renewalPeriod: '1 Year',
-    previousExpiryDate: '2023-06-15',
-    newExpiryDate: '2024-06-15',
-    paymentDate: '2023-06-15T10:30:00Z',
-    createdAt: '2023-06-15T10:30:00Z',
-  },
-  {
-    id: 'sp-2',
-    landlordId: '2',
-    landlordName: 'Bob Ochieng',
-    landlordEmail: 'bob@landlord.com',
-    planId: 'basic',
-    planName: 'Basic Plan',
-    amount: 348,
-    paymentMethod: 'mpesa',
-    transactionRef: 'TXN-1695206400000',
-    status: 'completed',
-    renewalPeriod: '1 Year',
-    previousExpiryDate: '2022-09-20',
-    newExpiryDate: '2023-09-20',
-    paymentDate: '2022-09-20T14:00:00Z',
-    createdAt: '2022-09-20T14:00:00Z',
-  },
-];
+/* ======================================================
+   MAPPERS
+====================================================== */
 
-const getStoredPayments = (): SubscriptionPayment[] => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-  } catch {
-    // Ignore
-  }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(mockPayments));
-  return mockPayments;
-};
+function mapSubscriptionToPayment(
+  sub: SubscriptionResponse,
+  action: "UPGRADE" | "RENEW"
+): SubscriptionPayment {
+  return {
+    id: `sub-${sub.id}-${Date.now()}`,
+    landlordId: String(sub.landlordId),
+    landlordName: "Current Landlord", // backend can expose later
+    landlordEmail: "—",
+    planId: sub.plan,
+    planName: `${sub.plan} Plan`,
+    amount: sub.plan === "PREMIUM" ? 948 : sub.plan === "ENTERPRISE" ? 2399 : 0,
+    paymentMethod: "mpesa",
+    transactionRef: `SUB-${Date.now()}`,
+    status: "completed",
+    renewalPeriod: "1 Year",
+    previousExpiryDate: sub.startDate,
+    newExpiryDate: sub.endDate,
+    paymentDate: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+  };
+}
 
-const savePayments = (payments: SubscriptionPayment[]) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(payments));
-};
+/* ======================================================
+   HOOK
+====================================================== */
 
-export function useSubscriptionPayments(landlordId?: string) {
+export function useSubscriptionPayments() {
   const [payments, setPayments] = useState<SubscriptionPayment[]>([]);
+  const [subscription, setSubscription] =
+    useState<SubscriptionResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  /* ================= FETCH CURRENT SUBSCRIPTION ================= */
+
   useEffect(() => {
-    const storedPayments = getStoredPayments();
-    if (landlordId) {
-      setPayments(storedPayments.filter(p => p.landlordId === landlordId));
-    } else {
-      setPayments(storedPayments);
-    }
-    setIsLoading(false);
-  }, [landlordId]);
+    let mounted = true;
 
-  const addPayment = useCallback((paymentData: Omit<SubscriptionPayment, 'id' | 'createdAt'>) => {
-    const newPayment: SubscriptionPayment = {
-      ...paymentData,
-      id: `sp-${Date.now()}`,
-      createdAt: new Date().toISOString(),
+    fetchMySubscription()
+      .then((sub) => {
+        if (!mounted) return;
+
+        setSubscription(sub);
+
+        // Initial “payment record” (current subscription state)
+        setPayments([
+          mapSubscriptionToPayment(sub, "RENEW"),
+        ]);
+      })
+      .finally(() => mounted && setIsLoading(false));
+
+    return () => {
+      mounted = false;
     };
-
-    const allPayments = getStoredPayments();
-    const updated = [newPayment, ...allPayments];
-    savePayments(updated);
-
-    if (landlordId) {
-      setPayments(updated.filter(p => p.landlordId === landlordId));
-    } else {
-      setPayments(updated);
-    }
-
-    return newPayment;
-  }, [landlordId]);
-
-  const getPaymentsByLandlord = useCallback((id: string): SubscriptionPayment[] => {
-    return getStoredPayments().filter(p => p.landlordId === id);
   }, []);
 
-  const getPaymentById = useCallback((id: string): SubscriptionPayment | undefined => {
-    return getStoredPayments().find(p => p.id === id);
+  /* ================= UPGRADE ================= */
+
+const upgrade = useCallback(
+  async (
+    plan: "BASIC" | "PREMIUM" | "ENTERPRISE",
+    billingCycle: "MONTHLY" | "ANNUAL"
+  ) => {
+    const updated = await upgradeMySubscription({
+      plan,
+      billingCycle,
+    });
+
+    setSubscription(updated);
+
+    setPayments((prev) => [
+      mapSubscriptionToPayment(updated, "UPGRADE"),
+      ...prev,
+    ]);
+
+    return updated;
+  },
+  []
+);
+
+  /* ================= RENEW ================= */
+
+  const renew = useCallback(async () => {
+    const updated = await renewMySubscription();
+
+    setSubscription(updated);
+    setPayments((prev) => [
+      mapSubscriptionToPayment(updated, "RENEW"),
+      ...prev,
+    ]);
+
+    return updated;
   }, []);
 
-  const getTotalRevenue = useCallback((): number => {
-    return getStoredPayments()
-      .filter(p => p.status === 'completed')
+  /* ================= STATS ================= */
+
+  const getTotalRevenue = useCallback(() => {
+    return payments
+      .filter((p) => p.status === "completed")
       .reduce((sum, p) => sum + p.amount, 0);
-  }, []);
+  }, [payments]);
 
   return {
+    subscription,
     payments,
     isLoading,
-    addPayment,
-    getPaymentsByLandlord,
-    getPaymentById,
+    upgrade,
+    renew,
     getTotalRevenue,
   };
 }

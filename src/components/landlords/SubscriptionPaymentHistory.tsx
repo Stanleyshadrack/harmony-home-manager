@@ -32,13 +32,13 @@ import {
   FileText,
 } from 'lucide-react';
 
+
 interface SubscriptionPaymentHistoryProps {
-  landlordId?: string;
   showTitle?: boolean;
 }
 
-export function SubscriptionPaymentHistory({ landlordId, showTitle = true }: SubscriptionPaymentHistoryProps) {
-  const { payments, isLoading } = useSubscriptionPayments(landlordId);
+export function SubscriptionPaymentHistory({  showTitle = true }: SubscriptionPaymentHistoryProps) {
+  const { payments, isLoading } = useSubscriptionPayments();
   const [selectedPayment, setSelectedPayment] = useState<SubscriptionPayment | null>(null);
 
   const formatDate = (dateString: string) => {
@@ -137,7 +137,6 @@ export function SubscriptionPaymentHistory({ landlordId, showTitle = true }: Sub
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
-                  {!landlordId && <TableHead>Landlord</TableHead>}
                   <TableHead>Plan</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Method</TableHead>
@@ -149,14 +148,7 @@ export function SubscriptionPaymentHistory({ landlordId, showTitle = true }: Sub
                 {payments.map((payment) => (
                   <TableRow key={payment.id}>
                     <TableCell>{formatDate(payment.paymentDate)}</TableCell>
-                    {!landlordId && (
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{payment.landlordName}</p>
-                          <p className="text-xs text-muted-foreground">{payment.landlordEmail}</p>
-                        </div>
-                      </TableCell>
-                    )}
+                    
                     <TableCell>
                       <Badge variant="secondary">{payment.planName}</Badge>
                     </TableCell>

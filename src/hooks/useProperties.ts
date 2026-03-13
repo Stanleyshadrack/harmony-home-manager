@@ -62,16 +62,19 @@ export function useProperties() {
   /* =========================
      CREATE PROPERTY
   ========================= */
-const createMutation = useMutation({
-  mutationFn: (data: PropertyFormData) =>
-    PropertyApi.create(mapPropertyFormToApi(data)),
+  const createMutation = useMutation({
+    mutationFn: (data: PropertyFormData) =>
+      PropertyApi.create(mapPropertyFormToApi(data)),
+
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['properties'] });
+
       toast({
         title: 'Success',
         description: 'Property created successfully',
       });
     },
+
     onError: (err: any) => {
       toast({
         variant: 'destructive',
@@ -87,13 +90,16 @@ const createMutation = useMutation({
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: PropertyFormData }) =>
       PropertyApi.update(Number(id), data),
+
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['properties'] });
+
       toast({
         title: 'Success',
         description: 'Property updated successfully',
       });
     },
+
     onError: (err: any) => {
       toast({
         variant: 'destructive',
@@ -108,13 +114,16 @@ const createMutation = useMutation({
   ========================= */
   const deleteMutation = useMutation({
     mutationFn: (id: string) => PropertyApi.delete(Number(id)),
+
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['properties'] });
+
       toast({
         title: 'Success',
         description: 'Property deleted successfully',
       });
     },
+
     onError: (err: any) => {
       toast({
         variant: 'destructive',
@@ -124,16 +133,79 @@ const createMutation = useMutation({
     },
   });
 
+  /* =========================
+     ASSIGN LANDLORD
+  ========================= */
+  const assignLandlordMutation = useMutation({
+    mutationFn: ({
+      propertyId,
+      landlordId,
+    }: {
+      propertyId: number;
+      landlordId: number;
+    }) => PropertyApi.assignLandlord(propertyId, landlordId),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['properties'] });
+
+      toast({
+        title: 'Success',
+        description: 'Landlord assigned successfully',
+      });
+    },
+
+    onError: (err: any) => {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: err?.message ?? 'Failed to assign landlord',
+      });
+    },
+  });
+
+  /* =========================
+     UNASSIGN LANDLORD
+  ========================= */
+  const unassignLandlordMutation = useMutation({
+    mutationFn: (propertyId: number) =>
+      PropertyApi.unassignLandlord(propertyId),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['properties'] });
+
+      toast({
+        title: 'Success',
+        description: 'Landlord unassigned successfully',
+      });
+    },
+
+    onError: (err: any) => {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: err?.message ?? 'Failed to unassign landlord',
+      });
+    },
+  });
+
   return {
     properties: propertiesQuery.data ?? [],
     isLoading: propertiesQuery.isLoading,
 
+    /* CRUD */
     addProperty: createMutation.mutateAsync,
 
     updateProperty: (id: string, data: PropertyFormData) =>
       updateMutation.mutateAsync({ id, data }),
 
     deleteProperty: deleteMutation.mutateAsync,
+
+    /* Landlord assignment */
+    assignLandlord: (propertyId: number, landlordId: number) =>
+      assignLandlordMutation.mutateAsync({ propertyId, landlordId }),
+
+    unassignLandlord: (propertyId: number) =>
+      unassignLandlordMutation.mutateAsync(propertyId),
   };
 }
 

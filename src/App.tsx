@@ -2,6 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import SubscriptionPlans from "./pages/SubscriptionPlans";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -112,6 +113,13 @@ const App = () => (
                     <WaterData />
                   </ProtectedRoute>
                 } />
+
+                  <Route path="/subscription-plans" element={
+                  <ProtectedRoute allowedRoles={['landlord']}>
+                    <SubscriptionPlans />
+                  </ProtectedRoute>
+                } />
+                
                 <Route path="/reports" element={
                   <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
                     <Reports />
