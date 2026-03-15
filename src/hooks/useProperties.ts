@@ -231,7 +231,7 @@ export function mapUnitFromApi(api: PropertyUnitApiResponse): Unit {
     status: api.status.toLowerCase() as Unit["status"],
 
     meterId: api.meterId ?? "",
-    amenities: api.amenities ?? [],
+    meterName: api.meterName ?? "",
 
     photos: [],
     currentTenantId: undefined,

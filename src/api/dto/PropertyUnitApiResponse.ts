@@ -15,6 +15,6 @@ export interface PropertyUnitApiResponse {
   status: "VACANT" | "OCCUPIED" | "MAINTENANCE";
 
   meterId: string;
-  amenities: string[];
+  meterName: string;
   floor: number;
 }

@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useEffect } from "react";
 
-import { Unit, UnitFormData, Property } from "@/types/property";
+import { Unit, UnitFormData, Property  } from "@/types/property";
 import { useMeters } from "@/hooks/useMeters";
 
 import { Button } from "@/components/ui/button";
@@ -50,7 +50,7 @@ const unitSchema = z.object({
   monthlyRent: z.coerce.number().min(1),
   deposit: z.coerce.number().min(0),
   status: z.enum(["vacant", "occupied", "maintenance"]),
-  meterId: z.string().min(1, "Water meter ID is required"),
+  meterId: z.coerce.number().min(1, "Water meter ID is required"),
 });
 
 interface UnitFormProps {
@@ -95,9 +95,7 @@ export function UnitForm({
   } = useForm<UnitFormData>({
     resolver: zodResolver(unitSchema),
     defaultValues: {
-      propertyId: unit?.propertyId
-        ? Number(unit.propertyId)
-        : defaultPropertyId ?? 0,
+      propertyId: unit?.propertyId ?? "",
       unitNumber: unit?.unitNumber ?? "",
       unitType: unit?.unitType ?? "one_bedroom",
       bedrooms: unit?.bedrooms ?? 1,
@@ -106,8 +104,7 @@ export function UnitForm({
       monthlyRent: unit?.monthlyRent ?? 0,
       deposit: unit?.deposit ?? 0,
       status: unit?.status ?? "vacant",
-      meterId: unit?.meterId ?? "",
-      amenities: unit?.amenities ?? [],
+      meterId: unit?.meterId ?? ""
     },
   });
 
@@ -123,11 +120,11 @@ export function UnitForm({
      FILTER METERS
   ========================= */
 
-  const availableMeters = meters.filter(
-    (m) =>
-      String(m.propertyId) === String(propertyId) &&
-      !m.unitId
-  );
+ const availableMeters = meters.filter(
+  (m) =>
+    String(m.propertyId) === String(propertyId) &&
+    (!m.unitId || m.unitId === unit?.id)
+);
 
   /* =========================
      RESET FORM
@@ -137,9 +134,7 @@ export function UnitForm({
     if (!open) return;
 
     reset({
-      propertyId: unit?.propertyId
-        ? Number(unit.propertyId)
-        : defaultPropertyId ?? 0,
+      propertyId: unit?.propertyId ?? "",
       unitNumber: unit?.unitNumber ?? "",
       unitType: unit?.unitType ?? "one_bedroom",
       bedrooms: unit?.bedrooms ?? 1,
@@ -149,7 +144,6 @@ export function UnitForm({
       deposit: unit?.deposit ?? 0,
       status: unit?.status ?? "vacant",
       meterId: unit?.meterId ?? "",
-      amenities: unit?.amenities ?? [],
     });
 
   }, [open, unit, defaultPropertyId, reset]);
@@ -212,7 +206,7 @@ export function UnitForm({
     <Select
       value={propertyId ? String(propertyId) : ""}
       onValueChange={(value) =>
-        setValue("propertyId", Number(value), { shouldValidate: true })
+        setValue("propertyId", value, { shouldValidate: true })
       }
     >
       <SelectTrigger>
@@ -320,44 +314,47 @@ export function UnitForm({
   </div>
 
   {/* WATER METER */}
-  <div className="space-y-2">
-    <Label>Water Meter ID *</Label>
+<div className="space-y-2">
+  <Label>Water Meter *</Label>
 
-    <Select
-      value={watch("meterId")}
-      onValueChange={(value) =>
-        setValue("meterId", value, { shouldValidate: true })
-      }
-    >
-      <SelectTrigger>
-        <SelectValue placeholder="Select water meter" />
-      </SelectTrigger>
+  <Select
+    value={watch("meterId") ? String(watch("meterId")) : ""}
+    onValueChange={(value) =>
+      setValue("meterId", value, { shouldValidate: true })
+    }
+  >
+    <SelectTrigger>
+      <SelectValue placeholder="Select water meter" />
+    </SelectTrigger>
 
-      <SelectContent>
-        {metersLoading ? (
-          <SelectItem value="loading" disabled>
-            Loading meters...
-          </SelectItem>
-        ) : availableMeters.length === 0 ? (
-          <SelectItem value="none" disabled>
-            No available meters
-          </SelectItem>
-        ) : (
-          availableMeters.map((meter) => (
-            <SelectItem key={meter.id} value={meter.meterId}>
-              {meter.meterId}
-            </SelectItem>
-          ))
-        )}
-      </SelectContent>
-    </Select>
+   <SelectContent>
+  {metersLoading ? (
+    <SelectItem key="loading" value="loading" disabled>
+      Loading meters...
+    </SelectItem>
+  ) : availableMeters.length === 0 ? (
+    <SelectItem key="no-meters" value="none" disabled>
+      No available meters
+    </SelectItem>
+  ) : (
+   availableMeters.map((meter) => (
+  <SelectItem
+    key={meter.id}
+    value={String(meter.id)}
+  >
+    {meter.meterName} ({meter.meterType})
+  </SelectItem>
+))
+  )}
+</SelectContent>
+  </Select>
 
-    {errors.meterId && (
-      <p className="text-sm text-destructive">
-        {errors.meterId.message}
-      </p>
-    )}
-  </div>
+  {errors.meterId && (
+    <p className="text-sm text-destructive">
+      {errors.meterId.message}
+    </p>
+  )}
+</div>
 
   {/* FOOTER */}
   <DialogFooter>

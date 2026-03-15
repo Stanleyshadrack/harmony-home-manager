@@ -64,7 +64,7 @@ export default function WaterMeters() {
   const { units } = useUnits();
   const [selectedMeter, setSelectedMeter] = useState<WaterMeter | null>(null);
   const [formData, setFormData] = useState<MeterForm>({
-    meterId: "",
+    meterName: "",
     propertyId: "",
     meterType: "DIGITAL",
     manufacturer: "",
@@ -76,7 +76,7 @@ export default function WaterMeters() {
 
   const resetForm = () => {
     setFormData({
-      meterId: "",
+      meterName: "",
       propertyId: "",
       meterType: "DIGITAL",
       manufacturer: "",
@@ -105,15 +105,14 @@ export default function WaterMeters() {
   const filteredMeters = useMemo(() => {
     return meters.filter((m) => {
       const matchesSearch =
-        m.meterId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        unitMap.get(m.unitId)?.unitNumber
-          ?.toLowerCase()
-          .includes(searchQuery.toLowerCase()) ||
-        propertyMap.get(m.propertyId)?.name
-          ?.toLowerCase()
-          .includes(searchQuery.toLowerCase()) ||
-        m.serialNumber?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesProperty = propertyFilter === 'all' || m.propertyId === propertyFilter;
+  m.meterName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  m.unitNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  m.propertyName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  m.serialNumber?.toLowerCase().includes(searchQuery.toLowerCase());
+
+        
+     const matchesProperty =
+  propertyFilter === "all" || String(m.propertyId) === propertyFilter;
       const matchesStatus = statusFilter === 'all' || m.status === statusFilter;
       const matchesType = typeFilter === 'all' || m.meterType === typeFilter;
       return matchesSearch && matchesProperty && matchesStatus && matchesType;
@@ -169,14 +168,14 @@ export default function WaterMeters() {
 
   const sortedMeters = useMemo(() => {
     return [...filteredMeters].sort((a, b) =>
-      a.meterId.localeCompare(b.meterId)
+      a.meterName.localeCompare(b.meterName)
     );
   }, [filteredMeters]);
 
 
 
   const handleAddMeter = async () => {
-   if (!formData.meterId || !formData.propertyId) {
+   if (!formData.meterName || !formData.propertyId) {
       toast({
         title: "Validation Error",
        description: "Meter ID and property are required.",
@@ -185,7 +184,7 @@ export default function WaterMeters() {
       return;
     }
     const newMeter: Partial<WaterMeter> = {
-      meterId: formData.meterId,
+      meterName: formData.meterName,
   propertyId: formData.propertyId,
   meterType: formData.meterType,
   manufacturer: formData.manufacturer,
@@ -201,7 +200,7 @@ export default function WaterMeters() {
     resetForm();
     toast({
       title: 'Meter Added',
-      description: `Water meter ${formData.meterId} has been added successfully.`,
+      description: `Water meter ${formData.meterName} has been added successfully.`,
     });
   };
 
@@ -209,7 +208,7 @@ export default function WaterMeters() {
     if (!selectedMeter) return;
 
     const updated: Partial<WaterMeter> = {
-      meterId: formData.meterId,
+     meterName: formData.meterName,
       propertyId: formData.propertyId,
       meterType: formData.meterType,
       manufacturer: formData.manufacturer,
@@ -251,7 +250,7 @@ export default function WaterMeters() {
     setSelectedMeter(meter);
 
    setFormData({
-  meterId: meter.meterId ?? "",
+  meterName: meter.meterName ?? "",
   propertyId: meter.propertyId ?? "",
   meterType: meter.meterType ?? "DIGITAL",
   manufacturer: meter.manufacturer ?? "",
@@ -417,28 +416,29 @@ export default function WaterMeters() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredMeters.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    No water meters found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                sortedMeters.map((meter) => (
-                  <TableRow key={meter.id}>
-                    <TableCell className="font-medium">{meter.meterId}</TableCell>
+  {sortedMeters.length === 0 ? (
+    <TableRow key="no-meters">
+      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+        No water meters found
+      </TableCell>
+    </TableRow>
+  ) : (
+                sortedMeters.map((meter, index) => (
+  <TableRow key={`meter-${meter.id ?? index}`}>
+                    <TableCell className="font-medium">{meter.meterName}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-muted-foreground" />
-                        {propertyMap.get(meter.propertyId)?.name ?? meter.propertyId}
-                      </div>
-                    </TableCell>
+  <div className="flex items-center gap-2">
+    <Building2 className="h-4 w-4 text-muted-foreground" />
+    {meter.propertyName ?? propertyMap.get(meter.propertyId)?.name}
+  </div>
+</TableCell>
+
 
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Home className="h-4 w-4 text-muted-foreground" />
-                        {meter.unitId ? (
-  unitMap.get(meter.unitId)?.unitNumber ?? meter.unitId
+                        {meter.unitNumber ? (
+  meter.unitNumber
 ) : (
   <Badge variant="outline">Unassigned</Badge>
 )}
@@ -504,11 +504,11 @@ export default function WaterMeters() {
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="meterId">Meter ID</Label>
+                  <Label htmlFor="meterId">Meter Code</Label>
                   <Input
                     id="meterId"
-                    value={formData.meterId}
-                    onChange={(e) => setFormData({ ...formData, meterId: e.target.value })}
+                    value={formData.meterName}
+                    onChange={(e) => setFormData({ ...formData, meterName: e.target.value })}
                     placeholder="WM-001"
                   />
                 </div>
@@ -640,7 +640,7 @@ export default function WaterMeters() {
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Water Meter</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to delete meter {selectedMeter?.meterId}? This action cannot be
+                Are you sure you want to delete meter {selectedMeter?.id}? This action cannot be
                 undone.
               </AlertDialogDescription>
             </AlertDialogHeader>

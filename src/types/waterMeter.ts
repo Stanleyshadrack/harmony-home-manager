@@ -1,17 +1,22 @@
 export interface WaterMeter {
-  id: string;
-  meterId: string;
-  propertyId: string;
-  propertyName: string;
-  unitId: string;
-  unitNumber: string;
-  installationDate: Date;
-  lastReadingDate: Date | null;
-  lastReading: number;
-  status: 'active' | 'inactive' | 'maintenance';
-  meterType: 'analog' | 'digital' | 'smart';
-  manufacturer: string;
-  model: string;
-  serialNumber: string;
-  notes: string;
+  id: string
+  meterName: string
+
+  propertyId: number
+  propertyName?: string
+
+  unitId?: number | null
+  unitNumber?: string | null
+
+  installationDate?: string | null
+  lastReadingDate?: string | null
+  lastReading?: number
+
+  status?: "ACTIVE" | "INACTIVE" | "MAINTENANCE"
+  meterType?: "ANALOG" | "DIGITAL" | "SMART"
+
+  manufacturer?: string
+  model?: string
+  serialNumber?: string
+  notes?: string
 }

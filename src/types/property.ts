@@ -21,18 +21,26 @@ export interface Property {
 export interface Unit {
   id: string;
   propertyId: string;
+
   unitNumber: string;
   unitType: UnitType;
+
   bedrooms: number;
   bathrooms: number;
   squareFeet: number;
+
   monthlyRent: number;
-   currentTenantId?: string | null;
   deposit: number;
+
   status: UnitStatus;
-  meterId: string;
-  amenities: string[];
+
+  currentTenantId?: string | null;
+
+  meterId?: string | null;
+  meterName?: string | null;
+
   photos: string[];
+
   createdAt: string;
   updatedAt: string;
 }
@@ -49,15 +57,19 @@ export interface PropertyFormData {
 }
 
 export interface UnitFormData {
-  propertyId: number;
+  propertyId: string;
   unitNumber: string;
+
   unitType: UnitType;
+
   bedrooms: number;
   bathrooms: number;
   squareFeet: number;
+
   monthlyRent: number;
   deposit: number;
+
   status: UnitStatus;
-  meterId: string;
-  amenities: string[];
+
+  meterId?: string;
 }

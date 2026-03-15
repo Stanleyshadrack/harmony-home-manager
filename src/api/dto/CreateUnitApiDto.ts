@@ -13,6 +13,7 @@ export interface CreateUnitApiDto {
   deposit: number;
 
   meterId: string;
+  meterName: string;
   floor?: string;
 
   amenities: string[];

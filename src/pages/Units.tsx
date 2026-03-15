@@ -46,7 +46,7 @@ export default function Units() {
   const filteredUnits = units.filter((unit) => {
     const matchesSearch = 
       unit.unitNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      unit.meterId.toLowerCase().includes(searchQuery.toLowerCase());
+      (unit.meterId ?? "").toLowerCase().includes(searchQuery.toLowerCase())
     
     const matchesProperty = filterProperty === 'all' || unit.propertyId === filterProperty;
     const matchesStatus = filterStatus === 'all' || unit.status === filterStatus;
@@ -183,7 +183,7 @@ export default function Units() {
             <UnitCard
               key={unit.id}
               unit={unit}
-              propertyName={getPropertyName(unit.propertyId)}
+              propertyName={getPropertyName(unit.propertyId).toString()}
               onEdit={handleEdit}
               onDelete={setDeletingUnit}
             />

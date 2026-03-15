@@ -2,7 +2,7 @@ import { WaterMeter } from "@/api/dto/WaterMeterDTO"
 
 
 export type MeterForm = {
-  meterId: string
+  meterName: string
   propertyId: string
   unitId?: string
   meterType: WaterMeter["meterType"]

@@ -24,12 +24,14 @@ export function UnitCard({ unit, propertyName, onEdit, onDelete }: UnitCardProps
 
   const getStatusBadge = (status: Unit['status']) => {
     switch (status) {
-      case 'occupied':
-        return <Badge className="bg-success text-success-foreground">{t('units.occupied')}</Badge>;
-      case 'vacant':
-        return <Badge className="bg-info text-info-foreground">{t('units.vacant')}</Badge>;
-      case 'maintenance':
-        return <Badge className="bg-warning text-warning-foreground">{t('units.maintenance')}</Badge>;
+case 'occupied':
+  return <Badge className="bg-green-500 text-white">Occupied</Badge>
+
+case 'vacant':
+  return <Badge className="bg-blue-500 text-white">Vacant</Badge>
+
+case 'maintenance':
+  return <Badge className="bg-yellow-500 text-black">Maintenance</Badge>
     }
   };
 
@@ -114,13 +116,13 @@ export function UnitCard({ unit, propertyName, onEdit, onDelete }: UnitCardProps
             </div>
             <div className="flex items-center gap-1 text-muted-foreground">
               <Square className="h-4 w-4" />
-              <span>{unit.squareFeet} sqft</span>
+              <span>{unit.squareFeet ? `${unit.squareFeet} sqft` : 'N/A'}</span>
             </div>
           </div>
 
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Droplets className="h-4 w-4" />
-            <span>{t('units.meterId')}: {unit.meterId}</span>
+           <Droplets className="h-4 w-4 text-blue-400" />
+<span>Meter : {unit.meterName}</span>
           </div>
 
           <div className="pt-2 border-t">

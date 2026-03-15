@@ -1,6 +1,8 @@
 export interface WaterMeter {
   id?: number;
-  meterId: string;
+  meterName: string;
+  propertyName?: string 
+  unitNumber?: string | null 
   propertyId: string;
   unitId: string;
   installationDate: string;

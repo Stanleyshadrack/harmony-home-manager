@@ -1,17 +1,9 @@
 export interface CreatePropertyUnitFormData {
-  propertyId: number;
+  propertyId: string;
+
   unitNumber: string;
 
-  // ✅ KEEP for backend create contract
   type:
-    | "STUDIO"
-    | "ONE_BEDROOM"
-    | "TWO_BEDROOM"
-    | "THREE_BEDROOM"
-    | "PENTHOUSE";
-
-  // ✅ ADD THIS (used by frontend / consistency)
-  unitType:
     | "STUDIO"
     | "ONE_BEDROOM"
     | "TWO_BEDROOM"
@@ -22,10 +14,11 @@ export interface CreatePropertyUnitFormData {
 
   bedrooms: number;
   bathrooms: number;
-  sqft: number;
+
+  squareFeet: number;
+
   monthlyRent: number;
   deposit: number;
-  meterId: string;
-  amenities: string[];
-  floor: number;
+
+  meterId?: string | null;
 }
