@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useUnits } from "@/hooks/useProperties"
-
+import { useWaterData } from '@/hooks/useWaterData'
 import {
   Form,
   FormControl,
@@ -15,7 +15,6 @@ import {
   FormMessage,
   FormDescription,
 } from '@/components/ui/form'
-
 import {
   Select,
   SelectContent,
@@ -23,8 +22,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-
 import type { WaterReadingFormData } from '@/types/billing'
+import { useState } from 'react'
 
 
 const waterReadingSchema = z.object({
@@ -49,11 +48,15 @@ export function WaterReadingForm({ onSubmit, onCancel, isLoading }: WaterReading
 
   const { t } = useTranslation()
   const { units, isLoading: unitsLoading } = useUnits()
+  const { getLastReadingForUnit } = useWaterData()
+  const [lastReadingDate, setLastReadingDate] = useState<string | null>(null)
+
+
 
   const form = useForm<WaterReadingFormData>({
     resolver: zodResolver(waterReadingSchema),
     defaultValues: {
-      unitId: 0,
+      unitId: undefined,
       meterId: '',
       previousReading: 0,
       currentReading: 0,
@@ -68,21 +71,52 @@ export function WaterReadingForm({ onSubmit, onCancel, isLoading }: WaterReading
 
 
   const selectedUnitId = form.watch('unitId')
+  const unit = units.find((u) => Number(u.id) === selectedUnitId)
+
   const previousReading = form.watch('previousReading')
   const currentReading = form.watch('currentReading')
   const ratePerUnit = form.watch('ratePerUnit')
-
+  const [meterName, setMeterName] = useState("")
   const consumption = Math.max(0, currentReading - previousReading)
   const estimatedBill = consumption * ratePerUnit
 
 
-  const handleUnitChange = (unitId: number) => {
-    const unit = units.find((u) => Number(u.id) === unitId)
 
-    if (unit) {
-      form.setValue("meterId", unit.meterId || "")
-    }
+
+const handleUnitChange = async (unitId: number) => {
+
+  const unit = units.find((u) => Number(u.id) === unitId)
+
+  if (!unit) return
+
+  // Autofill meter id
+  form.setValue("meterId", unit.meterId || "")
+setMeterName(unit.meterName || "")
+
+
+  console.log("Selected Unit:", unit)
+  // 1️⃣ First use meter last reading
+  if (unit.lastReading !== undefined && unit.lastReading !== null) {
+    form.setValue("previousReading", unit.lastReading)
+    
+    return
+
+     
   }
+
+
+  // 2️⃣ fallback → water readings API
+  const lastReading = await getLastReadingForUnit(unitId)
+  console.log("Last Reading:", lastReading)
+
+  if (lastReading) {
+    form.setValue("previousReading", lastReading.currentReading)
+  setLastReadingDate(lastReading.readingDate)
+  } else {
+    form.setValue("previousReading", 0)
+  }
+}
+
 
 
   const handleSubmit = (data: WaterReadingFormData) => {
@@ -104,7 +138,8 @@ export function WaterReadingForm({ onSubmit, onCancel, isLoading }: WaterReading
               <FormLabel>{t('units.title')}</FormLabel>
 
               <Select
-                value={field.value ? String(field.value) : undefined}
+  value={field.value ? String(field.value) : ""}
+
                 onValueChange={(value) => {
                   const unitId = Number(value)
                   field.onChange(unitId)
@@ -122,9 +157,15 @@ export function WaterReadingForm({ onSubmit, onCancel, isLoading }: WaterReading
 
                 <SelectContent>
                   {units.map((unit) => (
-                    <SelectItem key={unit.id} value={String(unit.id)}>
-                      {unit.unitNumber}
-                    </SelectItem>
+                    <SelectItem
+  key={unit.id}
+  value={String(unit.id)}
+  disabled={!unit.meterName}
+>
+  {unit.unitNumber}
+  {!unit.meterName && " (No meter)"}
+</SelectItem>
+
                   ))}
                 </SelectContent>
 
@@ -146,11 +187,12 @@ export function WaterReadingForm({ onSubmit, onCancel, isLoading }: WaterReading
 
               <FormControl>
                 <Input
-                  {...field}
-                  placeholder="Auto-filled"
-                  readOnly
-                  className="bg-muted"
-                />
+  value={meterName}
+  placeholder="Auto-filled"
+  readOnly
+  className="bg-muted"
+/>
+
               </FormControl>
 
               <FormDescription>
@@ -184,9 +226,13 @@ export function WaterReadingForm({ onSubmit, onCancel, isLoading }: WaterReading
                   />
                 </FormControl>
 
-                <FormDescription>
-                  Automatically calculated from the last reading
-                </FormDescription>
+            <FormDescription>
+  {lastReadingDate
+    ? `Last reading on ${new Date(lastReadingDate).toLocaleDateString()}`
+    : "Automatically calculated from the last reading"}
+</FormDescription>
+
+
 
                 <FormMessage />
               </FormItem>

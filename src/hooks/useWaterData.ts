@@ -1,16 +1,22 @@
 import { useState, useEffect, useCallback } from "react";
-
 import { useAuth } from "@/contexts/AuthContext";
-import { HighUsageResponse, MonthlyWaterStats, WaterReadingResponse, WaterStatsResponse } from "@/api/dto/water.readings.dto";
+
+import {
+  HighUsageResponse,
+  MonthlyWaterStats,
+  WaterReadingResponse,
+  WaterStatsResponse,
+} from "@/api/dto/water.readings.dto";
+
 import { waterReadingsApi } from "@/api/service/water.readings.service";
 
 export function useWaterData() {
   const { user } = useAuth();
 
   const [readings, setReadings] = useState<WaterReadingResponse[]>([]);
-const [stats, setStats] = useState<WaterStatsResponse | null>(null);
-const [monthlyStats, setMonthlyStats] = useState<MonthlyWaterStats[]>([]);
-const [highUsage, setHighUsage] = useState<HighUsageResponse[]>([]);
+  const [stats, setStats] = useState<WaterStatsResponse | null>(null);
+  const [monthlyStats, setMonthlyStats] = useState<MonthlyWaterStats[]>([]);
+  const [highUsage, setHighUsage] = useState<HighUsageResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const canAddReading =
@@ -18,16 +24,14 @@ const [highUsage, setHighUsage] = useState<HighUsageResponse[]>([]);
 
   const canApprove = user?.role === "landlord";
 
-  /* ================================
+  /* =================================
      Load All Water Readings
   ================================= */
 
   const loadReadings = useCallback(async () => {
     try {
       setIsLoading(true);
-
       const data = await waterReadingsApi.fetchAll();
-
       setReadings(data);
     } catch (error) {
       console.error("Failed to load water readings", error);
@@ -36,7 +40,59 @@ const [highUsage, setHighUsage] = useState<HighUsageResponse[]>([]);
     }
   }, []);
 
-  /* ================================
+  /* =================================
+     Get Reading By ID
+  ================================= */
+
+  const getReadingById = async (id: number) => {
+    try {
+      return await waterReadingsApi.getById(id);
+    } catch (error) {
+      console.error("Failed to fetch reading", error);
+      return null;
+    }
+  };
+
+  /* =================================
+     Get Last Reading for Unit
+  ================================= */
+
+  const getLastReadingForUnit = async (unitId: number) => {
+    try {
+      return await waterReadingsApi.getLastReading(unitId);
+    } catch (error) {
+      console.error("Failed to fetch last reading", error);
+      return null;
+    }
+  };
+
+  /* =================================
+     Get Readings By Unit
+  ================================= */
+
+  const getReadingsByUnitFromApi = async (unitId: number) => {
+    try {
+      return await waterReadingsApi.getByUnit(unitId);
+    } catch (error) {
+      console.error("Failed to fetch unit readings", error);
+      return [];
+    }
+  };
+
+  /* =================================
+     Get Readings By Property
+  ================================= */
+
+  const getReadingsByProperty = async (property: string) => {
+    try {
+      return await waterReadingsApi.getByProperty(property);
+    } catch (error) {
+      console.error("Failed to fetch property readings", error);
+      return [];
+    }
+  };
+
+  /* =================================
      Load Stats
   ================================= */
 
@@ -49,7 +105,7 @@ const [highUsage, setHighUsage] = useState<HighUsageResponse[]>([]);
     }
   }, []);
 
-  /* ================================
+  /* =================================
      Load Monthly Stats
   ================================= */
 
@@ -62,7 +118,7 @@ const [highUsage, setHighUsage] = useState<HighUsageResponse[]>([]);
     }
   }, []);
 
-  /* ================================
+  /* =================================
      Load High Usage
   ================================= */
 
@@ -75,7 +131,7 @@ const [highUsage, setHighUsage] = useState<HighUsageResponse[]>([]);
     }
   }, []);
 
-  /* ================================
+  /* =================================
      Create Reading
   ================================= */
 
@@ -92,16 +148,31 @@ const [highUsage, setHighUsage] = useState<HighUsageResponse[]>([]);
     }
   }, []);
 
-  /* ================================
+  /* =================================
+     Delete Reading
+  ================================= */
+
+  const deleteReading = async (id: number) => {
+    try {
+      await waterReadingsApi.delete(id);
+
+      setReadings((prev) => prev.filter((r) => r.id !== id));
+
+      return true;
+    } catch (error) {
+      console.error("Failed to delete reading", error);
+      return false;
+    }
+  };
+
+  /* =================================
      Approve Reading
   ================================= */
 
   const approveReading = useCallback(async (id: number) => {
     try {
       await waterReadingsApi.approve(id);
-
       await loadReadings();
-
       return true;
     } catch (error) {
       console.error("Approve failed", error);
@@ -109,16 +180,14 @@ const [highUsage, setHighUsage] = useState<HighUsageResponse[]>([]);
     }
   }, [loadReadings]);
 
-  /* ================================
+  /* =================================
      Reject Reading
   ================================= */
 
   const rejectReading = useCallback(async (id: number) => {
     try {
       await waterReadingsApi.reject(id);
-
       await loadReadings();
-
       return true;
     } catch (error) {
       console.error("Reject failed", error);
@@ -126,20 +195,20 @@ const [highUsage, setHighUsage] = useState<HighUsageResponse[]>([]);
     }
   }, [loadReadings]);
 
-  /* ================================
+  /* =================================
      Filters
   ================================= */
 
   const getPendingReadings = () =>
-    readings.filter((r: any) => r.status === "PENDING");
+    readings.filter((r) => r.status === "PENDING");
 
   const getApprovedReadings = () =>
-    readings.filter((r: any) => r.status === "APPROVED");
+    readings.filter((r) => r.status === "APPROVED");
 
-  const getReadingsByUnit = (unitId: number) =>
+  const getReadingsByUnitLocal = (unitId: number) =>
     readings.filter((r) => r.unitId === unitId);
 
-  /* ================================
+  /* =================================
      Initial Load
   ================================= */
 
@@ -163,10 +232,16 @@ const [highUsage, setHighUsage] = useState<HighUsageResponse[]>([]);
     addReading,
     approveReading,
     rejectReading,
+    deleteReading,
+
+    getReadingById,
+    getLastReadingForUnit,
+    getReadingsByUnitFromApi,
+    getReadingsByProperty,
 
     getPendingReadings,
     getApprovedReadings,
-    getReadingsByUnit,
+    getReadingsByUnitLocal,
 
     reload: loadReadings,
   };

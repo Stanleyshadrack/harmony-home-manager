@@ -1,4 +1,5 @@
-import { PropertyUnitApiResponse } from "../dto/PropertyUnitApiResponse";
+
+import { PropertyUnitApiResponse } from "../dto/CreatePropertyUnitFormData";
 import { apiRequest } from "../https";
 
 export const API_PATHS = {
@@ -159,13 +160,18 @@ METERS_BY_UNIT: (unitId: number | string) =>
 
 METERS_STATS: "/api/water-meters/stats",
 
-//.......................Water Readings.....................
+// ===============================
+// Water Readings
+// ===============================
 
 WATER_READINGS: "/api/water-readings",
 
 CREATE_WATER_READING: "/api/water-readings",
 
 WATER_READING_BY_ID: (id: number) =>
+  `/api/water-readings/${id}`,
+
+DELETE_WATER_READING: (id: number) =>
   `/api/water-readings/${id}`,
 
 APPROVE_WATER_READING: (id: number) =>
@@ -177,12 +183,17 @@ REJECT_WATER_READING: (id: number) =>
 WATER_READINGS_BY_UNIT: (unitId: number | string) =>
   `/api/water-readings/unit/${unitId}`,
 
+LAST_READING_BY_UNIT: (unitId: number | string) =>
+  `/api/water-readings/unit/${unitId}/last`,
+
 WATER_READINGS_BY_PROPERTY: (propertyName: string) =>
   `/api/water-readings/property/${propertyName}`,
 
 WATER_HIGH_USAGE: "/api/water-readings/high-usage",
+
 WATER_STATS: "/api/water-readings/stats",
 
 WATER_MONTHLY_STATS: "/api/water-readings/monthly",
+
 
 } as const;

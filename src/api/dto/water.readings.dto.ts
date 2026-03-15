@@ -6,7 +6,6 @@ export interface CreateWaterReadingRequest {
   unitId: number;
   meterId: string;
 
-  previousReading: number;
   currentReading: number;
 
   ratePerUnit: number;
@@ -42,6 +41,7 @@ export interface WaterReadingResponse {
 
   recordedBy: string;
   recordedByRole: string;
+  createdAt?: string
 
   rejectionReason?: string;
 }

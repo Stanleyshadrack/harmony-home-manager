@@ -41,11 +41,14 @@ export function mapUnitFormToApi(
     bedrooms: form.bedrooms,
     bathrooms: form.bathrooms,
 
+    lastReading: form.lastReading,
+    lastReadingDate:form.lastReadingDate,
+
     squareFeet: form.squareFeet,
 
     monthlyRent: form.monthlyRent,
     deposit: form.deposit,
 
-    meterId: form.meterId ?? null,
+    meterId: form.meterId ? Number(form.meterId) : null,
   }
 }

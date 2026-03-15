@@ -446,14 +446,14 @@ export default function WaterMeters() {
                     </TableCell>
                     <TableCell>{getMeterTypeBadge(meter.meterType)}</TableCell>
                     <TableCell>
-                      {meter.lastReadingDate ? (
+                      {meter.lastReading ? (
                         <div>
                           <p className="font-medium">
                             {(meter.lastReading ?? 0).toLocaleString()} m³
                           </p>
 
                           <p className="text-xs text-muted-foreground">
-                            {format(meter.lastReadingDate, "MMM d, yyyy")}
+                            {format(meter.lastReading, "MMM d, yyyy")}
                           </p>
                         </div>
                       ) : (

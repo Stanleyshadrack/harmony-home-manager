@@ -3,11 +3,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PropertyApi } from '@/api/service/add.apartments.service.api';
 import { Property, PropertyFormData, Unit, UnitFormData } from '@/types/property';
 import { toast } from '@/components/ui/use-toast';
-
-import { PropertyUnitApiResponse } from '@/api/dto/PropertyUnitApiResponse';
 import { mapPropertyFormToApi } from '@/api/mapper/mapPropertyFormToApi';
 import { PropertyUnitsApi } from '@/api/service/PropertyUnitsApi';
 import { mapUnitFormToApi } from '@/api/mapper/mapPropertyFormToCreateDTO';
+import { PropertyUnitApiResponse } from '@/api/dto/CreatePropertyUnitFormData';
 import { mapUnitFormToUpdateApi } from '@/api/mapper/mapUnitFormToUpdateApi';
 
 /* =========================
@@ -223,10 +222,11 @@ export function mapUnitFromApi(api: PropertyUnitApiResponse): Unit {
 
     bedrooms: api.bedrooms,
     bathrooms: api.bathrooms,
-    squareFeet: api.sqft,
 
     monthlyRent: api.monthlyRent,
     deposit: api.deposit,
+
+    squareFeet: api.squareFeet ?? 0,
 
     status: api.status.toLowerCase() as Unit["status"],
 

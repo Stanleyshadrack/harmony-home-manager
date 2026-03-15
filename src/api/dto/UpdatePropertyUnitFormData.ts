@@ -1,19 +1,24 @@
 export interface UpdatePropertyUnitFormData {
-  unitNumber: string;
+  propertyId: string
+
+  unitNumber: string
+
   type:
     | "STUDIO"
     | "ONE_BEDROOM"
     | "TWO_BEDROOM"
     | "THREE_BEDROOM"
-    | "PENTHOUSE";
+    | "PENTHOUSE"
 
-  bedrooms: number;
-  bathrooms: number;
-  sqft: number;
-  monthlyRent: number;
-  deposit: number;
-  status: "VACANT" | "OCCUPIED" | "MAINTENANCE";
-  meterId: string;
-  amenities: string[];
-  floor: number;
+  bedrooms: number
+  bathrooms: number
+
+  squareFeet: number
+
+  monthlyRent: number
+  deposit: number
+
+  status: "VACANT" | "OCCUPIED" | "MAINTENANCE"
+
+  meterId?: number | null
 }

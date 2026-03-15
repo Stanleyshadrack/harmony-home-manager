@@ -29,6 +29,10 @@ export interface Unit {
   bathrooms: number;
   squareFeet: number;
 
+    lastReading?: number
+  lastReadingDate?: string
+
+
   monthlyRent: number;
   deposit: number;
 
@@ -65,6 +69,9 @@ export interface UnitFormData {
   bedrooms: number;
   bathrooms: number;
   squareFeet: number;
+
+   lastReading: string,
+ lastReadingDate: string,
 
   monthlyRent: number;
   deposit: number;

@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
-import { 
-  Droplets, 
-  TrendingUp, 
-  BarChart3, 
+import {
+  Droplets,
+  TrendingUp,
+  BarChart3,
   AlertTriangle,
   Search,
   Filter,
@@ -27,13 +27,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from '@/components/ui/textarea';
 import { WaterReadingResponse as WaterReading } from '@/api/dto/water.readings.dto';
 import { Label } from '@/components/ui/label';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   LineChart,
   Line,
@@ -54,17 +54,27 @@ export default function WaterData() {
   const { user } = useAuth();
   const { toast } = useToast();
   const {
-  readings,
-  stats,
-  monthlyStats,
-  highUsage,
-  canAddReading,
-  canApprove,
-  approveReading,
-  rejectReading,
-  addReading
-} = useWaterData();
-  
+    readings,
+    stats,
+    monthlyStats,
+    highUsage,
+    isLoading,
+
+    canAddReading,
+    canApprove,
+
+    addReading,
+    approveReading,
+    rejectReading,
+    deleteReading,
+
+    getPendingReadings,
+    getApprovedReadings,
+
+    reload
+  } = useWaterData();
+
+
   const [searchQuery, setSearchQuery] = useState('');
   const [propertyFilter, setPropertyFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -74,24 +84,25 @@ export default function WaterData() {
   const [selectedReading, setSelectedReading] = useState<WaterReading | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
 
-  const pendingReadings = readings.filter(r => r.status === "PENDING");
-const highConsumptionUnits = highUsage;
+  const pendingReadings = getPendingReadings();
+
+  const highConsumptionUnits = highUsage;
 
   // Prepare chart data
-const monthlyChartData = monthlyStats.map((m) => ({
-  month: m.month,
-  consumption: m.consumption,
-  revenue: m.revenue,
-  count: m.count,
-}));
+  const monthlyChartData = monthlyStats.map((m) => ({
+    month: m.month,
+    consumption: m.consumption,
+    revenue: m.revenue,
+    count: m.count,
+  }));
 
 
 
   const propertyConsumption = readings.reduce((acc, r) => {
-  if (!acc[r.property]) acc[r.property] = 0;
-  acc[r.property] += r.consumption;
-  return acc;
-}, {} as Record<string, number>);
+    if (!acc[r.property]) acc[r.property] = 0;
+    acc[r.property] += r.consumption;
+    return acc;
+  }, {} as Record<string, number>);
 
 
   const propertyChartData = Object.entries(propertyConsumption).map(([name, value]) => ({
@@ -102,22 +113,22 @@ const monthlyChartData = monthlyStats.map((m) => ({
   const properties = Array.from(new Set(readings.map(r => r.property)));
 
   const filteredReadings = readings.filter((r) => {
-  const unit = r.unitNumber?.toLowerCase() || "";
-  const tenant = r.tenantName?.toLowerCase() || "";
-  const query = searchQuery.toLowerCase();
+    const unit = r.unitNumber?.toLowerCase() || "";
+    const tenant = r.tenantName?.toLowerCase() || "";
+    const query = searchQuery.toLowerCase();
 
-  const matchesSearch =
-    unit.includes(query) ||
-    tenant.includes(query);
+    const matchesSearch =
+      unit.includes(query) ||
+      tenant.includes(query);
 
-  const matchesProperty =
-    propertyFilter === "all" || r.property === propertyFilter;
+    const matchesProperty =
+      propertyFilter === "all" || r.property === propertyFilter;
 
-  const matchesStatus =
-    statusFilter === "all" || r.status === statusFilter;
+    const matchesStatus =
+      statusFilter === "all" || r.status === statusFilter;
 
-  return matchesSearch && matchesProperty && matchesStatus;
-});
+    return matchesSearch && matchesProperty && matchesStatus;
+  });
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -126,59 +137,71 @@ const monthlyChartData = monthlyStats.map((m) => ({
     }).format(amount);
   };
 
- const handleApprove = async (reading: WaterReading) => {
-  try {
-    const success = await approveReading(Number(reading.id));
+  const handleApprove = async (reading: WaterReading) => {
+    try {
+      const success = await approveReading(Number(reading.id));
 
-    if (!success) return;
+      if (!success) return;
 
-    toast({
-      title: 'Reading Approved',
-      description: `Water reading for ${reading.unitNumber} has been approved.`,
-    });
+      toast({
+        title: 'Reading Approved',
+        description: `Water reading for ${reading.unitNumber} has been approved.`,
+      });
 
-  } catch (error) {
-    toast({
-      title: "Approval Failed",
-      description: "Could not approve water reading.",
-      variant: "destructive",
-    });
-  }
-};
+    } catch (error) {
+      toast({
+        title: "Approval Failed",
+        description: "Could not approve water reading.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleReject = async () => {
-  if (!selectedReading || !rejectionReason.trim()) return;
+    if (!selectedReading || !rejectionReason.trim()) return;
 
-  const success = await rejectReading(Number(selectedReading.id));
+    const success = await rejectReading(Number(selectedReading.id));
 
-  if (success) {
-    toast({
-      title: "Reading Rejected",
-      description: `Water reading for ${selectedReading.unitNumber} has been rejected.`,
-      variant: "destructive",
-    });
-  }
+    if (success) {
+      toast({
+        title: "Reading Rejected",
+        description: `Water reading for ${selectedReading.unitNumber} has been rejected.`,
+        variant: "destructive",
+      });
+    }
 
-  setShowRejectDialog(false);
-  setSelectedReading(null);
-  setRejectionReason("");
-};
+    setShowRejectDialog(false);
+    setSelectedReading(null);
+    setRejectionReason("");
+  };
 
   const openRejectDialog = (reading: WaterReading) => {
     setSelectedReading(reading);
     setShowRejectDialog(true);
   };
 
- const handleAddReading = async (data: any) => {
-  const result = await addReading({
-    unitId: data.unitId,
-    meterId: data.meterId,
-    currentReading: data.currentReading,
-    ratePerUnit: data.ratePerUnit,
-    readingDate: data.readingDate,
-    billingPeriod: data.billingPeriod,
-  });
-};
+  const handleAddReading = async (data: any) => {
+
+    const result = await addReading({
+      unitId: data.unitId,
+      meterId: data.meterId,
+      currentReading: data.currentReading,
+      ratePerUnit: data.ratePerUnit,
+      readingDate: data.readingDate,
+      billingPeriod: data.billingPeriod,
+    });
+
+    if (result) {
+      toast({
+        title: "Water Reading Added",
+        description: `Reading for unit ${result.unitNumber} recorded successfully`,
+      });
+
+      setShowAddDialog(false);
+      reload();
+    }
+  };
+
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -220,8 +243,8 @@ const monthlyChartData = monthlyStats.map((m) => ({
               <div>
                 <p className="text-sm text-muted-foreground">Total Consumption</p>
                 <p className="text-2xl font-bold">
-  {(stats?.totalConsumption ?? 0).toLocaleString()} m³
-</p>
+                  {(stats?.totalConsumption ?? 0).toLocaleString()} m³
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -246,8 +269,8 @@ const monthlyChartData = monthlyStats.map((m) => ({
               <div>
                 <p className="text-sm text-muted-foreground">Avg. Consumption</p>
                 <p className="text-2xl font-bold">
-  {(stats?.avgConsumption ?? 0).toFixed(1)} m³
-</p>
+                  {(stats?.avgConsumption ?? 0).toFixed(1)} m³
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -310,16 +333,16 @@ const monthlyChartData = monthlyStats.map((m) => ({
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                         <XAxis dataKey="month" className="text-xs" />
                         <YAxis className="text-xs" />
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: 'hsl(var(--background))', 
-                            border: '1px solid hsl(var(--border))' 
-                          }} 
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'hsl(var(--background))',
+                            border: '1px solid hsl(var(--border))'
+                          }}
                         />
-                        <Line 
-                          type="monotone" 
-                          dataKey="consumption" 
-                          stroke="hsl(var(--primary))" 
+                        <Line
+                          type="monotone"
+                          dataKey="consumption"
+                          stroke="hsl(var(--primary))"
                           strokeWidth={2}
                           dot={{ fill: 'hsl(var(--primary))' }}
                         />
@@ -342,10 +365,10 @@ const monthlyChartData = monthlyStats.map((m) => ({
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                         <XAxis dataKey="month" className="text-xs" />
                         <YAxis className="text-xs" />
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: 'hsl(var(--background))', 
-                            border: '1px solid hsl(var(--border))' 
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'hsl(var(--background))',
+                            border: '1px solid hsl(var(--border))'
                           }}
                           formatter={(value: number) => formatCurrency(value)}
                         />
@@ -379,10 +402,10 @@ const monthlyChartData = monthlyStats.map((m) => ({
                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                           ))}
                         </Pie>
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: 'hsl(var(--background))', 
-                            border: '1px solid hsl(var(--border))' 
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'hsl(var(--background))',
+                            border: '1px solid hsl(var(--border))'
                           }}
                         />
                       </PieChart>
@@ -390,9 +413,9 @@ const monthlyChartData = monthlyStats.map((m) => ({
                     <div className="space-y-2">
                       {propertyChartData.map((entry, index) => (
                         <div key={entry.name} className="flex items-center gap-2">
-                          <div 
-                            className="h-3 w-3 rounded-full" 
-                            style={{ backgroundColor: COLORS[index % COLORS.length] }} 
+                          <div
+                            className="h-3 w-3 rounded-full"
+                            style={{ backgroundColor: COLORS[index % COLORS.length] }}
                           />
                           <span className="text-sm">{entry.name}</span>
                           <span className="text-sm font-medium">{entry.value} m³</span>
@@ -481,23 +504,48 @@ const monthlyChartData = monthlyStats.map((m) => ({
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                       {formatCurrency(Number(reading.amount))}
+                        {formatCurrency(Number(reading.amount))}
                       </TableCell>
                       <TableCell>{getStatusBadge(reading.status)}</TableCell>
                       {canApprove && (
                         <TableCell>
-                          {reading.status === 'PENDING' && (
-                            <div className="flex gap-2">
-                              <Button size="sm" variant="ghost" className="text-success" onClick={() => handleApprove(reading)}>
-                                <Check className="h-4 w-4" />
-                              </Button>
-                              <Button size="sm" variant="ghost" className="text-destructive" onClick={() => openRejectDialog(reading)}>
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          )}
+                          <div className="flex gap-2">
+
+                            {reading.status === "PENDING" && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-success"
+                                  onClick={() => handleApprove(reading)}
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-destructive"
+                                  onClick={() => openRejectDialog(reading)}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
+
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-muted-foreground"
+                              onClick={() => deleteReading(reading.id)}
+                            >
+                              Delete
+                            </Button>
+
+                          </div>
                         </TableCell>
                       )}
+
                     </TableRow>
                   ))}
                 </TableBody>
@@ -588,10 +636,10 @@ const monthlyChartData = monthlyStats.map((m) => ({
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                         <XAxis type="number" className="text-xs" />
                         <YAxis dataKey="unitNumber" type="category" className="text-xs" width={60} />
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: 'hsl(var(--background))', 
-                            border: '1px solid hsl(var(--border))' 
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'hsl(var(--background))',
+                            border: '1px solid hsl(var(--border))'
                           }}
                         />
                         <Bar dataKey="consumption" fill="hsl(var(--info))" radius={[0, 4, 4, 0]} />
@@ -642,36 +690,36 @@ const monthlyChartData = monthlyStats.map((m) => ({
                     <p>No high consumption alerts</p>
                   </div>
                 ) : (
-                 <div className="space-y-3">
-  {highConsumptionUnits.map((reading) => (
-    <div
-      key={reading.unitId}
-      className="flex items-center justify-between p-4 bg-warning/5 border border-warning/20 rounded-lg"
-    >
-      <div className="flex items-center gap-4">
-        <div className="p-2 rounded-full bg-warning/10">
-          <TrendingUp className="h-5 w-5 text-warning" />
-        </div>
+                  <div className="space-y-3">
+                    {highConsumptionUnits.map((reading) => (
+                      <div
+                        key={reading.unitId}
+                        className="flex items-center justify-between p-4 bg-warning/5 border border-warning/20 rounded-lg"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="p-2 rounded-full bg-warning/10">
+                            <TrendingUp className="h-5 w-5 text-warning" />
+                          </div>
 
-        <div>
-          <p className="font-medium">
-            Unit {reading.unitId}
-          </p>
+                          <div>
+                            <p className="font-medium">
+                              Unit {reading.unitId}
+                            </p>
 
-          <p className="text-sm text-muted-foreground">
-            {reading.property} • {reading.billingPeriod}
-          </p>
-        </div>
-      </div>
+                            <p className="text-sm text-muted-foreground">
+                              {reading.property} • {reading.billingPeriod}
+                            </p>
+                          </div>
+                        </div>
 
-      <div className="text-right">
-        <Badge variant="destructive">
-          {reading.consumption} m³
-        </Badge>
-      </div>
-    </div>
-  ))}
-</div>
+                        <div className="text-right">
+                          <Badge variant="destructive">
+                            {reading.consumption} m³
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -685,12 +733,12 @@ const monthlyChartData = monthlyStats.map((m) => ({
           <DialogHeader>
             <DialogTitle>Add Water Reading</DialogTitle>
             <DialogDescription>
-              {user?.role === 'landlord' 
+              {user?.role === 'landlord'
                 ? 'Record a water meter reading. It will be auto-approved.'
                 : 'Submit a water meter reading for landlord approval.'}
             </DialogDescription>
           </DialogHeader>
-          <WaterReadingForm 
+          <WaterReadingForm
             onSubmit={handleAddReading}
             onCancel={() => setShowAddDialog(false)}
           />
@@ -718,6 +766,7 @@ const monthlyChartData = monthlyStats.map((m) => ({
               />
             </div>
           </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowRejectDialog(false)}>
               Cancel

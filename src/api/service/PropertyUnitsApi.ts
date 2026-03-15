@@ -1,7 +1,6 @@
 import { apiRequest } from "../https";
 import { API_PATHS } from "../constants/constants";
-import { PropertyUnitApiResponse } from "../dto/PropertyUnitApiResponse";
-import { CreatePropertyUnitFormData } from "../dto/CreatePropertyUnitFormData";
+import { CreatePropertyUnitFormData, PropertyUnitApiResponse } from "../dto/CreatePropertyUnitFormData";
 import { UpdatePropertyUnitFormData } from "../dto/UpdatePropertyUnitFormData";
 
 export const PropertyUnitsApi = Object.freeze({

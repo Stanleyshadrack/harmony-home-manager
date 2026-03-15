@@ -43,25 +43,30 @@ export function QuickStatsWidget() {
               All readings approved
             </div>
           ) : (
-            <ScrollArea className="h-[120px]">
-              <div className="space-y-2">
-                {pendingReadings.slice(0, 5).map((reading) => (
-                  <div key={reading.id} className="flex items-start justify-between text-sm p-2 rounded-lg bg-muted/50">
-                    <div>
-                      <p className="font-medium">{reading.unitNumber}</p>
-                      <p className="text-xs text-muted-foreground">{reading.propertyName}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">{reading.consumption} units</p>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {formatDistanceToNow(new Date(reading.createdAt), { addSuffix: true })}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
+           <ScrollArea className="h-[120px]">
+  <div className="space-y-2">
+    {pendingReadings.slice(0, 5).map((reading) => (
+      <div key={reading.id} className="flex items-start justify-between text-sm p-2 rounded-lg bg-muted/50">
+        <div>
+          <p className="font-medium">{reading.unitNumber}</p>
+          <p className="text-xs text-muted-foreground">{reading.property}</p>
+        </div>
+
+        <div className="text-right">
+          <p className="font-medium">{reading.consumption} units</p>
+
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            {reading.createdAt
+              ? formatDistanceToNow(new Date(reading.createdAt), { addSuffix: true })
+              : "Just now"}
+          </p>
+        </div>
+      </div>
+    ))}
+  </div>
+</ScrollArea>
+
           )}
           <Button asChild variant="ghost" size="sm" className="w-full mt-2 gap-1">
             <Link to="/water-data">

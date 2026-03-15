@@ -64,7 +64,7 @@ export const waterReadingsApi = {
   =============================== */
   delete: (id: number) =>
     apiRequest<null, void>({
-      path: API_PATHS.WATER_READING_BY_ID(id),
+      path: API_PATHS.DELETE_WATER_READING(id),
       method: "DELETE",
     }),
 
@@ -74,6 +74,15 @@ export const waterReadingsApi = {
   getByUnit: (unitId: number) =>
     apiRequest<null, WaterReadingResponse[]>({
       path: API_PATHS.WATER_READINGS_BY_UNIT(unitId),
+      method: "GET",
+    }),
+
+  /* ===============================
+     Get Last Reading for Unit
+  =============================== */
+  getLastReading: (unitId: number) =>
+    apiRequest<null, WaterReadingResponse>({
+      path: API_PATHS.LAST_READING_BY_UNIT(unitId),
       method: "GET",
     }),
 

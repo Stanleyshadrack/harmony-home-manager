@@ -25,27 +25,29 @@ const STATUS_MAP: Record<
 export function mapUnitFormToApi(
   form: UnitFormData
 ): CreatePropertyUnitFormData {
-  const mappedType = UNIT_TYPE_MAP[form.unitType];
 
   return {
-    propertyId: Number(form.propertyId),
+    propertyId: form.propertyId,
+
     unitNumber: form.unitNumber,
 
-    // ✅ API expects UPPERCASE
-    type: mappedType,
-    unitType: mappedType,
+    type: UNIT_TYPE_MAP[form.unitType],
 
     status: STATUS_MAP[form.status],
 
     bedrooms: form.bedrooms,
     bathrooms: form.bathrooms,
-    sqft: form.squareFeet,
+
+     lastReading: form.lastReading,
+    lastReadingDate: form.lastReadingDate,
+
+    squareFeet: form.squareFeet ?? 0,
 
     monthlyRent: form.monthlyRent,
     deposit: form.deposit,
 
-    meterId: form.meterId,
-    amenities: form.amenities ?? [],
-    floor: 1,
+    meterId: form.meterId ? Number(form.meterId) : null,
   };
 }
+
+
