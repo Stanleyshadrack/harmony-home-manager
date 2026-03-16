@@ -195,5 +195,8 @@ WATER_STATS: "/api/water-readings/stats",
 
 WATER_MONTHLY_STATS: "/api/water-readings/monthly",
 
+// -------------------- Employees -----------------
+EMPLOYEES: "/api/employees",
+EMPLOYEE_BY_ID: (id: number) => `/api/employees/${id}`,
 
 } as const;

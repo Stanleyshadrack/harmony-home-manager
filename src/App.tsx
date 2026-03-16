@@ -55,139 +55,231 @@ const App = () => (
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/onboarding" element={<Onboarding />} />
                 <Route path="/auth" element={<Auth />} />
-                <Route path="/set-password" element={<SetPasswordPage/>}/>
+                <Route path="/set-password" element={<SetPasswordPage />} />
 
                 {/* Super Admin only routes */}
-                <Route path="/admin-portal" element={
-                  <ProtectedRoute allowedRoles={['super_admin']}>
-                    <AdminPortal />
-                  </ProtectedRoute>
-                } />
+                <Route
+                  path="/admin-portal"
+                  element={
+                    <ProtectedRoute allowedRoles={["super_admin"]}>
+                      <AdminPortal />
+                    </ProtectedRoute>
+                  }
+                />
 
                 {/* Landlord and Super Admin routes */}
-                <Route path="/dashboard" element={
-                  <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
-                    <Dashboard />
-                  </ProtectedRoute>
-                } />
-                <Route path="/properties" element={
-                  <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
-                    <Properties />
-                  </ProtectedRoute>
-                } />
-                <Route path="/properties/:id" element={
-                  <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
-                    <PropertyDetail />
-                  </ProtectedRoute>
-                } />
+                <Route
+                  path="/dashboard"
+                  element={
+                    <ProtectedRoute allowedRoles={["super_admin", "landlord"]}>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/properties"
+                  element={
+                    <ProtectedRoute allowedRoles={["super_admin", "landlord"]}>
+                      <Properties />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/properties/:id"
+                  element={
+                    <ProtectedRoute allowedRoles={["super_admin", "landlord"]}>
+                      <PropertyDetail />
+                    </ProtectedRoute>
+                  }
+                />
 
+                <Route
+                  path="/water-meters"
+                  element={
+                    <ProtectedRoute allowedRoles={["super_admin", "landlord"]}>
+                      <WaterMeters />
+                    </ProtectedRoute>
+                  }
+                />
 
- <Route path="/water-meters" element={
-                  <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
-                    <WaterMeters />
-                  </ProtectedRoute>
-                } />
-
-                <Route path="/units" element={
-                  <ProtectedRoute allowedRoles={['super_admin', 'landlord', 'employee']}>
-                    <Units />
-                  </ProtectedRoute>
-                } />
-                <Route path="/tenants" element={
-                  <ProtectedRoute allowedRoles={['super_admin', 'landlord', 'employee']}>
-                    <Tenants />
-                  </ProtectedRoute>
-                } />
-                <Route path="/billing" element={
-                  <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
-                    <Billing />
-                  </ProtectedRoute>
-                } />
-                <Route path="/employees" element={
-                  <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
-                    <Employees />
-                  </ProtectedRoute>
-                } />
-                <Route path="/water-data" element={
-                  <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
-                    <WaterData />
-                  </ProtectedRoute>
-                } />
-
-                  <Route path="/subscription-plans" element={
-                  <ProtectedRoute allowedRoles={['landlord']}>
-                    <SubscriptionPlans />
-                  </ProtectedRoute>
-                } />
-                
-                <Route path="/reports" element={
-                  <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
-                    <Reports />
-                  </ProtectedRoute>
-                } />
-                <Route path="/notifications" element={
-                  <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
-                    <Notifications />
-                  </ProtectedRoute>
-                } />
-                <Route path="/audit-logs" element={
-                  <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
-                    <AuditLogs />
-                  </ProtectedRoute>
-                } />
-                <Route path="/notification-logs" element={
-                  <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
-                    <NotificationLogs />
-                  </ProtectedRoute>
-                } />
-                <Route path="/email-templates" element={
-                  <ProtectedRoute allowedRoles={['super_admin', 'landlord']}>
-                    <EmailTemplates />
-                  </ProtectedRoute>
-                } />
+                <Route
+                  path="/units"
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={["super_admin", "landlord", "employee"]}
+                    >
+                      <Units />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/tenants"
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={["super_admin", "landlord", "employee"]}
+                    >
+                      <Tenants />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/billing"
+                  element={
+                    <ProtectedRoute allowedRoles={["super_admin", "landlord"]}>
+                      <Billing />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/employees"
+                  element={
+                    <ProtectedRoute allowedRoles={["super_admin", "landlord"]}>
+                      <Employees />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/water-data"
+                  element={
+                    <ProtectedRoute allowedRoles={["super_admin", "landlord"]}>
+                      <WaterData />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/reports"
+                  element={
+                    <ProtectedRoute allowedRoles={["super_admin", "landlord"]}>
+                      <Reports />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/notifications"
+                  element={
+                    <ProtectedRoute allowedRoles={["super_admin", "landlord"]}>
+                      <Notifications />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/audit-logs"
+                  element={
+                    <ProtectedRoute allowedRoles={["super_admin", "landlord"]}>
+                      <AuditLogs />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/notification-logs"
+                  element={
+                    <ProtectedRoute allowedRoles={["super_admin", "landlord"]}>
+                      <NotificationLogs />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/email-templates"
+                  element={
+                    <ProtectedRoute allowedRoles={["super_admin", "landlord"]}>
+                      <EmailTemplates />
+                    </ProtectedRoute>
+                  }
+                />
 
                 {/* Landlord, Employee routes */}
-                <Route path="/maintenance" element={
-                  <ProtectedRoute allowedRoles={['super_admin', 'landlord', 'employee']}>
-                    <Maintenance />
-                  </ProtectedRoute>
-                } />
+                <Route
+                  path="/maintenance"
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={["super_admin", "landlord", "employee"]}
+                    >
+                      <Maintenance />
+                    </ProtectedRoute>
+                  }
+                />
 
                 {/* All authenticated users */}
-                <Route path="/messages" element={
-                  <ProtectedRoute allowedRoles={['super_admin', 'landlord', 'employee', 'tenant']}>
-                    <Messages />
-                  </ProtectedRoute>
-                } />
-                <Route path="/settings" element={
-                  <ProtectedRoute allowedRoles={['super_admin', 'landlord', 'employee', 'tenant']}>
-                    <Settings />
-                  </ProtectedRoute>
-                } />
-                <Route path="/help" element={
-                  <ProtectedRoute allowedRoles={['super_admin', 'landlord', 'employee', 'tenant']}>
-                    <Help />
-                  </ProtectedRoute>
-                } />
-                <Route path="/user-notifications" element={
-                  <ProtectedRoute allowedRoles={['super_admin', 'landlord', 'employee', 'tenant']}>
-                    <UserNotifications />
-                  </ProtectedRoute>
-                } />
+                <Route
+                  path="/messages"
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={[
+                        "super_admin",
+                        "landlord",
+                        "employee",
+                        "tenant",
+                      ]}
+                    >
+                      <Messages />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/settings"
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={[
+                        "super_admin",
+                        "landlord",
+                        "employee",
+                        "tenant",
+                      ]}
+                    >
+                      <Settings />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/help"
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={[
+                        "super_admin",
+                        "landlord",
+                        "employee",
+                        "tenant",
+                      ]}
+                    >
+                      <Help />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/user-notifications"
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={[
+                        "super_admin",
+                        "landlord",
+                        "employee",
+                        "tenant",
+                      ]}
+                    >
+                      <UserNotifications />
+                    </ProtectedRoute>
+                  }
+                />
 
                 {/* Employee only routes */}
-                <Route path="/employee-portal" element={
-                  <ProtectedRoute allowedRoles={['employee']}>
-                    <EmployeePortal />
-                  </ProtectedRoute>
-                } />
+                <Route
+                  path="/employee-portal"
+                  element={
+                    <ProtectedRoute allowedRoles={["employee"]}>
+                      <EmployeePortal />
+                    </ProtectedRoute>
+                  }
+                />
 
                 {/* Tenant only routes */}
-                <Route path="/tenant-portal" element={
-                  <ProtectedRoute allowedRoles={['tenant']}>
-                    <TenantPortal />
-                  </ProtectedRoute>
-                } />
+                <Route
+                  path="/tenant-portal"
+                  element={
+                    <ProtectedRoute allowedRoles={["tenant"]}>
+                      <TenantPortal />
+                    </ProtectedRoute>
+                  }
+                />
 
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
