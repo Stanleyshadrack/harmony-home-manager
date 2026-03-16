@@ -1,8 +1,10 @@
 import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { EmployeeManagement } from '@/components/employees/EmployeeManagement';
+import { getAllEmployees } from '@/api/service/employee.service';
 
 export default function Employees() {
+
   const { t } = useTranslation();
 
   return (

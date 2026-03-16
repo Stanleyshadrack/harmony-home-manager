@@ -72,30 +72,29 @@ export default function SetPasswordPage() {
   /* =========================
      Submit
   ========================= */
- const onSubmit = async (data: FormData) => {
-  if (!token) {
-    toast.error("Invalid or expired password setup link");
-    return;
-  }
+  const onSubmit = async (data: FormData) => {
+    if (!token) {
+      toast.error("Invalid or expired password setup link");
+      return;
+    }
 
-  setSubmitting(true);
-  try {
-    await setPasswordService({
-      token,
-      password: data.password,
-    });
+    setSubmitting(true);
+    try {
+      await setPasswordService({
+        token,
+        password: data.password,
+      });
 
-    toast.success("Password set successfully. Please log in.");
+      toast.success("Password set successfully. Please log in.");
 
-    // ✅ NEXT.JS NAVIGATION
-    router.replace("/auth");
-
-  } catch (err: any) {
-    toast.error(err?.message ?? "Failed to set password");
-  } finally {
-    setSubmitting(false);
-  }
-};
+      // ✅ NEXT.JS NAVIGATION
+      router.replace("/auth");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to set password");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   /* =========================
      Guarded UI states
@@ -103,7 +102,7 @@ export default function SetPasswordPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-blue-500"  />
       </div>
     );
   }
@@ -116,7 +115,9 @@ export default function SetPasswordPage() {
             <XCircle className="h-10 w-10 text-destructive mx-auto" />
             <h2 className="text-xl font-semibold">Link Invalid</h2>
             <p className="text-muted-foreground">{error}</p>
-            <Button onClick={() => router.push("/auth")} className="w-full">
+            <Button onClick={() => {
+              setError(null);
+              router.push("/auth")}} className="w-full">
               Go to Login
             </Button>
           </CardContent>

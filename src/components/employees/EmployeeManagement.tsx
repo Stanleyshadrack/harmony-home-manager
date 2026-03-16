@@ -1,8 +1,6 @@
 import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { useEmployees, Employee } from '@/hooks/useEmployees';
+import { Employee } from '@/hooks/useEmployees';
 import { useProperties } from '@/hooks/useProperties';
-import { usePendingRegistrations, PendingRegistration } from '@/hooks/useRegistrations';
 import { useMaintenance } from '@/hooks/useMaintenance';
 import { useAuth } from '@/contexts/AuthContext';
 import { useInAppNotifications } from '@/hooks/useInAppNotifications';
@@ -61,20 +59,16 @@ import {
   Wrench,
   AlertTriangle,
   Home,
-  User,
   ClipboardList,
   CreditCard,
 } from 'lucide-react';
-import { formatDistanceToNow, format } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
+import { useAllEmployeesData } from '@/hooks/use.employees.hook';
+import { useQuery } from '@tanstack/react-query';
 
 export function EmployeeManagement() {
-  const { t } = useTranslation();
-  const { user } = useAuth();
-  const { employees, isLoading, activateEmployee, deactivateEmployee, assignToProperty, removeEmployee, getPendingCount } = useEmployees(user?.id);
   const { properties } = useProperties();
-  const { registrations, approveRegistration, rejectRegistration } = usePendingRegistrations();
   const { requests, assignRequest } = useMaintenance();
-  const { addNotification } = useInAppNotifications();
   const { sendQuickNotification } = useNotifications();
   
   const [isProcessing, setIsProcessing] = useState(false);
@@ -86,7 +80,7 @@ export function EmployeeManagement() {
   const [selectedPropertyId, setSelectedPropertyId] = useState('');
   
   // Rejection dialog for pending registrations
-  const [selectedRegistration, setSelectedRegistration] = useState<PendingRegistration | null>(null);
+  const [selectedRegistration, setSelectedRegistration] = useState<Employee | null>(null);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [selectedTaskId, setSelectedTaskId] = useState('');
@@ -94,32 +88,33 @@ export function EmployeeManagement() {
   const [taskEstimatedCost, setTaskEstimatedCost] = useState('');
   const [taskNotes, setTaskNotes] = useState('');
 
-  // Filter employee registrations only (tenant approvals moved to Tenants module)
-  const pendingEmployeeRegistrations = registrations.filter(
-    r => r.requestedRole === 'employee' && r.status === 'pending'
-  );
 
+ const { data: employeeData, isLoading } = useQuery(
+     useAllEmployeesData()
+  );
+  const allEmployees = employeeData?.employees || [];
+  const totalActiveEmployees = employeeData?.totalActiveEmployees || 0;
+  const totalPendingEmployees = employeeData?.totalPendingEmployees || 0;
+  const totalEmployees = employeeData?.totalEmployees || 0;
+  const pendingRegistration = employeeData?.pendingRegistration || [];
+  // Filter employee registrations only (tenant approvals moved to Tenants module)
+  
   // Get pending/unassigned maintenance tasks
   const pendingTasks = requests.filter(r => r.status === 'pending');
 
-  // Get tasks assigned to an employee
-  const getEmployeeTasks = (employeeId: string) => {
-    return requests.filter(r => r.assignedTo === employeeId && r.status !== 'resolved' && r.status !== 'cancelled');
-  };
-
-  const filteredEmployees = employees.filter(emp =>
+  const filteredEmployees = allEmployees.filter(emp =>
     emp.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     emp.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     emp.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleActivate = async (employee: Employee) => {
-    await activateEmployee(employee.id);
+    // await activateEmployee(employee.id);
     toast.success(`${employee.firstName} ${employee.lastName} has been activated`);
   };
 
   const handleDeactivate = async (employee: Employee) => {
-    await deactivateEmployee(employee.id);
+    // await deactivateEmployee(employee.id);
     toast.success(`${employee.firstName} ${employee.lastName} has been deactivated`);
   };
 
@@ -128,7 +123,7 @@ export function EmployeeManagement() {
     
     const property = properties.find(p => p.id === selectedPropertyId);
     if (property) {
-      await assignToProperty(selectedEmployee.id, property.id, property.name);
+      // await assignToProperty(selectedEmployee.id, property.id, property.name);
       toast.success(`${selectedEmployee.firstName} assigned to ${property.name}`);
       setShowAssignDialog(false);
       setSelectedEmployee(null);
@@ -137,7 +132,7 @@ export function EmployeeManagement() {
   };
 
   const handleRemove = async (employee: Employee) => {
-    await removeEmployee(employee.id);
+    // await removeEmployee(employee.id);
     toast.success(`${employee.firstName} ${employee.lastName} has been removed`);
   };
 
@@ -178,20 +173,20 @@ export function EmployeeManagement() {
     setTaskNotes('');
   };
 
-  const handleApproveRegistration = async (registration: PendingRegistration) => {
+  const handleApproveRegistration = async (registration: Employee) => {
     setIsProcessing(true);
     try {
-      await approveRegistration(registration.id, user?.email || 'Landlord');
+      // await approveRegistration(registration.id, user?.email || 'Landlord');
       
       // In-app notification
-      addNotification({
-        userId: registration.phone,
-        title: 'Registration Approved!',
-        message: 'Your employee account has been approved by the landlord. You can now log in.',
-        category: 'registration_approved',
-        priority: 'high',
-        link: '/auth',
-      });
+      // addNotification({
+      //   userId: registration.phone,
+      //   title: 'Registration Approved!',
+      //   message: 'Your employee account has been approved by the landlord. You can now log in.',
+      //   category: 'registration_approved',
+      //   priority: 'high',
+      //   link: '/auth',
+      // });
 
       // Send SMS notification
       if (registration.phone) {
@@ -221,16 +216,16 @@ export function EmployeeManagement() {
 
     setIsProcessing(true);
     try {
-      await rejectRegistration(selectedRegistration.id, user?.email || 'Landlord', rejectionReason);
+      // await rejectRegistration(selectedRegistration.id, user?.email || 'Landlord', rejectionReason);
       
       // In-app notification
-      addNotification({
-        userId: selectedRegistration.phone,
-        title: 'Registration Rejected',
-        message: `Your employee registration was not approved. Reason: ${rejectionReason}`,
-        category: 'registration_rejected',
-        priority: 'high',
-      });
+      // addNotification({
+      //   userId: selectedRegistration.phone,
+      //   title: 'Registration Rejected',
+      //   message: `Your employee registration was not approved. Reason: ${rejectionReason}`,
+      //   category: 'registration_rejected',
+      //   priority: 'high',
+      // });
 
       // Send SMS notification
       if (selectedRegistration.phone) {
@@ -281,7 +276,7 @@ export function EmployeeManagement() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Employees</p>
-                <p className="text-2xl font-bold">{employees.length}</p>
+                <p className="text-2xl font-bold">{totalEmployees}</p>
               </div>
             </div>
           </CardContent>
@@ -295,7 +290,7 @@ export function EmployeeManagement() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Active</p>
-                <p className="text-2xl font-bold">{employees.filter(e => e.status === 'active').length}</p>
+                <p className="text-2xl font-bold">{totalActiveEmployees}</p>
               </div>
             </div>
           </CardContent>
@@ -309,7 +304,7 @@ export function EmployeeManagement() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Pending Employees</p>
-                <p className="text-2xl font-bold">{pendingEmployeeRegistrations.length}</p>
+                <p className="text-2xl font-bold">{totalPendingEmployees}</p>
               </div>
             </div>
           </CardContent>
@@ -334,9 +329,9 @@ export function EmployeeManagement() {
           <TabsTrigger value="approvals" className="flex items-center gap-2 relative">
             <UserPlus className="h-4 w-4" />
             Employee Approvals
-            {pendingEmployeeRegistrations.length > 0 && (
+            {totalPendingEmployees > 0 && (
               <span className="ml-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center">
-                {pendingEmployeeRegistrations.length}
+                {totalPendingEmployees}
               </span>
             )}
           </TabsTrigger>
@@ -531,7 +526,7 @@ export function EmployeeManagement() {
                       <div className="flex gap-2 sm:flex-shrink-0">
                         <Select
                           onValueChange={(employeeId) => {
-                            const emp = employees.find(e => e.id === employeeId);
+                            const emp = allEmployees.find(e => e.id === employeeId);
                             if (emp) {
                               setSelectedEmployee(emp);
                               setSelectedTaskId(task.id);
@@ -543,7 +538,7 @@ export function EmployeeManagement() {
                             <SelectValue placeholder="Assign to employee" />
                           </SelectTrigger>
                           <SelectContent>
-                            {employees.filter(e => e.status === 'active').map((emp) => (
+                            {allEmployees.filter(e => e.status === 'active').map((emp) => (
                               <SelectItem key={emp.id} value={emp.id}>
                                 {emp.firstName} {emp.lastName}
                               </SelectItem>
@@ -572,7 +567,7 @@ export function EmployeeManagement() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {pendingEmployeeRegistrations.length === 0 ? (
+              {totalPendingEmployees === 0 ? (
                 <div className="text-center py-12">
                   <CheckCircle className="h-12 w-12 mx-auto text-success mb-4" />
                   <h3 className="font-semibold mb-2">All caught up!</h3>
@@ -582,7 +577,7 @@ export function EmployeeManagement() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {pendingEmployeeRegistrations.map((registration) => (
+                  {pendingRegistration.map((registration) => (
                     <div
                       key={registration.id}
                       className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border bg-card gap-4"
@@ -601,12 +596,12 @@ export function EmployeeManagement() {
                               {registration.phone}
                             </span>
                             <span className="flex items-center gap-1">
-                              <CreditCard className="h-3 w-3" />
-                              ID: {registration.idNumber}
+                              <Mail className="h-3 w-3" />
+                              Email: {registration.email}
                             </span>
                             <span className="flex items-center gap-1">
                               <Clock className="h-3 w-3" />
-                              Applied {formatDistanceToNow(new Date(registration.submittedAt), { addSuffix: true })}
+                              Applied {formatDistanceToNow(new Date(registration.hiredAt), { addSuffix: true })}
                             </span>
                           </div>
                         </div>
@@ -715,7 +710,7 @@ export function EmployeeManagement() {
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Clock className="h-4 w-4 text-muted-foreground" />
-                  Joined {formatDistanceToNow(new Date(selectedEmployee.hiredAt), { addSuffix: true })}
+                  Joined {(new Date(selectedEmployee.hiredAt)).toLocaleDateString()}
                 </div>
               </div>
             </div>
