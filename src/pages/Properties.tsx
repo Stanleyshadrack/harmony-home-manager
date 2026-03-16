@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PropertyCard } from '@/components/properties/PropertyCard';
 import { PropertyForm } from '@/components/properties/PropertyForm';
+import { useLandlords } from "@/hooks/useLandlords";
 import { useProperties } from '@/hooks/useProperties';
 import { Property, PropertyFormData } from '@/types/property';
 import { Button } from '@/components/ui/button';
@@ -36,6 +37,8 @@ export default function Properties() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [deletingProperty, setDeletingProperty] = useState<Property | null>(null);
+  const { getLandlordById } = useLandlords();
+  
 
   const q = searchQuery.toLowerCase();
 
@@ -87,6 +90,7 @@ const filteredProperties = properties.filter((property) => {
   };
 
   return (
+    
     <DashboardLayout
       title={t('properties.title')}
       breadcrumbs={[
@@ -126,14 +130,29 @@ const filteredProperties = properties.filter((property) => {
       {/* Properties Grid */}
       {filteredProperties.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredProperties.map((property) => (
-            <PropertyCard
-              key={property.id}
-              property={property}
-              onEdit={handleEdit}
-              onDelete={setDeletingProperty}
-            />
-          ))}
+          {filteredProperties.map((property) => {
+  const landlord = getLandlordById(Number(property.landlordId));
+
+  return (
+    <PropertyCard
+      key={property.id}
+      property={property}
+      owner={
+        landlord
+          ? {
+              firstName: landlord.firstName,
+              lastName: landlord.lastName,
+              email: landlord.email,
+              phone: landlord.phone,
+            }
+          : undefined
+      }
+      onEdit={handleEdit}
+      onDelete={setDeletingProperty}
+    />
+  );
+})}
+
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-16 text-center">

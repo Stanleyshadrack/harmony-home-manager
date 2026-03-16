@@ -52,7 +52,7 @@ import { MeterForm } from '@/types/MeterForm';
 export default function WaterMeters() {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const { meters, stats, loading, createMeter, updateMeter, deleteMeter } = useMeters();
+ const { meters, stats, loading, createMeter, updateMeter, deleteMeter, assignMeter } = useMeters();
   const [searchQuery, setSearchQuery] = useState('');
   const [propertyFilter, setPropertyFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -63,6 +63,8 @@ export default function WaterMeters() {
   const { properties } = useProperties();
   const { units } = useUnits();
   const [selectedMeter, setSelectedMeter] = useState<WaterMeter | null>(null);
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [assignUnitId, setAssignUnitId] = useState<string>("");
   const [formData, setFormData] = useState<MeterForm>({
     meterName: "",
     propertyId: "",
@@ -101,6 +103,9 @@ export default function WaterMeters() {
     return map;
   }, [units]);
 
+  const unitHasMeter = (unitId: string | number) => {
+  return meters.some(m => String(m.unitId) === String(unitId));
+};
 
   const filteredMeters = useMemo(() => {
     return meters.filter((m) => {
@@ -231,6 +236,19 @@ export default function WaterMeters() {
       description: 'Water meter has been updated successfully.',
     });
   };
+
+  const handleAssignUnit = async () => {
+  if (!selectedMeter || !assignUnitId) return;
+
+  await assignMeter(
+    Number(selectedMeter.id),
+    Number(assignUnitId)
+  );
+
+  setShowAssignDialog(false);
+  setAssignUnitId("");
+  setSelectedMeter(null);
+};
 
   const handleDeleteMeter = async () => {
     if (!selectedMeter) return;
@@ -462,19 +480,35 @@ export default function WaterMeters() {
                     </TableCell>
                     <TableCell>{getStatusBadge(meter.status)}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(meter)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive"
-                          onClick={() => openDeleteDialog(meter)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                    <div className="flex items-center gap-2">
+
+  {!meter.unitNumber && (
+    <Button
+      size="sm"
+  variant="secondary"
+      onClick={() => {
+        setSelectedMeter(meter);
+        setShowAssignDialog(true);
+      }}
+    >
+      Assign
+    </Button>
+  )}
+
+  <Button variant="ghost" size="icon" onClick={() => openEditDialog(meter)}>
+    <Edit className="h-4 w-4" />
+  </Button>
+
+  <Button
+    variant="ghost"
+    size="icon"
+    className="text-destructive"
+    onClick={() => openDeleteDialog(meter)}
+  >
+    <Trash2 className="h-4 w-4" />
+  </Button>
+
+</div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -652,6 +686,68 @@ export default function WaterMeters() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+        <Dialog
+  open={showAssignDialog}
+  onOpenChange={(open) => {
+    setShowAssignDialog(open);
+    if (!open) {
+      setAssignUnitId("");
+      setSelectedMeter(null);
+    }
+  }}
+>
+  <DialogContent className="sm:max-w-[450px]">
+    <DialogHeader>
+      <DialogTitle>Assign Meter to Unit</DialogTitle>
+      <DialogDescription>
+        Select a unit to assign this water meter.
+      </DialogDescription>
+    </DialogHeader>
+
+    <div className="space-y-4 py-4">
+      <Label>Select Unit</Label>
+
+      <Select value={assignUnitId} onValueChange={setAssignUnitId}>
+        <SelectTrigger>
+          <SelectValue placeholder="Choose unit" />
+        </SelectTrigger>
+
+        <SelectContent>
+          {units
+  .filter((unit) => String(unit.propertyId) === String(selectedMeter?.propertyId))
+  .map((unit) => (
+            <SelectItem
+  key={unit.id}
+  value={String(unit.id)}
+  disabled={unitHasMeter(unit.id)}
+>
+  {unit.unitNumber} — {propertyMap.get(unit.propertyId)?.name}
+  {unitHasMeter(unit.id) && " (Meter assigned)"}
+</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+
+    <DialogFooter>
+      <Button
+        variant="outline"
+        onClick={() => {
+          setShowAssignDialog(false);
+          setAssignUnitId("");
+        }}
+      >
+        Cancel
+      </Button>
+
+      <Button  onClick={handleAssignUnit}
+      disabled={!assignUnitId}
+      >
+        Assign Meter
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
       </div>
     </DashboardLayout>
   );

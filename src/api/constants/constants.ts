@@ -149,6 +149,9 @@ CREATE_METER: "/api/water-meters",
 UPDATE_METER: (id: number) =>
   `/api/water-meters/${id}`,
 
+ASSIGN_METER: (meterId: number | string, unitId: number | string) =>
+  `/api/water-meters/${meterId}/assign-unit/${unitId}`,
+
 DELETE_METER: (id: number) =>
   `/api/water-meters/${id}`,
 
@@ -159,6 +162,7 @@ METERS_BY_UNIT: (unitId: number | string) =>
   `/api/water-meters/unit/${unitId}`,
 
 METERS_STATS: "/api/water-meters/stats",
+
 
 // ===============================
 // Water Readings
