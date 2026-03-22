@@ -45,7 +45,7 @@ export function useMeters() {
 
       toast({
         title: "Meter Added",
-        description: `Water meter ${meter.meterId} created successfully`,
+        description: `Water meter ${meter.id} created successfully`,
       });
 
       await loadStats();
@@ -69,7 +69,7 @@ export function useMeters() {
 
       toast({
         title: "Meter Updated",
-        description: `Water meter ${meter.meterId} updated successfully`,
+        description: `Water meter ${meter.id} updated successfully`,
       });
 
       await loadStats();
@@ -82,6 +82,34 @@ export function useMeters() {
       });
     }
   };
+
+  const assignMeter = async (meterId: number, unitId: number) => {
+  try {
+    const updated = await metersApi.assignUnit(meterId, unitId);
+
+    setMeters((prev) =>
+      prev.map((m) => (m.id === meterId ? updated : m))
+    );
+
+    toast({
+      title: "Meter Assigned",
+      description: `Meter assigned successfully`,
+    });
+
+    // refresh stats and meters
+    await loadStats();
+    await loadMeters();
+
+  } catch (error) {
+    console.error(error);
+
+    toast({
+      title: "Error",
+      description: "Failed to assign meter",
+      variant: "destructive",
+    });
+  }
+};
 
   const deleteMeter = async (id: number) => {
     try {
@@ -116,6 +144,7 @@ export function useMeters() {
     loading,
     createMeter,
     updateMeter,
+    assignMeter,
     deleteMeter,
     reload: loadMeters,
   };

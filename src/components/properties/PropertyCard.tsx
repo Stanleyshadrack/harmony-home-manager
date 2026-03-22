@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { useLandlords } from '@/hooks/useLandlords';
 import { useQuery } from "@tanstack/react-query";
 import { PropertyApi } from "@/api/service/add.apartments.service.api";
 
@@ -28,8 +27,16 @@ import {
   Eye,
 } from 'lucide-react';
 
+interface PropertyOwner {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+}
+
 interface PropertyCardProps {
   property: Property;
+  owner?: PropertyOwner;
   onEdit: (property: Property) => void;
   onDelete: (property: Property) => void;
 }
@@ -38,12 +45,10 @@ export function PropertyCard({
   property,
   onEdit,
   onDelete,
+  owner
 }: PropertyCardProps) {
 
   const { t } = useTranslation();
-  const { getLandlordById } = useLandlords();
-
-  const landlord = getLandlordById(Number(property.landlordId));
 
   /* =========================
      PROPERTY STATS (API)
@@ -147,37 +152,39 @@ export function PropertyCard({
           </div>
 
           {/* Landlord */}
-          {landlord && (
-            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+          {/* Owner */}
+{owner && (
+  <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
 
-              <Avatar className="h-9 w-9">
-                <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
-                  {landlord.firstName[0]}{landlord.lastName[0]}
-                </AvatarFallback>
-              </Avatar>
+    <Avatar className="h-9 w-9">
+      <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+        {owner.firstName[0]}
+        {owner.lastName[0]}
+      </AvatarFallback>
+    </Avatar>
 
-              <div className="flex-1 min-w-0">
+    <div className="flex-1 min-w-0">
 
-                <p className="text-sm font-medium truncate">
-                  {landlord.firstName} {landlord.lastName}
-                </p>
+      <p className="text-sm font-medium truncate">
+        {owner.firstName} {owner.lastName}
+      </p>
 
-                {landlord.company && (
-                  <p className="text-xs text-muted-foreground truncate">
-                    {landlord.company}
-                  </p>
-                )}
+      <p className="text-xs text-muted-foreground truncate">
+        {owner.email}
+      </p>
 
-                <div className="flex items-center gap-3 mt-0.5">
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Phone className="h-3 w-3" />
-                    {landlord.phone}
-                  </span>
-                </div>
+      <div className="flex items-center gap-2 mt-0.5">
+        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+          <Phone className="h-3 w-3" />
+          {owner.phone}
+        </span>
+      </div>
 
-              </div>
-            </div>
-          )}
+    </div>
+
+  </div>
+)}
+
 
           {/* Amenities */}
           {property.amenities.length > 0 && (

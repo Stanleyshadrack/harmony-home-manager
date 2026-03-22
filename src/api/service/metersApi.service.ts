@@ -53,6 +53,15 @@ export const metersApi = {
       body: meter,
     }),
 
+    /* =========================
+   🔗 Assign meter to unit
+========================= */
+assignUnit: (meterId: number | string, unitId: number | string) =>
+  apiRequest<null, WaterMeter>({
+    path: API_PATHS.ASSIGN_METER(meterId, unitId),
+    method: "PUT",
+  }),
+
   /* =========================
      ❌ Delete meter
   ========================= */
