@@ -447,9 +447,11 @@ export default function WaterData() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Properties</SelectItem>
-                  {properties.map(p => (
-                    <SelectItem key={p} value={p}>{p}</SelectItem>
-                  ))}
+                  {properties.map((p, index) => (
+  <SelectItem key={`${p}-${index}`} value={p}>
+    {p}
+  </SelectItem>
+))}
                 </SelectContent>
               </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
