@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { XCircle, Eye, EyeOff, Lock, Loader2 } from "lucide-react";
+import { XCircle, Eye, EyeOff, Lock, Loader2, CheckCircle } from "lucide-react";
 
 import { validateSetPasswordToken } from "@/api/service/validateSetPassword.service";
 import { setPasswordService } from "@/api/service/setPasswordApi";
@@ -41,6 +41,7 @@ export default function SetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [completed, setCompleted] = useState(false);
 
   const {
     register,
@@ -52,7 +53,7 @@ export default function SetPasswordPage() {
   });
 
   /* =========================
-     Token pre-validation
+     Token validation
   ========================= */
   useEffect(() => {
     if (!token) {
@@ -79,16 +80,15 @@ export default function SetPasswordPage() {
     }
 
     setSubmitting(true);
+
     try {
       await setPasswordService({
         token,
         password: data.password,
       });
 
-      toast.success("Password set successfully. Please log in.");
-
-      // ✅ NEXT.JS NAVIGATION
-      router.replace("/auth");
+      toast.success("Password set successfully!");
+      setCompleted(true); // ✅ show success UI instead of redirect
     } catch (err: any) {
       toast.error(err?.message ?? "Failed to set password");
     } finally {
@@ -97,16 +97,19 @@ export default function SetPasswordPage() {
   };
 
   /* =========================
-     Guarded UI states
+     Loading state
   ========================= */
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-500"  />
+        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
       </div>
     );
   }
 
+  /* =========================
+     Error state
+  ========================= */
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -115,9 +118,7 @@ export default function SetPasswordPage() {
             <XCircle className="h-10 w-10 text-destructive mx-auto" />
             <h2 className="text-xl font-semibold">Link Invalid</h2>
             <p className="text-muted-foreground">{error}</p>
-            <Button onClick={() => {
-              setError(null);
-              router.push("/auth")}} className="w-full">
+            <Button onClick={() => router.push("/auth")} className="w-full">
               Go to Login
             </Button>
           </CardContent>
@@ -127,7 +128,31 @@ export default function SetPasswordPage() {
   }
 
   /* =========================
-     UI
+     Success state
+  ========================= */
+  if (completed) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="p-6 text-center space-y-4">
+            <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <CheckCircle className="h-8 w-8 text-primary" />
+            </div>
+            <h2 className="text-xl font-semibold">Password Set!</h2>
+            <p className="text-muted-foreground">
+              Your password has been set successfully. You can now log in.
+            </p>
+            <Button onClick={() => router.push("/auth")} className="w-full">
+              Go to Login
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  /* =========================
+     Form UI
   ========================= */
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -178,7 +203,7 @@ export default function SetPasswordPage() {
             </div>
 
             <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? "Setting password…" : "Set Password"}
+              {submitting ? "Setting password..." : "Set Password"}
             </Button>
           </form>
         </CardContent>

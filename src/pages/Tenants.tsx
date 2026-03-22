@@ -64,18 +64,20 @@ export default function Tenants() {
 
 const searchTerm = search.toLowerCase();
 
-const filteredTenants = tenants.filter((tenant) => {
-  const fullName = `${tenant.firstName} ${tenant.lastName}`.toLowerCase();
-  const unit = tenant.unitNumber?.toLowerCase() ?? "";
+const filteredTenants = tenants
+  .filter((tenant) => tenant.firstName && tenant.lastName) // 👈 guard
+  .filter((tenant) => {
+    const fullName = `${tenant.firstName} ${tenant.lastName}`.toLowerCase();
+    const unit = tenant.unitNumber?.toLowerCase() ?? "";
 
-  const matchesSearch =
-    fullName.includes(searchTerm) ||
-    tenant.email.toLowerCase().includes(searchTerm) ||
-    unit.includes(searchTerm);
+    const matchesSearch =
+      fullName.includes(searchTerm) ||
+      tenant.email.toLowerCase().includes(searchTerm) ||
+      unit.includes(searchTerm);
 
-  if (activeTab === "all") return matchesSearch;
-  return matchesSearch && tenant.status === activeTab;
-});
+    if (activeTab === "all") return matchesSearch;
+    return matchesSearch && tenant.status === activeTab;
+  });
 
   const stats = {
     total: tenants.length,

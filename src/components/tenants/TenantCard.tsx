@@ -36,9 +36,9 @@ export function TenantCard({ tenant, onView, onEdit, onDelete }: TenantCardProps
             <Avatar className="h-12 w-12">
               <AvatarImage src={tenant.avatarUrl} />
               <AvatarFallback className="bg-primary/10 text-primary">
-                {tenant.firstName[0]}
-                {tenant.lastName[0]}
-              </AvatarFallback>
+  {tenant.firstName?.[0] ?? "?"}
+  {tenant.lastName?.[0] ?? ""}
+</AvatarFallback>
             </Avatar>
             <div>
               <h3 className="font-semibold">
@@ -91,8 +91,11 @@ export function TenantCard({ tenant, onView, onEdit, onDelete }: TenantCardProps
             {tenant.status}
           </Badge>
           <span className="text-xs text-muted-foreground">
-            Move in: {new Date(tenant.moveInDate).toLocaleDateString()}
-          </span>
+  Move in:{" "}
+  {tenant.moveInDate
+    ? new Date(tenant.moveInDate).toLocaleDateString()
+    : "N/A"}
+</span>
         </div>
       </CardContent>
     </Card>

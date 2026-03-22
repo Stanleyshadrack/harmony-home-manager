@@ -1,28 +1,27 @@
 import { apiRequest } from "../https";
 import { API_PATHS } from "../constants/constants";
+import { CompleteOnboardingPayload, OnboardingResult } from "@/api/dto/onboading";
 
-export type CompleteOnboardingPayload = {
-  token: string;
-  firstName: string;
-  lastName: string;
-  phone: string;
-  idNumber: string;
-};
 
-export type CompleteOnboardingResponse = {
-  approved: boolean;
-  passwordSet: boolean;
-};
 
-export const completeOnboardingService = async (
+export async function completeOnboardingService(
   payload: CompleteOnboardingPayload
-) => {
-  return apiRequest<
-    CompleteOnboardingPayload,
-    CompleteOnboardingResponse
-  >({
-    path: API_PATHS.AUTH_ONBOARDING, // "/api/auth/onboarding"
-    method: "POST",
-    body: payload,
-  });
-};
+): Promise<OnboardingResult> {
+  try {
+    const response = await apiRequest<
+      CompleteOnboardingPayload,
+      OnboardingResult
+    >({
+      path: API_PATHS.AUTH_ONBOARDING,
+      method: "POST",
+      body: payload,
+    });
+
+    return response;
+  } catch (error: any) {
+    // Normalize backend errors
+    throw new Error(
+      error?.message || "Failed to complete onboarding. Please try again."
+    );
+  }
+}

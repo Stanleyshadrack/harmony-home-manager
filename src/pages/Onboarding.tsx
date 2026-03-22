@@ -1,256 +1,404 @@
+"use client";
+
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-
+import { Loader2, XCircle, CheckCircle } from "lucide-react";
+import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-
 import {
-  Loader2,
-  XCircle,
-  CheckCircle,
-  Mail,
-  Phone,
-  CreditCard,
-  AlertTriangle,
-  User,
-} from "lucide-react";
-
-import { validateInvite } from "@/api/service/validateInvite.service";
+  InviteValidationResponse,
+  validateInvite,
+} from "@/api/service/validateInvite.service";
 import { completeOnboardingService } from "@/api/service/completeOnboardingService";
 
-/* =========================
-   Schema
-========================= */
-const schema = z.object({
+/* ========================= SCHEMA ========================= */
+
+const baseSchema = {
   firstName: z.string().min(2),
   lastName: z.string().min(2),
   phone: z.string().min(10),
-  idNumber: z.string().min(5),
-
-  emergencyContactName: z.string().optional(),
-  emergencyContactPhone: z.string().optional(),
-  relationship: z.string().optional(),
-  emergencyContact: z.string().optional(),
-
- termsAccepted: z
-  .boolean()
-  .refine((v) => v === true, {
-    message: "You must accept the terms and conditions",
-  }),
-});
-
-type FormData = z.infer<typeof schema>;
-
-type Invite = {
-  email: string;
-  role: string;
+  termsAccepted: z.boolean().refine((v) => v === true),
 };
 
-export default function Onboarding() {
-  const navigate = useNavigate();
-  const [params] = useSearchParams();
-  const token = params.get("token");
+const tenantSchema = z.object({
+  ...baseSchema,
+  idNumber: z.string().min(5),
+
+  emergencyContactName: z.string().min(2),
+  emergencyContactPhone: z.string().min(10),
+  relationship: z.string().min(2),
+
+  leaseStartDate: z.string().min(1),
+  leaseEndDate: z.string().min(1),
+
+  rentAmount: z.coerce.number(),
+  depositAmount: z.coerce.number(),
+
+  numberOfOccupants: z.coerce.number(),
+
+  paymentMethod: z.string().min(2),
+  mpesaNumber: z.string().optional(),
+});
+
+type FormData = z.infer<typeof tenantSchema>;
+
+/* ========================= COMPONENT ========================= */
+
+export default function OnboardingPage() {
+  const router = useRouter();
+  const token = useSearchParams()?.get("token");
 
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [completed, setCompleted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [unit, setUnit] =
+    useState<InviteValidationResponse["unit"] | null>(null);
+    const [leaseFile, setLeaseFile] = useState<File | null>(null);
+const [idFile, setIdFile] = useState<File | null>(null);
 
-  const [invite, setInvite] = useState<Invite | null>(null);
+  const isUnitAssigned = !!unit;
 
   const {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<FormData>({
-    resolver: zodResolver(schema),
-  });
+  resolver: zodResolver(tenantSchema),
+  defaultValues: {
+    paymentMethod: "M-Pesa",
+  },
+});
 
-  /* =========================
-     Validate invite
-  ========================= */
+  /* ========================= LOAD INVITE ========================= */
+
   useEffect(() => {
     if (!token) {
-      setError("Invalid invitation link");
+      setError("Invalid invite link");
       setLoading(false);
       return;
     }
 
     validateInvite(token)
-      .then(setInvite)
-      .catch((err) =>
-        setError(err?.message ?? "Invite expired or invalid")
-      )
-      .finally(() => setLoading(false));
-  }, [token]);
+      .then((res) => {
+        setUnit(res.unit || null);
 
-  /* =========================
-     Submit onboarding
-  ========================= */
-  const onSubmit = async (data: FormData) => {
-    if (!token) return;
+        // 🔥 Prefill
+        setValue("firstName", res.firstName || "");
+        setValue("lastName", res.lastName || "");
+        setValue("phone", res.phone || "");
 
-    setSubmitting(true);
-    try {
-     const res = await completeOnboardingService({
-  token,
-  ...data,
-});
+        // 🔥 Rent + Deposit auto-fill
+        if (res.unit) {
+          setValue("rentAmount", res.rentAmount);
+          setValue("depositAmount", res.depositAmount);
+        }
 
+        setLoading(false);
+      })
+      .catch(() => {
+        setError("Invalid invite");
+        setLoading(false);
+      });
+  }, [token, setValue]);
 
-if (res.approved && !res.passwordSet) {
-  navigate(`/set-password?token=${token}`);
-  return;
-}
+  /* ========================= SUBMIT ========================= */
 
-// not approved → stay on this page
-setCompleted(true);
-toast.success("Onboarding completed. Awaiting approval.");
+ const toBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+  });
 
-    } catch (err: any) {
-      toast.error(err?.message ?? "Failed to complete onboarding");
-    } finally {
-      setSubmitting(false);
-    }
-  };
+const onSubmit = async (data: FormData) => {
+  console.log("SUBMIT HIT ✅", data);
+  if (!token) return;
 
-  /* =========================
-     UI STATES
-  ========================= */
+  try {
+    // 🔥 convert files
+    const leaseBase64 = leaseFile ? await toBase64(leaseFile) : null;
+    const idBase64 = idFile ? await toBase64(idFile) : null;
+
+    // 🔥 build payload (IMPORTANT)
+    const payload = {
+      token,
+
+      tenant: {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        phone: data.phone,
+        propertyId: unit?.id,
+        unitId: unit?.id,
+        emergencyContact: `${data.emergencyContactName} (${data.relationship}) - ${data.emergencyContactPhone}`,
+      },
+
+      lease: {
+        startDate: data.leaseStartDate,
+        endDate: data.leaseEndDate,
+        monthlyRent: data.rentAmount,
+        securityDeposit: data.depositAmount,
+        terms: "Standard lease agreement",
+      },
+
+      leaseBase64,
+      idBase64,
+
+      termsAccepted: data.termsAccepted,
+    };
+
+    await completeOnboardingService(payload);
+
+    toast.success("Onboarding complete!");
+    router.push("/auth");
+
+  } catch (err: any) {
+    toast.error(err?.message || "Failed");
+  }
+};
+
+  /* ========================= STATES ========================= */
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="animate-spin" />
       </div>
     );
   }
 
   if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Card className="max-w-md w-full">
-          <CardContent className="p-6 text-center space-y-4">
-            <XCircle className="h-10 w-10 text-destructive mx-auto" />
-            <h2 className="text-xl font-semibold">Invalid Invitation</h2>
-            <p className="text-muted-foreground">{error}</p>
-            <Button onClick={() => navigate("/auth")} className="w-full">
-              Go to Login
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <div className="text-center mt-10">{error}</div>;
   }
 
-  if (completed) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Card className="max-w-md w-full">
-          <CardContent className="p-6 text-center space-y-4">
-            <CheckCircle className="h-10 w-10 text-success mx-auto" />
-            <h2 className="text-xl font-semibold">Onboarding Complete</h2>
-            <p className="text-muted-foreground">
-              Your account is pending admin approval.
-            </p>
-            <Button onClick={() => navigate("/auth")} className="w-full">
-              Go to Login
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  /* ========================= UI ========================= */
 
-  /* =========================
-     FORM
-  ========================= */
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <Card className="max-w-md w-full">
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <Card className="max-w-2xl w-full">
         <CardContent className="p-6 space-y-6">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold">Complete Your Profile</h2>
-            <div className="text-muted-foreground mt-1 flex items-center justify-center gap-1">
-              <span>Invited as</span>
-              <Badge variant="secondary">{invite?.role}</Badge>
-            </div>
-          </div>
+          <h2 className="text-xl font-bold text-center">
+            Complete Your Profile
+          </h2>
 
-          <div className="flex items-center gap-3 bg-muted p-3 rounded">
-            <Mail className="h-4 w-4" />
-            <span className="text-sm">{invite?.email}</span>
-          </div>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <InputField label="First Name" icon={User} register={register("firstName")} />
-            <InputField label="Last Name" icon={User} register={register("lastName")} />
-            <InputField label="Phone" icon={Phone} register={register("phone")} />
-            <InputField label="ID Number" icon={CreditCard} register={register("idNumber")} />
+  {/* 🔥 UNIT DISPLAY */}
+  {unit && (
+    <div className="border rounded-lg p-4 bg-muted/40">
+      <p className="text-sm text-muted-foreground">Assigned Unit</p>
+      <div className="flex justify-between">
+        <span>{unit.propertyName}</span>
+        <span>{unit.unitNumber}</span>
+      </div>
+    </div>
+  )}
 
-            {/* Emergency Contact (Optional) */}
-            <InputField label="Emergency Contact Name" icon={User} register={register("emergencyContactName")} />
-            <InputField label="Emergency Contact Phone" icon={Phone} register={register("emergencyContactPhone")} />
-            <InputField label="Relationship" register={register("relationship")} />
-            <InputField label="Emergency Contact (Notes)" register={register("emergencyContact")} />
+  {/* ================= PERSONAL ================= */}
+  <div className="space-y-3">
+    <h3 className="text-sm font-medium">
+      Personal Information
+    </h3>
 
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-2">
-                <Checkbox
-  onCheckedChange={(checked) =>
-    setValue("termsAccepted", checked === true, {
-      shouldValidate: true,
-    })
-  }
-/>
+    <div className="grid md:grid-cols-2 gap-4">
+      <Input placeholder="First Name" {...register("firstName")} />
+      <Input placeholder="Last Name" {...register("lastName")} />
+    </div>
 
-              <span className="text-sm text-muted-foreground">
-                  I accept the terms and conditions
-                </span>
-              </div>
-              {errors.termsAccepted && (
-                <p className="text-xs text-destructive">
-                  {errors.termsAccepted.message}
-                </p>
-              )}
-            </div>
+    <div className="grid md:grid-cols-2 gap-4">
+      <Input placeholder="Phone" {...register("phone")} />
+      <Input placeholder="ID Number" {...register("idNumber")} />
+    </div>
+  </div>
 
-            <div className="bg-warning/10 p-3 rounded flex gap-2">
-              <AlertTriangle className="h-4 w-4 text-warning" />
-              <p className="text-xs">
-                Account activation requires admin approval
-              </p>
-            </div>
+  {/* ================= LEASE ================= */}
+  <div className="space-y-3">
+    <h3 className="text-sm font-medium">
+      Lease Details
+    </h3>
 
-            <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? <Loader2 className="animate-spin h-4 w-4" /> : "Complete Onboarding"}
-            </Button>
-          </form>
+    <div className="grid md:grid-cols-2 gap-4">
+      <Input type="date" {...register("leaseStartDate")} />
+      <Input type="date" {...register("leaseEndDate")} />
+    </div>
+  </div>
+
+  {/* ================= FINANCIAL ================= */}
+  <div className="space-y-2">
+
+    <h3 className="text-sm font-medium">
+      Financial Details
+    </h3>
+
+    {isUnitAssigned ? (
+      <div className="grid md:grid-cols-2 gap-4">
+
+        <div className="rounded-md border p-3 bg-muted/40">
+          <p className="text-xs text-muted-foreground">Rent</p>
+          <p className="font-semibold">
+            KES {Number(watch("rentAmount") || 0).toLocaleString()}
+          </p>
+        </div>
+
+        <div className="rounded-md border p-3 bg-muted/40">
+          <p className="text-xs text-muted-foreground">Deposit</p>
+          <p className="font-semibold">
+            KES {Number(watch("depositAmount") || 0).toLocaleString()}
+          </p>
+        </div>
+
+      </div>
+    ) : (
+     <div className="grid md:grid-cols-2 gap-4">
+
+  <div>
+    
+    <Input
+      type="number"
+      placeholder="Rent Amount"
+      {...register("rentAmount")}
+    />
+  </div>
+
+  <div>
+    <Input
+      type="number"
+      placeholder="Deposit amount"
+      {...register("depositAmount")}
+    />
+  </div>
+
+</div>
+    )}
+
+    {isUnitAssigned && (
+      <p className="text-xs text-muted-foreground">
+        These values are predefined for the assigned unit.
+      </p>
+    )}
+  </div>
+
+  {/* ================= OCCUPANCY ================= */}
+  <div className="space-y-3">
+    <h3 className="text-sm font-medium">
+      Occupancy
+    </h3>
+
+    <Input
+      type="number"
+      placeholder="Number of Occupants"
+      {...register("numberOfOccupants")}
+    />
+  </div>
+
+  {/* ================= EMERGENCY ================= */}
+  <div className="space-y-3">
+    <h3 className="text-sm font-medium">
+      Emergency Contact
+    </h3>
+
+    <div className="grid md:grid-cols-2 gap-4">
+      <Input
+        placeholder="Emergency Name"
+        {...register("emergencyContactName")}
+      />
+      <Input
+        placeholder="Emergency Phone"
+        {...register("emergencyContactPhone")}
+      />
+    </div>
+
+    <Input
+      placeholder="Relationship"
+      {...register("relationship")}
+    />
+  </div>
+
+ 
+{/* ================= DOCUMENTS ================= */}
+<div className="space-y-3">
+  <h3 className="text-sm font-medium">
+    Documents
+  </h3>
+
+  <div className="grid md:grid-cols-2 gap-4">
+
+    {/* LEASE */}
+    <div className="border rounded-lg p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-semibold text-muted-foreground">Lease Agreement</p>
+          <p className="text-xs text-muted-foreground">
+            Download, sign & upload
+          </p>
+        </div>
+
+       <Button
+  type="button"
+  size="sm"
+  variant="outline"
+  onClick={() => window.open("/lease-template.pdf")}
+  className="flex items-center gap-2"
+>
+  <Download className="h-4 w-4" />
+  
+</Button>
+      </div>
+
+      <Input
+        type="file"
+        accept=".pdf,.doc,.docx"
+        onChange={(e) => setLeaseFile(e.target.files?.[0] || null)}
+      />
+    </div>
+
+    {/* ID */}
+    <div className="border rounded-lg p-4 space-y-3">
+      <div>
+        <p className="text-sm font-semibold text-muted-foreground">ID / Passport</p>
+        <p className="text-xs text-muted-foreground">
+          Upload identification document
+        </p>
+      </div>
+
+      <Input
+        type="file"
+        accept=".jpg,.png,.pdf"
+        onChange={(e) => setIdFile(e.target.files?.[0] || null)}
+      />
+    </div>
+
+  </div>
+</div>
+
+  {/* TERMS */}
+  <div className="space-y-1">
+  <div className="flex gap-2 items-center">
+    <input type="checkbox" {...register("termsAccepted")} />
+    <span className="text-sm">Accept terms</span>
+  </div>
+
+  {errors.termsAccepted && (
+    <p className="text-red-500 text-sm">
+      You must accept terms
+    </p>
+  )}
+</div>
+
+  <Button type="submit" className="w-full">
+    Complete Onboarding
+  </Button>
+</form>
         </CardContent>
       </Card>
-    </div>
-  );
-}
-
-/* =========================
-   Small Helper
-========================= */
-function InputField({ label, icon: Icon, register }: any) {
-  return (
-    <div>
-      <Label>{label}</Label>
-      <div className="relative">
-        {Icon && <Icon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />}
-        <Input className={Icon ? "pl-10" : ""} {...register} />
-      </div>
     </div>
   );
 }
