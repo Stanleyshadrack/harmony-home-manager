@@ -3,7 +3,7 @@
 
 const STORAGE_KEY = 'loginAttempts';
 const MAX_ATTEMPTS = 5;
-const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+const LOCKOUT_DURATION_MS = 1 * 60 * 1000; // ✅ 1 minute
 
 interface LoginAttempt {
   email: string;

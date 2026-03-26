@@ -25,21 +25,30 @@ const statusColors = {
   inactive: 'bg-muted text-muted-foreground border-muted',
 };
 
+
+
 export function TenantCard({ tenant, onView, onEdit, onDelete }: TenantCardProps) {
   const { t } = useTranslation();
+    const avatarUrl = tenant.avatarUrl
+  ? `http://localhost:8080${tenant.avatarUrl}`
+  : null;
 
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="p-4">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <Avatar className="h-12 w-12">
-              <AvatarImage src={tenant.avatarUrl} />
-              <AvatarFallback className="bg-primary/10 text-primary">
-  {tenant.firstName?.[0] ?? "?"}
-  {tenant.lastName?.[0] ?? ""}
-</AvatarFallback>
-            </Avatar>
+           
+<Avatar className="h-16 w-16">
+  <AvatarImage
+    src={avatarUrl || undefined}
+    className="object-cover w-full h-full"
+  />
+  <AvatarFallback>
+    {tenant.firstName[0]}
+    {tenant.lastName[0]}
+  </AvatarFallback>
+</Avatar>
             <div>
               <h3 className="font-semibold">
                 {tenant.firstName} {tenant.lastName}

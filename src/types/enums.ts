@@ -12,6 +12,13 @@ export const UNIT_STATUSES = [
   "vacant",
   "occupied",
   "maintenance",
+  "reserved"
 ] as const;
 
 export type UnitStatus = typeof UNIT_STATUSES[number];
+
+export type UserRole =
+  | "SUPER_ADMIN"
+  | "LANDLORD"
+  | "EMPLOYEE"
+  | "TENANT";

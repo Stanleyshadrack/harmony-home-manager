@@ -19,32 +19,50 @@ export const API_PATHS = {
 
 
 
-  // ---------- Landlords ----------
-  LANDLORDS: "/api/landlords",
+ // ---------- Landlords ----------
+LANDLORDS: "/api/landlords",
 
-  LANDLORD_BY_ID: (id: number) =>
-    `/api/landlords/${id}`,
+LANDLORD_BY_ID: (id: number) =>
+  `/api/landlords/${id}`,
 
-  MY_LANDLORD_PROFILE: "/api/landlords/me",
+MY_LANDLORD_PROFILE: "/api/landlords/me",
 
-  APPROVE_LANDLORD: (landlordId: number) =>
-    `/api/landlords/${landlordId}/approve`,
+APPROVE_LANDLORD: (landlordId: number) =>
+  `/api/landlords/${landlordId}/approve`,
 
-  REJECT_LANDLORD: (landlordId: number) =>
-    `/api/landlords/${landlordId}/reject`,
+REJECT_LANDLORD: (landlordId: number) =>
+  `/api/landlords/${landlordId}/reject`,
 
-  // ---------- Landlord Employees ----------
+// ---------- Employees (Landlord) ----------
+LANDLORD_EMPLOYEES: "/api/landlords/employees",
 
-  LANDLORD_EMPLOYEES: "/api/landlords/employees",
+APPROVE_LANDLORD_EMPLOYEE: (employeeId: number) =>
+  `/api/landlords/employees/${employeeId}/approve`,
 
-  APPROVE_LANDLORD_EMPLOYEE: (employeeId: number) =>
-    `/api/landlords/employees/${employeeId}/approve`,
+REJECT_LANDLORD_EMPLOYEE: (employeeId: number) =>
+  `/api/landlords/employees/${employeeId}/reject`,
 
-  REJECT_LANDLORD_EMPLOYEE: (employeeId: number) =>
-    `/api/landlords/employees/${employeeId}/reject`,
+ASSIGN_EMPLOYEE_TO_PROPERTY: (employeeId: number, propertyId: number) =>
+  `/api/landlords/employees/${employeeId}/assign-property/${propertyId}`,
 
-  ASSIGN_EMPLOYEE_TO_PROPERTY: (employeeId: number, propertyId: number) =>
-    `/api/landlords/employees/${employeeId}/assign-property/${propertyId}`,
+
+
+ //--------------Maintenance----------------------------
+MAINTENANCE: "/api/maintenance",
+
+CREATE_MAINTENANCE: "/api/maintenance",
+
+GET_MAINTENANCE_REQUESTS: "/api/maintenance",
+
+ASSIGN_MAINTENANCE: "/api/maintenance/assign",
+
+UPDATE_MAINTENANCE_STATUS: (id: number) =>
+  `/api/maintenance/${id}/status`,
+
+
+   //--------------📝 Add Note-----------------------
+
+ADD_MAINTENANCE_NOTE: "/api/maintenance/notes",
 
 
 // ----------------------- Approvals -------------------------
@@ -71,6 +89,8 @@ REJECT_APPROVAL: (id: number) =>
 
 UNITS_BY_PROPERTY: (propertyId: number | string) =>
   `/api/units/property/${propertyId}`,
+
+TENANT_VACANT_UNITS: "/api/units/vacant/tenant",
 
       /* =========================
      📄 Fetch ALL units ✅

@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useCurrentTenant } from '@/hooks/useCurrentTenant';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -34,7 +35,11 @@ import { MaintenanceForm } from '@/components/maintenance/MaintenanceForm';
 import { AssignmentForm } from '@/components/maintenance/AssignmentForm';
 import { MaintenanceDetail } from '@/components/maintenance/MaintenanceDetail';
 import { useToast } from '@/hooks/use-toast';
-import type { MaintenanceRequest, MaintenanceStatus } from '@/types/maintenance';
+import type { MaintenanceFormData, MaintenanceRequest, MaintenanceStatus } from '@/types/maintenance';
+import { useCurrentLandlord } from '@/hooks/useCurrentLandlord.hook';
+
+
+
 
 export default function Maintenance() {
   const { t } = useTranslation();
@@ -47,7 +52,7 @@ export default function Maintenance() {
     assignRequest,
     updateStatus,
     addNote,
-    getEmployees,
+
   } = useMaintenance();
 
   const [activeTab, setActiveTab] = useState('all');
@@ -58,63 +63,124 @@ export default function Maintenance() {
   const [showDetail, setShowDetail] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<MaintenanceRequest | undefined>();
 
+const tenantData = useCurrentTenant();
+const landlordData = useCurrentLandlord();
+
+const currentTenant =
+  user?.role === "tenant" ? tenantData.tenant : null;
+
+const landlord =
+  user?.role === "landlord" ? landlordData.landlord : null;
+
+
+  
+
   // Only landlords and super_admin can assign tasks
   const canAssign = user?.role === 'landlord' || user?.role === 'super_admin';
+const visibleRequests = (() => {
+  if (user?.role === "tenant" && currentTenant) {
+    return requests.filter(
+      (req) => req.tenantId === currentTenant.id
+    );
+  }
 
-  const filteredRequests = requests.filter((request) => {
-    const matchesSearch =
-      request.ticketNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      request.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      request.tenantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      request.propertyName.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesPriority = priorityFilter === 'all' || request.priority === priorityFilter;
-    const matchesTab =
-      activeTab === 'all' ||
-      (activeTab === 'pending' && request.status === 'pending') ||
-      (activeTab === 'in_progress' && (request.status === 'assigned' || request.status === 'in_progress')) ||
-      (activeTab === 'resolved' && request.status === 'resolved');
-    return matchesSearch && matchesPriority && matchesTab;
-  });
+  return requests; // landlord/backend already filtered
+})();
 
-  const handleCreateRequest = (data: any) => {
-    createRequest(data, 't1', 'John Doe');
+  const filteredRequests = visibleRequests.filter((request) => {
+  const matchesSearch =
+    request.ticketNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    request.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    request.tenantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    request.propertyName.toLowerCase().includes(searchQuery.toLowerCase());
+
+  const matchesPriority =
+    priorityFilter === 'all' || request.priority === priorityFilter;
+
+  const matchesTab =
+    activeTab === 'all' ||
+    (activeTab === 'pending' && request.status === 'pending') ||
+    (activeTab === 'in_progress' &&
+      (request.status === 'assigned' ||
+        request.status === 'in_progress')) ||
+    (activeTab === 'resolved' && request.status === 'resolved');
+
+  return matchesSearch && matchesPriority && matchesTab;
+});
+
+ const handleCreateRequest = async (data: MaintenanceFormData) => {
+  try {
+    await createRequest(data);
+
     setShowRequestForm(false);
+
     toast({
       title: 'Request Created',
       description: 'Maintenance request has been submitted successfully.',
     });
-  };
+  } catch {
+    toast({
+      title: 'Error',
+      description: 'Failed to create request',
+      variant: 'destructive',
+    });
+  }
+};
 
-  const handleAssign = (data: any) => {
-    if (!canAssign) {
-      toast({
-        title: 'Permission Denied',
-        description: 'Only landlords can assign maintenance tasks.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    assignRequest(data);
+  const handleAssign = async (data: any) => {
+  if (!canAssign) {
+    toast({
+      title: 'Permission Denied',
+      description: 'Only landlords can assign maintenance tasks.',
+      variant: 'destructive',
+    });
+    return;
+  }
+
+  try {
+    await assignRequest(data);
+
     setShowAssignForm(false);
     setSelectedRequest(undefined);
+
     toast({
       title: 'Request Assigned',
       description: 'Maintenance request has been assigned successfully.',
     });
-  };
+  } catch {
+    toast({
+      title: 'Error',
+      description: 'Failed to assign request',
+      variant: 'destructive',
+    });
+  }
+};
 
-  const handleUpdateStatus = (request: MaintenanceRequest, status: MaintenanceStatus) => {
-    updateStatus(request.id, status);
+ const handleUpdateStatus = async (
+  request: MaintenanceRequest,
+  status: MaintenanceStatus
+) => {
+  try {
+    await updateStatus(request.id, status);
+
     toast({
       title: 'Status Updated',
       description: `Request marked as ${status}.`,
     });
-  };
+  } catch {
+    toast({
+      title: 'Error',
+      description: 'Failed to update status',
+      variant: 'destructive',
+    });
+  }
+};
 
   const handleViewRequest = (request: MaintenanceRequest) => {
     setSelectedRequest(request);
     setShowDetail(true);
   };
+  console.log(requests);
 
   const handleAssignClick = (request: MaintenanceRequest) => {
     if (!canAssign) {
@@ -129,29 +195,26 @@ export default function Maintenance() {
     setShowAssignForm(true);
   };
 
-  const handleAddNote = (content: string) => {
-    if (selectedRequest) {
-      const userRole = user?.role === 'super_admin' ? 'landlord' : (user?.role || 'landlord');
-      const userName = (user?.firstName && user?.lastName) ? `${user.firstName} ${user.lastName}` : 'Property Manager';
-      
-      addNote(selectedRequest.id, content, user?.id || 'user', userName, userRole as 'employee' | 'landlord' | 'tenant');
-      setSelectedRequest({
-        ...selectedRequest,
-        notes: [
-          ...selectedRequest.notes,
-          {
-            id: `note-${Date.now()}`,
-            requestId: selectedRequest.id,
-            userId: user?.id || 'user',
-            userName,
-            userRole: userRole as 'employee' | 'landlord' | 'tenant',
-            content,
-            createdAt: new Date().toISOString(),
-          },
-        ],
-      });
+ const handleAddNote = async (content: string) => {
+  if (!selectedRequest) return;
+
+  try {
+    await addNote(selectedRequest.id, content);
+
+    // 🔥 sync selected request with latest data
+    const updated = requests.find(r => r.id === selectedRequest.id);
+    if (updated) {
+      setSelectedRequest(updated);
     }
-  };
+
+  } catch {
+    toast({
+      title: 'Error',
+      description: 'Failed to add note',
+      variant: 'destructive',
+    });
+  }
+};
 
   return (
     <DashboardLayout
@@ -162,7 +225,7 @@ export default function Maintenance() {
       ]}
     >
       <div className="space-y-6">
-        <MaintenanceStats requests={requests} />
+        <MaintenanceStats requests={visibleRequests} />
 
         {/* Role-based info banner for employees */}
         {user?.role === 'employee' && (
@@ -215,16 +278,16 @@ export default function Maintenance() {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="all">
-              All ({requests.length})
+              All ({visibleRequests.length})
             </TabsTrigger>
             <TabsTrigger value="pending">
-              {t('maintenance.pending')} ({requests.filter((r) => r.status === 'pending').length})
+              {t('maintenance.pending')} ({visibleRequests.filter((r) => r.status === 'pending').length})
             </TabsTrigger>
             <TabsTrigger value="in_progress">
-              {t('maintenance.inProgress')} ({requests.filter((r) => r.status === 'assigned' || r.status === 'in_progress').length})
+              {t('maintenance.inProgress')} ({visibleRequests.filter((r) => r.status === 'assigned' || r.status === 'in_progress').length})
             </TabsTrigger>
             <TabsTrigger value="resolved">
-              {t('maintenance.resolved')} ({requests.filter((r) => r.status === 'resolved').length})
+              {t('maintenance.resolved')} ({visibleRequests.filter((r) => r.status === 'resolved').length})
             </TabsTrigger>
           </TabsList>
 
@@ -287,7 +350,7 @@ export default function Maintenance() {
           {selectedRequest && (
             <AssignmentForm
               request={selectedRequest}
-              employees={getEmployees()}
+              employees={[]}
               onSubmit={handleAssign}
               onCancel={() => {
                 setShowAssignForm(false);

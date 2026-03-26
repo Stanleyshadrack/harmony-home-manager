@@ -20,6 +20,7 @@ const STATUS_MAP: Record<
   vacant: "VACANT",
   occupied: "OCCUPIED",
   maintenance: "MAINTENANCE",
+  reserved: "RESERVED"
 };
 
 export function mapUnitFormToApi(

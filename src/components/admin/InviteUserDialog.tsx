@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useProperties, useUnits } from '@/hooks/useProperties';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -28,7 +29,42 @@ import { inviteUserService } from '@/api/service/invite.user.service.api';
 const inviteSchema = z.object({
   email: z.string().email('Invalid email address'),
   role: z.enum(['tenant', 'employee', 'landlord']),
+
+  apartmentIds: z.array(z.string()).optional(),
+  unitId: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (data.role === 'tenant') {
+    if (!data.apartmentIds || data.apartmentIds.length === 0) {
+      ctx.addIssue({
+        path: ['apartmentIds'],
+        message: 'Apartment is required',
+        code: 'custom',
+      });
+    }
+
+    if (!data.unitId) {
+      ctx.addIssue({
+        path: ['unitId'],
+        message: 'Unit is required',
+        code: 'custom',
+      });
+    }
+  }
+
+  if (data.role === 'landlord') {
+    if (!data.apartmentIds || data.apartmentIds.length === 0) {
+      ctx.addIssue({
+        path: ['apartmentIds'],
+        message: 'At least one apartment is required',
+        code: 'custom',
+      });
+    }
+  }
 });
+
+
+
+
 
 type InviteFormData = z.infer<typeof inviteSchema>;
 
@@ -56,6 +92,12 @@ export function InviteUserDialog({
   inviterRole,
 }: InviteUserDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedApartments, setSelectedApartments] = useState<string[]>([]);
+  const { properties } = useProperties();
+
+const selectedApartmentForTenant = selectedApartments[0];
+
+const { units } = useUnits(selectedApartmentForTenant);
 
   const {
     register,
@@ -80,10 +122,12 @@ export function InviteUserDialog({
   const onSubmit = async (data: InviteFormData) => {
     setIsSubmitting(true);
     try {
-      await inviteUserService({
-        email: data.email,
-        role: roleMap[data.role],
-      });
+     await inviteUserService({
+  email: data.email,
+  role: roleMap[data.role],
+  apartmentIds: data.apartmentIds || [],
+   unitId: data.unitId ? Number(data.unitId) : null,
+});
 
       toast.success('Invitation sent!', {
         description: `An invitation email has been sent to ${data.email}`,
@@ -154,6 +198,83 @@ export function InviteUserDialog({
               {roleOptions.find(r => r.value === selectedRole)?.description}
             </p>
           </div>
+
+          <div className="space-y-2">
+  <Label>
+    Apartments {selectedRole !== 'employee' && '*'}
+  </Label>
+
+  <div className="flex flex-wrap gap-2 border rounded-md p-2">
+    {properties?.map((property) => {
+      const isSelected = selectedApartments.includes(property.id);
+
+      return (
+        <button
+          type="button"
+          key={property.id}
+          onClick={() => {
+            let updated;
+
+            // 🔥 Tenant → ONLY ONE
+            if (selectedRole === 'tenant') {
+              updated = [property.id];
+            } else {
+              if (isSelected) {
+                updated = selectedApartments.filter(id => id !== property.id);
+              } else {
+                updated = [...selectedApartments, property.id];
+              }
+            }
+
+            setSelectedApartments(updated);
+            setValue('apartmentIds', updated);
+          }}
+          className={`px-3 py-1 rounded-full text-sm border ${
+            isSelected
+              ? 'bg-primary text-white'
+              : 'bg-muted hover:bg-muted/70'
+          }`}
+        >
+          {property.name}
+        </button>
+      );
+    })}
+  </div>
+
+  {errors.apartmentIds && (
+    <p className="text-sm text-destructive">
+      {errors.apartmentIds.message}
+    </p>
+  )}
+</div>
+{selectedRole === 'tenant' && (
+  <div className="space-y-2">
+    <Label>Unit *</Label>
+
+    <Select
+      onValueChange={(value) => setValue('unitId', value)}
+      disabled={!selectedApartmentForTenant}
+    >
+      <SelectTrigger>
+        <SelectValue placeholder="Select unit" />
+      </SelectTrigger>
+
+      <SelectContent>
+        {units?.map((unit) => (
+          <SelectItem key={unit.id} value={String(unit.id)}>
+  {unit.unitNumber}
+</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+
+    {errors.unitId && (
+      <p className="text-sm text-destructive">
+        {errors.unitId.message}
+      </p>
+    )}
+  </div>
+)}
 
           <DialogFooter>
             <Button variant="outline" onClick={() => onOpenChange(false)}>

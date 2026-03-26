@@ -104,9 +104,16 @@ setMeterName(unit.meterName || "")
      
   }
 
-
-  // 2️⃣ fallback → water readings API
   const lastReading = await getLastReadingForUnit(unitId)
+
+  // ✅ Use meter data directly
+if (unit.lastReading !== undefined && unit.lastReading !== null) {
+  form.setValue("previousReading", unit.lastReading)
+  return
+}
+
+// fallback
+form.setValue("previousReading", 0)
   console.log("Last Reading:", lastReading)
 
   if (lastReading) {

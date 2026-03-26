@@ -19,6 +19,8 @@ const unitTypeLabels: Record<Unit['unitType'], string> = {
 };
 
 export function AvailableUnitCard({ unit, propertyName, onApply }: AvailableUnitCardProps) {
+
+  
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -57,20 +59,7 @@ export function AvailableUnitCard({ unit, propertyName, onApply }: AvailableUnit
 
         <Badge variant="secondary">{unitTypeLabels[unit.unitType]}</Badge>
 
-        {unit.amenities.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {unit.amenities.slice(0, 3).map((amenity) => (
-              <Badge key={amenity} variant="outline" className="text-xs">
-                {amenity}
-              </Badge>
-            ))}
-            {unit.amenities.length > 3 && (
-              <Badge variant="outline" className="text-xs">
-                +{unit.amenities.length - 3} more
-              </Badge>
-            )}
-          </div>
-        )}
+      
 
         <div className="pt-3 border-t flex items-center justify-between">
           <div>

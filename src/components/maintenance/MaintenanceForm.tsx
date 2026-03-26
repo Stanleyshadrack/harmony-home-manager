@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { useEffect } from "react";
 import {
   Form,
   FormControl,
@@ -21,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { MaintenanceFormData, MaintenanceCategory, MaintenancePriority } from '@/types/maintenance';
+import { useCurrentTenant } from '@/hooks/useCurrentTenant';
 
 const maintenanceSchema = z.object({
   unitId: z.string().min(1, 'Unit is required'),
@@ -36,19 +38,20 @@ interface MaintenanceFormProps {
   isLoading?: boolean;
 }
 
-const mockUnits = [
-  { id: 'u1', number: 'A101', propertyName: 'Sunrise Apartments' },
-  { id: 'u2', number: 'B202', propertyName: 'Sunrise Apartments' },
-  { id: 'u3', number: 'C303', propertyName: 'Ocean View Towers' },
-];
+
 
 export function MaintenanceForm({ onSubmit, onCancel, isLoading }: MaintenanceFormProps) {
   const { t } = useTranslation();
+  const { tenant: currentTenant } = useCurrentTenant();
+
+  console.log(currentTenant)
 
   const form = useForm<MaintenanceFormData>({
     resolver: zodResolver(maintenanceSchema),
     defaultValues: {
-      unitId: '',
+  unitId: currentTenant?.unitId
+    ? String(currentTenant.unitId)
+    : '',
       category: 'other',
       priority: 'medium',
       title: '',
@@ -67,6 +70,12 @@ export function MaintenanceForm({ onSubmit, onCancel, isLoading }: MaintenanceFo
     { value: 'other', label: 'Other' },
   ];
 
+  useEffect(() => {
+  if (currentTenant?.unitId) {
+    form.setValue("unitId", String(currentTenant.unitId));
+  }
+}, [currentTenant, form]);
+
   const priorities: { value: MaintenancePriority; label: string }[] = [
     { value: 'low', label: t('maintenance.low') },
     { value: 'medium', label: t('maintenance.medium') },
@@ -76,29 +85,33 @@ export function MaintenanceForm({ onSubmit, onCancel, isLoading }: MaintenanceFo
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form
+  onSubmit={form.handleSubmit((data) => {
+    if (!currentTenant?.unitId) return;
+    onSubmit(data);
+  })}
+ className="space-y-4">
         <FormField
           control={form.control}
           name="unitId"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{t('units.title')}</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select unit" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {mockUnits.map((unit) => (
-                    <SelectItem key={unit.id} value={unit.id}>
-                      {unit.number} - {unit.propertyName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
+  <FormLabel>Unit</FormLabel>
+  <FormControl>
+    <Input
+  value={
+    currentTenant
+      ? `${currentTenant.unitNumber}${
+          currentTenant.propertyName
+            ? ` - ${currentTenant.propertyName}`
+            : ''
+        }`
+      : ''
+  }
+  disabled
+/>
+  </FormControl>
+</FormItem>
           )}
         />
 
@@ -188,7 +201,7 @@ export function MaintenanceForm({ onSubmit, onCancel, isLoading }: MaintenanceFo
           <Button type="button" variant="outline" onClick={onCancel}>
             {t('common.cancel')}
           </Button>
-          <Button type="submit" disabled={isLoading}>
+          <Button type="submit" disabled={isLoading || !currentTenant?.unitId}>
             {isLoading ? t('common.loading') : t('maintenance.newRequest')}
           </Button>
         </div>

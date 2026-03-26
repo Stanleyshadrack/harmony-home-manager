@@ -10,7 +10,7 @@ export interface CreatePropertyUnitFormData {
     | "THREE_BEDROOM"
     | "PENTHOUSE"
 
-  status: "VACANT" | "OCCUPIED" | "MAINTENANCE" | null
+  status: "VACANT" | "OCCUPIED" | "MAINTENANCE" | "RESERVED" | null
 
   bedrooms: number
   bathrooms: number

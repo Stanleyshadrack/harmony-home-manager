@@ -33,7 +33,7 @@ export const fetchAllLandlords = () =>
 
 /**
  * LANDLORD
- * Fetch my landlord profile
+ * Fetch my profile
  */
 export const fetchMyLandlordProfile = () =>
   apiRequest<null, LandlordTypes>({
@@ -64,7 +64,7 @@ export const rejectLandlord = (landlordId: number, reason?: string) =>
   });
 
 /* ============================
-   👷 Landlord Employees
+   👷 Employees (Landlord)
 ============================ */
 
 /**

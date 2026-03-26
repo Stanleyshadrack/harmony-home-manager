@@ -26,6 +26,7 @@ export type InviteValidationResponse = {
     id: number;
     unitNumber: string;
     propertyName: string;
+    propertyId: number;
   };
 
   property?: {

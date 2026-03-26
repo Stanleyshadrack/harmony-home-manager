@@ -2,6 +2,7 @@ import { apiRequest } from "../https";
 import { API_PATHS } from "../constants/constants";
 import { CreatePropertyUnitFormData, PropertyUnitApiResponse } from "../dto/CreatePropertyUnitFormData";
 import { UpdatePropertyUnitFormData } from "../dto/UpdatePropertyUnitFormData";
+import { fetchAllLandlords } from "./landlords.service.api";
 
 export const PropertyUnitsApi = Object.freeze({
   create: (data: CreatePropertyUnitFormData) =>
@@ -23,6 +24,18 @@ export const PropertyUnitsApi = Object.freeze({
       method: "GET",
     }),
 
+  fetchVacantByProperty: () =>
+  apiRequest<null, PropertyUnitApiResponse[]>({
+    path: API_PATHS.TENANT_VACANT_UNITS,
+    method: "GET",
+  }),
+
+  fetchTenantVacantUnits: () =>
+  apiRequest<null, PropertyUnitApiResponse[]>({
+    path: "/api/units/vacant/tenant",
+    method: "GET",
+  }),
+
       /** ✅ TENANT-SAFE: Fetch vacant units for a property */
   fetchAvailableByProperty: (propertyId: number | string) =>
     apiRequest<null, PropertyUnitApiResponse[]>({
@@ -42,4 +55,6 @@ export const PropertyUnitsApi = Object.freeze({
       path: API_PATHS.UNIT_BY_ID(unitId),
       method: "DELETE",
     }),
+
+
 });

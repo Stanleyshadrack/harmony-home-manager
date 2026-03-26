@@ -35,7 +35,9 @@ import { InvoiceCard } from '@/components/billing/InvoiceCard';
 import { MaintenanceForm } from '@/components/maintenance/MaintenanceForm';
 import { MaintenanceCard } from '@/components/maintenance/MaintenanceCard';
 import { Unit } from '@/types/property';
-import { useAvailableUnits } from '@/hooks/useAvailableUnits';
+import { useAuth } from '@/contexts/AuthContext';
+import { useCurrentTenant } from '@/hooks/useCurrentTenant';
+
 
 // Mock current tenant data - would come from auth context in real app
 const MOCK_TENANT = {
@@ -50,29 +52,33 @@ const MOCK_TENANT = {
 export default function TenantPortal() {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const { units } = useUnits();
   const { invoices, recordPayment } = useBilling();
   const { requests, createRequest } = useMaintenance();
   const { applications, submitApplication, withdrawApplication } = useApplications();
+
+const { units: vacantUnits, isLoading: unitsLoading } = useUnits();
+
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showApplicationForm, setShowApplicationForm] = useState(false);
   const [showMaintenanceForm, setShowMaintenanceForm] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const { tenant: currentTenant, isLoading: tenantLoading } = useCurrentTenant();
 
   // Filter data for current tenant
 const tenantInvoices = invoices.filter(
-  (inv) => inv.tenantId === Number(MOCK_TENANT.id)
+  (inv) => inv.tenantId === Number(currentTenant?.id)
 );
-  const tenantRequests = requests.filter((req) => req.tenantId === MOCK_TENANT.id);
-  const tenantApplications = applications.filter(
-    (app) => app.applicantEmail === MOCK_TENANT.email
-  );
-  const {
-  data: vacantUnits = [],
-  isLoading: unitsLoading,
-} = useAvailableUnits(MOCK_TENANT.id);
+  const tenantRequests = requests.filter(
+  (req) => String(req.tenantId) === String(currentTenant?.id)
+);
+console.log(requests);
+
+ const tenantApplications = applications.filter(
+  (app) => app.applicantEmail === currentTenant?.email
+);
+
 
   // Stats
   const totalOutstanding = tenantInvoices
@@ -93,7 +99,7 @@ const tenantInvoices = invoices.filter(
   const handleSubmitApplication = async (data: any) => {
     setIsLoading(true);
     try {
-      const unit = units.find((u) => u.id === data.unitId);
+      const unit = vacantUnits.find((u) => u.id === data.unitId);
       if (unit) {
         await submitApplication(data, unit.unitNumber, 'Property Name');
         toast({
@@ -155,25 +161,37 @@ const tenantInvoices = invoices.filter(
     }
   };
 
-  const handleMaintenanceSubmit = async (data: any) => {
-    setIsLoading(true);
-    try {
-      createRequest(data, MOCK_TENANT.id, MOCK_TENANT.name);
-      toast({
-        title: 'Request Submitted',
-        description: 'Your maintenance request has been submitted.',
-      });
-      setShowMaintenanceForm(false);
-    } catch {
-      toast({
-        title: 'Error',
-        description: 'Failed to submit maintenance request.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+ const handleMaintenanceSubmit = async (data: any) => {
+  if (!currentTenant) return;
+
+  setIsLoading(true);
+  try {
+    await createRequest({
+      ...data,
+      tenantId: currentTenant.id, // ✅ IMPORTANT
+    });
+
+    toast({
+      title: 'Request Submitted',
+      description: 'Your maintenance request has been submitted.',
+    });
+
+    setShowMaintenanceForm(false);
+  } catch {
+    toast({
+      title: 'Error',
+      description: 'Failed to submit maintenance request.',
+      variant: 'destructive',
+    });
+  } finally {
+    setIsLoading(false);
+  }
+
+};
+//  const onSubmitHandler = (data: MaintenanceFormData) => {
+//   onSubmit(data);
+//   form.reset();
+// };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -191,9 +209,9 @@ const tenantInvoices = invoices.filter(
         {/* Welcome Section */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Welcome, {MOCK_TENANT.name}</h1>
+            <h1 className="text-2xl font-bold">Welcome, {currentTenant?.firstName} {currentTenant?.lastName}</h1>
             <p className="text-muted-foreground">
-              {MOCK_TENANT.unitNumber} • {MOCK_TENANT.propertyName}
+              {currentTenant?.unitNumber || '—'} • {currentTenant?.propertyName || '—'}
             </p>
           </div>
         </div>
@@ -534,7 +552,7 @@ const tenantInvoices = invoices.filter(
             <DialogTitle>Apply for Unit</DialogTitle>
           </DialogHeader>
           <UnitApplicationForm
-            units={units}
+            units={vacantUnits}
             onSubmit={handleSubmitApplication}
             onCancel={() => setShowApplicationForm(false)}
             isLoading={isLoading}
@@ -550,10 +568,10 @@ const tenantInvoices = invoices.filter(
             <DialogTitle>Submit Maintenance Request</DialogTitle>
           </DialogHeader>
           <MaintenanceForm
-            onSubmit={handleMaintenanceSubmit}
-            onCancel={() => setShowMaintenanceForm(false)}
-            isLoading={isLoading}
-          />
+  onSubmit={handleMaintenanceSubmit}
+  onCancel={() => setShowMaintenanceForm(false)}
+  isLoading={isLoading}
+/>
         </DialogContent>
       </Dialog>
     </DashboardLayout>

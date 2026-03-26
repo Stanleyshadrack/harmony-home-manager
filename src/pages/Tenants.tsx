@@ -34,11 +34,11 @@ import { useTenants } from '@/hooks/useTenants';
 import { usePendingRegistrations } from '@/hooks/useRegistrations';
 import { useAuth } from '@/contexts/AuthContext';
 import { TenantCard } from '@/components/tenants/TenantCard';
+import { TenantDetail } from '@/components/tenants/TenantDetail';
 import { TenantApprovals } from '@/components/tenants/TenantApprovals';
 import { Tenant } from '@/types/tenant';
 import { useToast } from '@/hooks/use-toast';
 import { InviteUserDialog } from '@/components/admin/InviteUserDialog';
-import { TenantDetail } from '@/components/tenants/TenantDetail';
 
 export default function Tenants() {
   const { t } = useTranslation();
@@ -64,20 +64,22 @@ export default function Tenants() {
 
 const searchTerm = search.toLowerCase();
 
-const filteredTenants = tenants
-  .filter((tenant) => tenant.firstName && tenant.lastName) // 👈 guard
-  .filter((tenant) => {
-    const fullName = `${tenant.firstName} ${tenant.lastName}`.toLowerCase();
-    const unit = tenant.unitNumber?.toLowerCase() ?? "";
+const filteredTenants = tenants.filter((tenant) => {
+  const fullName = `${tenant.firstName} ${tenant.lastName}`.toLowerCase();
+  const unit = tenant.unitNumber?.toLowerCase() ?? "";
 
-    const matchesSearch =
-      fullName.includes(searchTerm) ||
-      tenant.email.toLowerCase().includes(searchTerm) ||
-      unit.includes(searchTerm);
+  const matchesSearch =
+    fullName.includes(searchTerm) ||
+    tenant.email.toLowerCase().includes(searchTerm) ||
+    unit.includes(searchTerm);
 
-    if (activeTab === "all") return matchesSearch;
-    return matchesSearch && tenant.status === activeTab;
-  });
+  if (activeTab === "all") return matchesSearch;
+
+  return (
+    matchesSearch &&
+    tenant.status.toLowerCase() === activeTab
+  );
+});
 
   const stats = {
     total: tenants.length,
@@ -136,10 +138,10 @@ const filteredTenants = tenants
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {[
-          { icon: Users, value: stats.total, label: t('tenants.totalTenants') },
-          { icon: UserCheck, value: stats.active, label: t('tenants.activeTenants'), color: 'text-green-500' },
-          { icon: Clock, value: stats.pending, label: t('tenants.pendingTenants'), color: 'text-yellow-500' },
-          { icon: UserX, value: stats.inactive, label: t('tenants.inactiveTenants') },
+          { icon: Users, value: stats.total, label: t('TOTAL TENANTS') },
+          { icon: UserCheck, value: stats.active, label: t('ACTIVE TENANTS'), color: 'text-green-500' },
+          { icon: Clock, value: stats.pending, label: t('PENDING TENANTS'), color: 'text-yellow-500' },
+          { icon: UserX, value: stats.inactive, label: t('INACTIVE TENANTS') },
         ].map(({ icon: Icon, value, label, color }) => (
           <Card key={label}>
             <CardContent className="p-4 flex items-center gap-3">

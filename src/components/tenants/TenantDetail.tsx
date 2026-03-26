@@ -101,6 +101,10 @@ export function TenantDetail({ tenant, open, onOpenChange }: TenantDetailProps) 
 
   const activeLease = leases.find((l) => l.status === 'active');
 
+  const avatarUrl = tenant.avatarUrl
+  ? `http://localhost:8080${tenant.avatarUrl}`
+  : null;
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
@@ -111,13 +115,17 @@ export function TenantDetail({ tenant, open, onOpenChange }: TenantDetailProps) 
         <div className="mt-6">
           {/* Profile Header */}
           <div className="flex items-center gap-4 mb-6">
-            <Avatar className="h-16 w-16">
-              <AvatarImage src={tenant.avatarUrl} />
-              <AvatarFallback className="bg-primary/10 text-primary text-xl">
-                {tenant.firstName[0]}
-                {tenant.lastName[0]}
-              </AvatarFallback>
-            </Avatar>
+
+<Avatar className="h-16 w-16">
+  <AvatarImage
+    src={avatarUrl || undefined}
+    className="object-cover w-full h-full"
+  />
+  <AvatarFallback>
+    {tenant.firstName[0]}
+    {tenant.lastName[0]}
+  </AvatarFallback>
+</Avatar>
             <div>
               <h2 className="text-xl font-semibold">
                 {tenant.firstName} {tenant.lastName}

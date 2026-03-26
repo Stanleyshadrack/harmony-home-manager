@@ -37,6 +37,7 @@ import { useBilling } from '@/hooks/useBilling';
 import { useToast } from '@/hooks/use-toast';
 import { MaintenanceCard } from '@/components/maintenance/MaintenanceCard';
 import { WaterReadingForm } from '@/components/billing/WaterReadingForm';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Mock current employee data
 const MOCK_EMPLOYEE = {
@@ -59,11 +60,12 @@ export default function EmployeePortal() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showWaterReadingForm, setShowWaterReadingForm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const { user } = useAuth();
 
   // Filter requests assigned to this employee
-  const assignedRequests = requests.filter(
-    (req) => req.assignedTo === MOCK_EMPLOYEE.id
-  );
+ const assignedRequests = requests.filter(
+  (req) => req.assignedTo === user?.id
+);
 
   const filteredRequests = assignedRequests.filter((req) => {
     const matchesSearch =
@@ -83,34 +85,48 @@ export default function EmployeePortal() {
   }).length;
 
   const handleStartTask = async (requestId: string) => {
-    setIsLoading(true);
-    try {
-      updateStatus(requestId, 'in_progress', 'Work started by technician');
-      toast({
-        title: 'Task Started',
-        description: 'You have started working on this task.',
-      });
-    } catch {
-      toast({ title: 'Error', variant: 'destructive' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  setIsLoading(true);
+  try {
+    await updateStatus(requestId, 'in_progress');
+
+    await addNote(requestId, 'Work started by technician');
+
+    toast({
+      title: 'Task Started',
+      description: 'You have started working on this task.',
+    });
+  } catch {
+    toast({
+      title: 'Error',
+      description: 'Failed to start task',
+      variant: 'destructive',
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleCompleteTask = async (requestId: string) => {
-    setIsLoading(true);
-    try {
-      updateStatus(requestId, 'resolved', 'Task completed by technician');
-      toast({
-        title: 'Task Completed',
-        description: 'The maintenance task has been marked as completed.',
-      });
-    } catch {
-      toast({ title: 'Error', variant: 'destructive' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  setIsLoading(true);
+  try {
+    await updateStatus(requestId, 'resolved');
+
+    await addNote(requestId, 'Task completed by technician');
+
+    toast({
+      title: 'Task Completed',
+      description: 'The maintenance task has been marked as completed.',
+    });
+  } catch {
+    toast({
+      title: 'Error',
+      description: 'Failed to complete task',
+      variant: 'destructive',
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleWaterReading = async (data: any) => {
     setIsLoading(true);

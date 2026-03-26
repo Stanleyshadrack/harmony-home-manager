@@ -45,6 +45,7 @@ export function useTenants() {
       )
     );
   };
+  
 
   const getTenantsByStatus = (status: Tenant["status"]) =>
     tenants.filter((t) => t.status === status);

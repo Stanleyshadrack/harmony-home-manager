@@ -8,6 +8,7 @@ import { PropertyUnitsApi } from '@/api/service/PropertyUnitsApi';
 import { mapUnitFormToApi } from '@/api/mapper/mapPropertyFormToCreateDTO';
 import { PropertyUnitApiResponse } from '@/api/dto/CreatePropertyUnitFormData';
 import { mapUnitFormToUpdateApi } from '@/api/mapper/mapUnitFormToUpdateApi';
+import { useAuth } from '@/contexts/AuthContext';
 
 /* =========================
    API → UI mapper
@@ -31,6 +32,8 @@ const mapApiProperty = (p: any): Property => ({
   createdAt: p.createdAt,
   updatedAt: p.updatedAt,
 });
+
+
 
 
 export function useProperties() {
@@ -245,20 +248,56 @@ export function mapUnitFromApi(api: PropertyUnitApiResponse): Unit {
    🔒 KEEP useUnits EXACTLY AS YOU HAVE IT
 ====================================================== */
 
-export function useUnits() {
+export function useUnits(apartmentId?: string) {
   const [units, setUnits] = useState<Unit[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const { user } = useAuth();
+  
+  
 
   /* =========================
      📄 FETCH ALL UNITS
   ========================= */
-  useEffect(() => {
-    setIsLoading(true);
+ /* =========================
+     📄 FETCH UNITS (ROLE-AWARE)
+  ========================= */
+useEffect(() => {
+  if (!user) return;
 
-    PropertyUnitsApi.fetchAll()
-      .then((res) => setUnits(res.map(mapUnitFromApi)))
-      .finally(() => setIsLoading(false));
-  }, []);
+  setIsLoading(true);
+
+  const fetch = async () => {
+    try {
+      let res;
+
+      // ✅ TENANT (still role-aware)
+     if (apartmentId) {
+  // ✅ ALWAYS filter by apartment first
+
+  if (user.role === 'tenant') {
+    // 🔥 Tenant → vacant + apartment
+    res = await PropertyUnitsApi.fetchTenantVacantUnits();
+  } else {
+    // Admin / landlord → all units in apartment
+    res = await PropertyUnitsApi.fetchAvailableByProperty(apartmentId);
+  }
+
+} else {
+  // fallback
+  res = await PropertyUnitsApi.fetchAll();
+}
+
+      setUnits(res.map(mapUnitFromApi));
+    } catch (err) {
+      console.error('Failed to fetch units', err);
+      setUnits([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  fetch();
+}, [user, apartmentId]); // ✅ IMPORTANT
 
   /* =========================
      ➕ ADD UNIT
@@ -298,6 +337,8 @@ export function useUnits() {
       setIsLoading(false);
     }
   };
+
+  
 
   /* =========================
      🗑 DELETE UNIT
