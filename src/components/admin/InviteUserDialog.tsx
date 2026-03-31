@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -119,30 +119,58 @@ const { units } = useUnits(selectedApartmentForTenant);
     return false;
   });
 
-  const onSubmit = async (data: InviteFormData) => {
-    setIsSubmitting(true);
-    try {
-     await inviteUserService({
-  email: data.email,
-  role: roleMap[data.role],
-  apartmentIds: data.apartmentIds || [],
-   unitId: data.unitId ? Number(data.unitId) : null,
-});
+ const onSubmit = async (data: InviteFormData) => {
+  setIsSubmitting(true);
 
-      toast.success('Invitation sent!', {
-        description: `An invitation email has been sent to ${data.email}`,
-      });
+  try {
+    let payload: any = {
+      email: data.email,
+      role: roleMap[data.role],
+    };
 
-      reset();
-      onOpenChange(false);
-    } catch {
-      toast.error('Failed to send invitation');
-    } finally {
-      setIsSubmitting(false);
+    // ✅ LANDLORD → REQUIRED apartments
+    if (data.role === "landlord") {
+      payload.apartmentIds = (data.apartmentIds || []).map(Number);
     }
-  };
+
+    // ✅ TENANT → REQUIRED apartment + unit
+    if (data.role === "tenant") {
+      payload.apartmentIds = (data.apartmentIds || []).map(Number);
+      payload.unitId = Number(data.unitId);
+    }
+
+    // ✅ EMPLOYEE → OPTIONAL apartments
+    if (data.role === "employee") {
+      if (data.apartmentIds && data.apartmentIds.length > 0) {
+        payload.apartmentIds = data.apartmentIds.map(Number);
+      }
+    }
+
+    console.log("INVITE PAYLOAD 🚀", payload);
+
+    await inviteUserService(payload);
+
+    toast.success("Invitation sent!");
+    reset();
+    setSelectedApartments([]);
+    onOpenChange(false);
+
+  } catch (err: any) {
+    toast.error(err?.message || "Failed to send invite");
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
+ useEffect(() => {
+  setSelectedApartments([]);
+  setValue("apartmentIds", []);
+  setValue("unitId", undefined);
+}, [selectedRole]);
+
 
   return (
+
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -201,8 +229,14 @@ const { units } = useUnits(selectedApartmentForTenant);
 
           <div className="space-y-2">
   <Label>
-    Apartments {selectedRole !== 'employee' && '*'}
-  </Label>
+  {selectedRole === "landlord" && "Apartments *"}
+  {selectedRole === "tenant" && "Apartment *"}
+  {selectedRole === "employee" && (
+  <p className="text-xs text-muted-foreground">
+    You can assign properties now or later
+  </p>
+)}
+</Label>
 
   <div className="flex flex-wrap gap-2 border rounded-md p-2">
     {properties?.map((property) => {

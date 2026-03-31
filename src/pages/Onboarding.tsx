@@ -1,6 +1,9 @@
+"use client";
+
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { validateInvite } from "@/api/service/validateInvite.service";
+
 import TenantOnboarding from "./TenantOnboarding";
 import EmployeeOnboarding from "./EmployeeOnboarding";
 import AdminOnboarding from "./AdminOnboading";
@@ -12,19 +15,28 @@ export default function Onboarding() {
 
   const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [inviteData, setInviteData] = useState<any>(null);
 
   useEffect(() => {
     if (!token) {
+      console.warn("No token found in URL");
       setLoading(false);
       return;
     }
 
+    console.log("🔑 TOKEN:", token);
+
     validateInvite(token)
       .then((res) => {
-        setRole(res.role); // TENANT | EMPLOYEE | ADMIN | LANDLORD
+        // 🔥 FULL LOG
+        console.log("📦 INVITE RESPONSE:", res);
+
+        setInviteData(res);
+        setRole(res.role);
         setLoading(false);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("❌ VALIDATE INVITE ERROR:", err);
         setLoading(false);
       });
   }, [token]);
@@ -35,13 +47,13 @@ export default function Onboarding() {
 
   switch (role) {
     case "TENANT":
-      return <TenantOnboarding />;
+      return <TenantOnboarding  />;
     case "EMPLOYEE":
       return <EmployeeOnboarding />;
     case "ADMIN":
-      return <AdminOnboarding />;
+      return <AdminOnboarding  />;
     case "LANDLORD":
-      return <LandlordOnboarding />;
+      return <LandlordOnboarding token={token} />;
     default:
       return <div className="text-center mt-10">Invalid invite</div>;
   }

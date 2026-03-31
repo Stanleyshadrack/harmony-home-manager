@@ -1,29 +1,26 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter } from "next/navigation"; // ⚠️ keep if using Next
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { apiRequest } from "@/api/https";
+import { validateInvite } from "@/api/service/validateInvite.service";
 
 /* ========================= SCHEMA ========================= */
 
 const landlordSchema = z.object({
   firstName: z.string().min(2),
   lastName: z.string().min(2),
-  email: z.string().email(),
   phone: z.string().min(10),
 
-  password: z.string().min(6),
-
-  company: z.string().optional(),
-  billingCycle: z.enum(["MONTHLY", "ANNUAL"]).optional(),
-
-  subscription: z.enum(["BASIC", "PREMIUM", "ENTERPRISE"]),
+  companyName: z.string().optional(),
 
   termsAccepted: z.boolean().refine((v) => v === true),
 });
@@ -32,58 +29,100 @@ type FormData = z.infer<typeof landlordSchema>;
 
 /* ========================= COMPONENT ========================= */
 
-export default function LandlordOnboarding() {
+export default function LandlordOnboarding({ token }: { token: string }) {
   const router = useRouter();
+
+  const [apartments, setApartments] = useState<
+    { id: number; name: string }[]
+  >([]);
+
+  const [selectedApartments, setSelectedApartments] = useState<number[]>([]);
+  const [loadingInvite, setLoadingInvite] = useState(true);
 
   const {
     register,
     handleSubmit,
-    watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(landlordSchema),
-    defaultValues: {
-      subscription: "BASIC",
-      billingCycle: "MONTHLY",
-    },
   });
+
+  /* ========================= LOAD INVITE ========================= */
+
+  useEffect(() => {
+    if (!token) {
+      toast.error("Invalid invite link");
+      return;
+    }
+
+    validateInvite(token)
+      .then((res: any) => {
+        // Prefill user data
+        if (res.firstName) setValue("firstName", res.firstName);
+        if (res.lastName) setValue("lastName", res.lastName);
+        if (res.phone) setValue("phone", res.phone);
+
+        // Load apartments
+        if (res.apartments) {
+          setApartments(res.apartments);
+          setSelectedApartments(res.apartments.map((a: any) => a.id));
+        }
+
+        setLoadingInvite(false);
+      })
+      .catch(() => {
+        toast.error("Invalid or expired invite");
+      });
+  }, [token, setValue]);
 
   /* ========================= SUBMIT ========================= */
 
   const onSubmit = async (data: FormData) => {
     try {
+      if (!token) {
+        toast.error("Invalid invite");
+        return;
+      }
+
       const payload = {
+        token,
+
         user: {
           firstName: data.firstName,
           lastName: data.lastName,
-          email: data.email,
           phone: data.phone,
-          password: data.password,
         },
 
         landlord: {
-          company: data.company,
-          billingCycle: data.billingCycle,
-          subscription: data.subscription,
+          companyName: data.companyName,
         },
 
+        apartmentIds: selectedApartments,
         termsAccepted: data.termsAccepted,
       };
 
-      console.log("LANDLORD PAYLOAD 🚀", payload);
+      console.log("PAYLOAD", payload);
 
-      // TODO: replace with API
-      // await registerLandlordService(payload);
+      await apiRequest({
+        path: "/api/auth/onboarding",
+        method: "POST",
+        body: payload,
+      });
 
-      toast.success("Account created successfully!");
-      router.push("/dashboard");
+      toast.success("Onboarding completed");
+      router.push("/check-email");
 
     } catch (err: any) {
-      toast.error(err?.message || "Failed to create account");
+      toast.error(err?.message || "Failed");
     }
   };
 
   /* ========================= UI ========================= */
+
+  if (loadingInvite) {
+    return <div className="text-center mt-10">Loading invite...</div>;
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
@@ -91,97 +130,54 @@ export default function LandlordOnboarding() {
         <CardContent className="p-6 space-y-6">
 
           <h2 className="text-xl font-bold text-center">
-            Create Landlord Account
+            Complete Your Registration
           </h2>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
 
-            {/* ================= PERSONAL ================= */}
+            {/* PERSONAL */}
             <div className="space-y-3">
-              <h3 className="text-sm font-medium">
-                Personal Information
-              </h3>
-
               <div className="grid md:grid-cols-2 gap-4">
                 <Input placeholder="First Name" {...register("firstName")} />
                 <Input placeholder="Last Name" {...register("lastName")} />
               </div>
 
-              <div className="grid md:grid-cols-2 gap-4">
-                <Input placeholder="Email" {...register("email")} />
-                <Input placeholder="Phone" {...register("phone")} />
-              </div>
-
-              <Input
-                type="password"
-                placeholder="Password"
-                {...register("password")}
-              />
+              <Input placeholder="Phone" {...register("phone")} />
             </div>
 
-            {/* ================= BUSINESS ================= */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium">
-                Business Information
-              </h3>
+            {/* BUSINESS */}
+            <Input
+              placeholder="Company Name"
+              {...register("companyName")}
+            />
 
-              <Input
-                placeholder="Company (optional)"
-                {...register("company")}
-              />
-
-              <select
-                className="w-full border rounded-md p-2"
-                {...register("billingCycle")}
-              >
-                <option value="MONTHLY">Monthly Billing</option>
-                <option value="ANNUAL">Annual Billing</option>
-              </select>
-            </div>
-
-            {/* ================= SUBSCRIPTION ================= */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium">
-                Subscription Plan
-              </h3>
-
-              <select
-                className="w-full border rounded-md p-2"
-                {...register("subscription")}
-              >
-                <option value="BASIC">Basic</option>
-                <option value="PREMIUM">Premium</option>
-                <option value="ENTERPRISE">Enterprise</option>
-              </select>
-
-              <p className="text-xs text-muted-foreground">
-                Choose a plan based on your property scale.
+            {/* APARTMENTS */}
+            <div>
+              <p className="text-sm font-medium mb-2">
+                Assigned Apartments
               </p>
-            </div>
 
-            {/* ================= TERMS ================= */}
-            <div className="space-y-1">
-              <div className="flex gap-2 items-center">
-                <input type="checkbox" {...register("termsAccepted")} />
-                <span className="text-sm">
-                  I accept terms & conditions
-                </span>
+              <div className="flex flex-wrap gap-2">
+                {apartments.map((apt) => (
+                  <span
+                    key={apt.id}
+                    className="px-3 py-1 bg-green-600 text-white rounded"
+                  >
+                    {apt.name}
+                  </span>
+                ))}
               </div>
-
-              {errors.termsAccepted && (
-                <p className="text-red-500 text-sm">
-                  You must accept terms
-                </p>
-              )}
             </div>
 
-            {/* ================= SUBMIT ================= */}
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Creating..." : "Create Account"}
+            {/* TERMS */}
+            <label className="flex gap-2 items-center">
+              <input type="checkbox" {...register("termsAccepted")} />
+              Accept terms
+            </label>
+
+            {/* SUBMIT */}
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Submitting..." : "Complete"}
             </Button>
 
           </form>

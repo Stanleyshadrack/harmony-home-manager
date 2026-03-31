@@ -4,7 +4,7 @@ import { apiRequest } from "../https";
 export type InviteUserPayload = {
   email: string;
   role: "LANDLORD" | "TENANT" | "EMPLOYEE" | "ADMIN";
-  apartmentIds: string[];
+  apartmentIds: number[];
   unitId: number | null; 
 };
 
