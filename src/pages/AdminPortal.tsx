@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -62,7 +62,7 @@ import {
 } from 'lucide-react';
 import { useProperties } from '@/hooks/useProperties';
 import { useTenants } from '@/hooks/useTenants';
-import { useBilling } from '@/hooks/useBilling';
+import { useMyInvoices } from '@/hooks/useBilling';
 import { useInAppNotifications } from '@/hooks/useInAppNotifications';
 import { useLandlords } from '@/hooks/useLandlords';
 import { getAuditLogs, getActivitySummary } from '@/services/auditService';
@@ -83,11 +83,27 @@ import { SubscriptionPlan } from '@/api/dto/SubscriptionResponse';
 export default function AdminPortal() {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const { properties } = useProperties();
+  const { properties, assignLandlord } = useProperties();
   const { tenants } = useTenants();
-  const { invoices, payments } = useBilling();
-  const { user } = useAuth();
   const [showApprovalDetails, setShowApprovalDetails] = useState(false);
+
+  const {
+  data: invoices = [],
+  isLoading: invoicesLoading,
+  error: invoicesError,
+} = useMyInvoices();
+
+const payments = useMemo(
+  () => invoices.flatMap(inv => inv.payments || []),
+  [invoices]
+);
+
+const totalRevenue = useMemo(
+  () => payments.reduce((sum, p) => sum + p.amount, 0),
+  [payments]
+);
+  
+  const { user } = useAuth();
   const {
   approvals,
   approve,
@@ -125,17 +141,7 @@ const [approvalLoading, setApprovalLoading] = useState(false);
    const [showAssignPropertiesDialog, setShowAssignPropertiesDialog] = useState(false);
   const [assignPropertiesLandlord, setAssignPropertiesLandlord] = useState<LandlordTypes  | null>(null);
   // Track property assignments per landlord (landlordId -> propertyId[])
-  const [propertyAssignments, setPropertyAssignments] = useState<Record<string, string[]>>(() => {
-    try {
-      const stored = localStorage.getItem('property_assignments');
-      return stored ? JSON.parse(stored) : {
-        '1': ['1', '2'],
-        '2': ['3'],
-      };
-    } catch {
-      return {};
-    }
-  });
+
 
   const { createInvitation, invitations, getPendingInvitations } = useInvitations();
 
@@ -144,20 +150,23 @@ const [approvalLoading, setApprovalLoading] = useState(false);
 
 
   // const inviteUser = 
-
-  // Platform Stats
-  const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
   const totalLandlords = landlords.length;
   const activeLandlords = landlords.filter((l) => l.status === 'active').length;
   const totalProperties = properties.length;
   const totalUnits = landlords.reduce((sum, l) => sum + l.currentUnits, 0);
   const expiredSubscriptions = getExpiredSubscriptions();
 
-  const filteredLandlords = landlords.filter(
-    (l) =>
-      `${l.firstName} ${l.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      l.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+const filteredLandlords = useMemo(
+  () =>
+    landlords.filter(
+      (l) =>
+        `${l.firstName} ${l.lastName}`
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase()) ||
+        l.email.toLowerCase().includes(searchQuery.toLowerCase())
+    ),
+  [landlords, searchQuery]
+);
 
   const handleViewLandlord = (landlord: LandlordTypes ) => {
     setSelectedLandlord(landlord);
@@ -259,23 +268,36 @@ const [approvalLoading, setApprovalLoading] = useState(false);
     setAssignPropertiesLandlord(landlord);
     setShowAssignPropertiesDialog(true);
   };
-  const handleSavePropertyAssignment = (landlordId: string, propertyIds: string[]) => {
-    const updated = { ...propertyAssignments, [landlordId]: propertyIds };
-    setPropertyAssignments(updated);
-    localStorage.setItem('property_assignments', JSON.stringify(updated));
-    
-    // Update landlord's currentProperties count
-    updateLandlord(Number(landlordId), {
-  currentProperties: propertyIds.length
-});
+  const handleSavePropertyAssignment = async (
+  landlordId: string,
+  propertyIds: string[]
+) => {
+  try {
+    // 🔥 CALL BACKEND FOR EACH PROPERTY
+    await Promise.all(
+      propertyIds.map((propertyId) =>
+        assignLandlord(Number(propertyId), Number(landlordId))
+      )
+    );
+
     toast({
       title: 'Properties Assigned',
       description: `${propertyIds.length} property(ies) assigned successfully.`,
     });
-  };
+
+  } catch (err) {
+    toast({
+      variant: 'destructive',
+      title: 'Error',
+      description: 'Failed to assign properties',
+    });
+  }
+};
   const getAssignedPropertyIds = (landlordId: string): string[] => {
-    return propertyAssignments[landlordId] || [];
-  };
+  return properties
+    .filter(p => p.landlordIds.includes(landlordId))
+    .map(p => p.id);
+};
 
   // Recipient groups for bulk email
   const bulkEmailRecipientGroups = [
@@ -303,12 +325,12 @@ const [approvalLoading, setApprovalLoading] = useState(false);
 };
 
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('en-KE', {
+    style: 'currency',
+    currency: 'KES',
+  }).format(amount);
+};
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -329,6 +351,21 @@ const [approvalLoading, setApprovalLoading] = useState(false);
     }
   };
 
+  if (invoicesLoading) {
+  return (
+    <DashboardLayout breadcrumbs={[{ label: 'Super Admin Portal' }]} title="Super Admin Portal">
+      <div className="p-6">Loading billing data...</div>
+    </DashboardLayout>
+  );
+}
+
+if (invoicesError) {
+  return (
+    <DashboardLayout breadcrumbs={[{ label: 'Super Admin Portal' }]} title="Super Admin Portal">
+      <div className="p-6 text-destructive">Failed to load billing data</div>
+    </DashboardLayout>
+  );
+}
   return (
     <DashboardLayout
       breadcrumbs={[{ label: 'Super Admin Portal' }]}
@@ -411,7 +448,13 @@ const [approvalLoading, setApprovalLoading] = useState(false);
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Revenue</p>
-                  <p className="text-xl font-bold">{formatCurrency(totalRevenue)}</p>
+                  {invoicesLoading ? (
+  <p>Loading...</p>
+) : (
+  <p className="text-xl font-bold">
+  {payments.length === 0 ? "—" : formatCurrency(totalRevenue)}
+</p>
+)}
                 </div>
               </div>
             </CardContent>

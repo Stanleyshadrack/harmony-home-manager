@@ -9,7 +9,6 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { RBACProvider } from "@/contexts/RBACContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import "@/i18n";
-
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -186,6 +185,7 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
+                
 
                 {/* Landlord, Employee routes */}
                 <Route
@@ -280,6 +280,15 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
+
+                <Route
+  path="/subscription-plans"
+  element={
+    <ProtectedRoute allowedRoles={["super_admin", "landlord"]}>
+      <SubscriptionPlans />
+    </ProtectedRoute>
+  }
+/>
 
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />

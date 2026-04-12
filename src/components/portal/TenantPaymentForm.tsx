@@ -27,10 +27,17 @@ import { Invoice } from '@/types/billing';
 const paymentSchema = z.object({
   invoiceId: z.string().min(1, 'Please select an invoice'),
   amount: z.number().min(1, 'Amount must be greater than 0'),
-  paymentMethod: z.enum(['mpesa', 'card', 'bank_transfer']),
+  paymentMethod: z.enum(['mpesa', 'card', 'bank']),
   phoneNumber: z.string().optional(),
   reference: z.string().optional(),
-});
+}).refine(
+  (data) =>
+    data.paymentMethod !== 'mpesa' || !!data.phoneNumber,
+  {
+    message: "Phone number required for MPESA",
+    path: ["phoneNumber"],
+  }
+);
 
 type PaymentFormData = z.infer<typeof paymentSchema>;
 
@@ -43,7 +50,7 @@ interface TenantPaymentFormProps {
 const paymentMethods = [
   { value: 'mpesa', label: 'M-PESA', icon: Smartphone },
   { value: 'card', label: 'Credit/Debit Card', icon: CreditCard },
-  { value: 'bank_transfer', label: 'Bank Transfer', icon: Building2 },
+  { value: 'bank', label: 'Bank Transfer', icon: Building2 },
 ];
 
 export function TenantPaymentForm({ invoices, onSubmit, isLoading }: TenantPaymentFormProps) {
@@ -66,7 +73,7 @@ export function TenantPaymentForm({ invoices, onSubmit, isLoading }: TenantPayme
   });
 
   const selectedInvoice = unpaidInvoices.find(
-    (inv) => inv.id === form.watch('invoiceId')
+    (inv) => inv.id.toString() === form.watch('invoiceId')
   );
 
   const formatCurrency = (amount: number) => {
@@ -77,7 +84,7 @@ export function TenantPaymentForm({ invoices, onSubmit, isLoading }: TenantPayme
   };
 
   const handleInvoiceChange = (invoiceId: string) => {
-    const invoice = unpaidInvoices.find((inv) => inv.id === invoiceId);
+    const invoice = unpaidInvoices.find((inv) => inv.id.toString() === invoiceId);
     if (invoice) {
       form.setValue('amount', invoice.balance);
     }
@@ -111,7 +118,7 @@ export function TenantPaymentForm({ invoices, onSubmit, isLoading }: TenantPayme
                     </SelectItem>
                   ) : (
                     unpaidInvoices.map((invoice) => (
-                      <SelectItem key={invoice.id} value={invoice.id}>
+                      <SelectItem key={invoice.id} value={invoice.id.toString()}>
                         {invoice.invoiceNumber} - {formatCurrency(invoice.balance)} ({invoice.type})
                       </SelectItem>
                     ))
@@ -129,7 +136,7 @@ export function TenantPaymentForm({ invoices, onSubmit, isLoading }: TenantPayme
               <CardTitle className="text-sm font-medium">Invoice Details</CardTitle>
             </CardHeader>
             <CardContent className="text-sm space-y-1">
-              <p><span className="text-muted-foreground">Description:</span> {selectedInvoice.description}</p>
+              {/* <p><span className="text-muted-foreground">Description:</span> {selectedInvoice.description}</p> */}
               <p><span className="text-muted-foreground">Total Amount:</span> {formatCurrency(selectedInvoice.amount)}</p>
               <p><span className="text-muted-foreground">Balance Due:</span> <span className="font-semibold text-destructive">{formatCurrency(selectedInvoice.balance)}</span></p>
             </CardContent>
@@ -201,7 +208,11 @@ export function TenantPaymentForm({ invoices, onSubmit, isLoading }: TenantPayme
               <FormItem>
                 <FormLabel>M-PESA Phone Number</FormLabel>
                 <FormControl>
-                  <Input placeholder="+254 7XX XXX XXX" {...field} />
+                  <Input
+  placeholder="+2547XXXXXXXX"
+  value={field.value || ""}
+  onChange={(e) => field.onChange(e.target.value)}
+/>
                 </FormControl>
                 <FormMessage />
               </FormItem>

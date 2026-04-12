@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useMpesaPayment, usePaymentStatus } from '@/hooks/useBilling';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -23,7 +24,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { useUnits } from '@/hooks/useProperties';
-import { useBilling } from '@/hooks/useBilling';
+import { useUpdateInvoice, useCancelInvoice, useCreateInvoice, useRecordPayment, useMyInvoices } from '@/hooks/useBilling';
 import { useMaintenance } from '@/hooks/useMaintenance';
 import { useApplications } from '@/hooks/useApplications';
 import { useToast } from '@/hooks/use-toast';
@@ -37,6 +38,7 @@ import { MaintenanceCard } from '@/components/maintenance/MaintenanceCard';
 import { Unit } from '@/types/property';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCurrentTenant } from '@/hooks/useCurrentTenant';
+import { PaymentFormData } from '@/types/billing';
 
 
 // Mock current tenant data - would come from auth context in real app
@@ -52,7 +54,22 @@ const MOCK_TENANT = {
 export default function TenantPortal() {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const { invoices, recordPayment } = useBilling();
+  const { mutateAsync: updateInvoiceMutate } = useUpdateInvoice();
+  const { mutate: createInvoice } = useCreateInvoice();
+  const { mutate: recordPayment } = useRecordPayment();
+
+  const { mutateAsync: payWithMpesa } = useMpesaPayment();
+const [checkoutId, setCheckoutId] = useState<string | null>(null);
+
+const { data: paymentStatus } = usePaymentStatus(checkoutId || undefined);
+ 
+
+ const {
+  data: invoices = [],
+  isLoading: invoicesLoading,
+  error: invoicesError,
+} = useMyInvoices();
+
   const { requests, createRequest } = useMaintenance();
   const { applications, submitApplication, withdrawApplication } = useApplications();
 
@@ -136,30 +153,84 @@ console.log(requests);
     }
   };
 
-  const handlePayment = async (data: any) => {
-    setIsLoading(true);
-    try {
-      recordPayment({
-        invoiceId: data.invoiceId,
+useEffect(() => {
+  if (!paymentStatus) return;
+
+  if (paymentStatus.status === 'success') {
+    toast({
+      title: "Payment Successful",
+      description: `Paid ${paymentStatus.amount}`,
+    });
+
+    setCheckoutId(null); // stop polling
+  }
+
+  if (paymentStatus.status === 'failed') {
+    toast({
+      title: "Payment Failed",
+      description: "Try again",
+      variant: "destructive",
+    });
+
+    setCheckoutId(null);
+  }
+
+}, [paymentStatus]);
+
+const formatPhone = (phone: string): string => {
+  let p = phone.trim().replace(/\s+/g, "");
+
+  if (p.startsWith("+254")) return p.replace("+", "");
+  if (p.startsWith("07")) return "254" + p.slice(1);
+  if (p.startsWith("7")) return "254" + p;
+
+  return p;
+};
+
+const handlePayment = async (data: PaymentFormData) => {
+  try {
+    if (data.paymentMethod === 'mpesa') {
+
+      console.log("AMOUNT DEBUG:", data.amount); // 🔍 debug
+
+      const phone = formatPhone(String(data.phoneNumber));
+
+      const res = await payWithMpesa({
+        invoiceId: Number(data.invoiceId),
+        phone,  
+        amount:data.amount
+      });
+
+     setCheckoutId(res.checkoutRequestId ?? null);
+
+      toast({
+        title: "STK Push Sent",
+        description: "Check your phone",
+      });
+
+    } else {
+      await recordPayment({
+        invoiceId: Number(data.invoiceId),
         amount: data.amount,
-        paymentMethod: data.paymentMethod,
-        transactionRef: data.reference || `PAY-${Date.now()}`,
-        paymentDate: new Date().toISOString().split('T')[0],
+        method: data.paymentMethod as any,
       });
+
       toast({
-        title: 'Payment Initiated',
-        description: `Payment of $${data.amount.toFixed(2)} has been initiated.`,
+        title: "Payment Recorded",
+        description: "Payment successful",
       });
-    } catch {
-      toast({
-        title: 'Error',
-        description: 'Failed to process payment.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
     }
-  };
+
+  } catch (err: any) {
+    console.error("PAYMENT ERROR:", err); // 🔥 ADD THIS
+
+    toast({
+      title: "Payment Failed",
+      description: err?.message || "Could not process payment",
+      variant: "destructive",
+    });
+  }
+};
 
  const handleMaintenanceSubmit = async (data: any) => {
   if (!currentTenant) return;
@@ -194,9 +265,9 @@ console.log(requests);
 // };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-KE', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'KES',
     }).format(amount);
   };
 
@@ -313,21 +384,35 @@ console.log(requests);
                     >
                       <div>
                         <p className="font-medium">{invoice.invoiceNumber}</p>
-                        <p className="text-sm text-muted-foreground">{invoice.description}</p>
+                        <p className="text-sm text-muted-foreground">{invoice.propertyName}</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold">{formatCurrency(invoice.balance)}</p>
+                        <p
+  className={`font-semibold ${
+    invoice.balance > 0
+      ? 'text-destructive'   // owes money
+      : invoice.balance < 0
+      ? 'text-success'       // overpaid
+      : 'text-muted-foreground' // fully settled
+  }`}
+>
+  {formatCurrency(invoice.balance)}
+</p>
                         <Badge
                           variant="outline"
                           className={
-                            invoice.status === 'paid'
-                              ? 'bg-success/10 text-success'
-                              : invoice.status === 'overdue'
-                              ? 'bg-destructive/10 text-destructive'
-                              : 'bg-warning/10 text-warning'
-                          }
+  invoice.balance < 0
+    ? 'bg-success/10 text-success'
+    : invoice.balance > 0
+    ? 'bg-destructive/10 text-destructive'
+    : 'bg-muted text-muted-foreground'
+}
                         >
-                          {invoice.status}
+                          {invoice.balance < 0
+  ? 'overpaid'
+  : invoice.balance === 0
+  ? 'settled'
+  : invoice.status}
                         </Badge>
                       </div>
                     </div>

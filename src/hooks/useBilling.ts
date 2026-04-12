@@ -1,432 +1,169 @@
-import { useState, useCallback } from 'react';
-import type { Invoice, Payment, WaterReading, InvoiceFormData, PaymentFormData, WaterReadingFormData } from '@/types/billing';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  createInvoice,
+  getInvoice,
+  getMyInvoices,
+  recordPayment,
+  payWithMpesa,
+  getPaymentStatus,
+   updateInvoice, 
+  cancelInvoice, 
+} from "@/api/service/billing.service";
+import { Invoice, Payment, PaymentResponse } from "@/types/billing";
+import { useToast } from "./use-toast";
 
-// Mock data for development
-const mockInvoices: Invoice[] = [
-  {
-    id: '1',
-    invoiceNumber: 'INV-2024-001',
-    tenantId: 't1',
-    tenantName: 'John Doe',
-    unitId: 'u1',
-    unitNumber: 'A101',
-    propertyId: 'p1',
-    propertyName: 'Sunrise Apartments',
-    type: 'rent',
-    description: 'Monthly Rent - January 2024',
-    amount: 1200,
-    amountPaid: 1200,
-    balance: 0,
-    status: 'paid',
-    dueDate: '2024-01-05',
-    issuedDate: '2024-01-01',
-    paidDate: '2024-01-03',
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-03T00:00:00Z',
-  },
-  {
-    id: '2',
-    invoiceNumber: 'INV-2024-002',
-    tenantId: 't1',
-    tenantName: 'John Doe',
-    unitId: 'u1',
-    unitNumber: 'A101',
-    propertyId: 'p1',
-    propertyName: 'Sunrise Apartments',
-    type: 'water',
-    description: 'Water Bill - January 2024',
-    amount: 45.50,
-    amountPaid: 0,
-    balance: 45.50,
-    status: 'pending',
-    dueDate: '2024-01-15',
-    issuedDate: '2024-01-10',
-    waterReading: {
-      id: 'wr1',
-      unitId: 'u1',
-      meterId: 'WM-001',
-      previousReading: 1250,
-      currentReading: 1295,
-      consumption: 45,
-      ratePerUnit: 1.01,
-      readingDate: '2024-01-08',
-      billingPeriod: 'January 2024',
+/* =========================
+   QUERY KEYS
+========================= */
+
+export const billingKeys = {
+  all: ["billing"] as const,
+
+  invoices: () => [...billingKeys.all, "invoices"] as const,
+  myInvoices: () => [...billingKeys.invoices(), "my"] as const,
+  invoice: (id: number) => [...billingKeys.invoices(), id] as const,
+
+  paymentStatus: (checkoutId: string) =>
+    [...billingKeys.all, "payment-status", checkoutId] as const,
+};
+
+/* =========================
+   QUERIES
+========================= */
+
+export const useMyInvoices = () =>
+  useQuery<Invoice[]>({
+    queryKey: billingKeys.myInvoices(),
+    queryFn: getMyInvoices,
+  });
+
+export const useInvoice = (id: number) =>
+  useQuery<Invoice>({
+    queryKey: billingKeys.invoice(id),
+    queryFn: () => getInvoice(id),
+    enabled: !!id,
+  });
+
+/* =========================
+   PAYMENT STATUS (NEW 🔥)
+========================= */
+
+export const usePaymentStatus = (checkoutId?: string) =>
+  useQuery<PaymentResponse>({
+    queryKey: billingKeys.paymentStatus(checkoutId || ""),
+    queryFn: () => getPaymentStatus(checkoutId!),
+    enabled: !!checkoutId,
+    refetchInterval: 3000,
+  });
+
+/* =========================
+   MUTATIONS
+========================= */
+
+export const useCreateInvoice = () => {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: createInvoice,
+
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: billingKeys.invoices() });
     },
-    createdAt: '2024-01-10T00:00:00Z',
-    updatedAt: '2024-01-10T00:00:00Z',
-  },
-  {
-    id: '3',
-    invoiceNumber: 'INV-2024-003',
-    tenantId: 't2',
-    tenantName: 'Jane Smith',
-    unitId: 'u2',
-    unitNumber: 'B202',
-    propertyId: 'p1',
-    propertyName: 'Sunrise Apartments',
-    type: 'rent',
-    description: 'Monthly Rent - January 2024',
-    amount: 1500,
-    amountPaid: 750,
-    balance: 750,
-    status: 'partial',
-    dueDate: '2024-01-05',
-    issuedDate: '2024-01-01',
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-06T00:00:00Z',
-  },
-  {
-    id: '4',
-    invoiceNumber: 'INV-2024-004',
-    tenantId: 't3',
-    tenantName: 'Mike Johnson',
-    unitId: 'u3',
-    unitNumber: 'C303',
-    propertyId: 'p2',
-    propertyName: 'Ocean View Towers',
-    type: 'rent',
-    description: 'Monthly Rent - January 2024',
-    amount: 1800,
-    amountPaid: 0,
-    balance: 1800,
-    status: 'overdue',
-    dueDate: '2024-01-05',
-    issuedDate: '2024-01-01',
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-  // Additional sample invoices for payment testing
-  {
-    id: '5',
-    invoiceNumber: 'INV-2024-005',
-    tenantId: 't1',
-    tenantName: 'John Doe',
-    unitId: 'u1',
-    unitNumber: 'A101',
-    propertyId: 'p1',
-    propertyName: 'Sunrise Apartments',
-    type: 'rent',
-    description: 'Monthly Rent - February 2024',
-    amount: 1200,
-    amountPaid: 0,
-    balance: 1200,
-    status: 'pending',
-    dueDate: '2024-02-05',
-    issuedDate: '2024-02-01',
-    createdAt: '2024-02-01T00:00:00Z',
-    updatedAt: '2024-02-01T00:00:00Z',
-  },
-  {
-    id: '6',
-    invoiceNumber: 'INV-2024-006',
-    tenantId: 't2',
-    tenantName: 'Jane Smith',
-    unitId: 'u2',
-    unitNumber: 'B202',
-    propertyId: 'p1',
-    propertyName: 'Sunrise Apartments',
-    type: 'utilities',
-    description: 'Electricity Bill - January 2024',
-    amount: 85.00,
-    amountPaid: 0,
-    balance: 85.00,
-    status: 'pending',
-    dueDate: '2024-01-20',
-    issuedDate: '2024-01-12',
-    createdAt: '2024-01-12T00:00:00Z',
-    updatedAt: '2024-01-12T00:00:00Z',
-  },
-  {
-    id: '7',
-    invoiceNumber: 'INV-2024-007',
-    tenantId: 't3',
-    tenantName: 'Mike Johnson',
-    unitId: 'u3',
-    unitNumber: 'C303',
-    propertyId: 'p2',
-    propertyName: 'Ocean View Towers',
-    type: 'water',
-    description: 'Water Bill - December 2023',
-    amount: 62.30,
-    amountPaid: 30,
-    balance: 32.30,
-    status: 'partial',
-    dueDate: '2024-01-10',
-    issuedDate: '2023-12-28',
-    waterReading: {
-      id: 'wr2',
-      unitId: 'u3',
-      meterId: 'WM-003',
-      previousReading: 890,
-      currentReading: 952,
-      consumption: 62,
-      ratePerUnit: 1.00,
-      readingDate: '2023-12-26',
-      billingPeriod: 'December 2023',
+  });
+};
+
+export const useRecordPayment = () => {
+  const qc = useQueryClient();
+
+  return useMutation<
+    Payment,
+    Error,
+    {
+      invoiceId: number;
+      amount: number;
+      method: "mpesa" | "card" | "bank" | "cash";
+      transactionRef?: string;
+      notes?: string;
+    }
+  >({
+    mutationFn: recordPayment,
+
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({
+        queryKey: billingKeys.invoice(variables.invoiceId),
+      });
+
+      qc.invalidateQueries({
+        queryKey: billingKeys.myInvoices(),
+      });
     },
-    createdAt: '2023-12-28T00:00:00Z',
-    updatedAt: '2024-01-08T00:00:00Z',
-  },
-  {
-    id: '8',
-    invoiceNumber: 'INV-2024-008',
-    tenantId: 't1',
-    tenantName: 'John Doe',
-    unitId: 'u1',
-    unitNumber: 'A101',
-    propertyId: 'p1',
-    propertyName: 'Sunrise Apartments',
-    type: 'late_fee',
-    description: 'Late Payment Fee - January 2024',
-    amount: 50.00,
-    amountPaid: 0,
-    balance: 50.00,
-    status: 'overdue',
-    dueDate: '2024-01-15',
-    issuedDate: '2024-01-10',
-    createdAt: '2024-01-10T00:00:00Z',
-    updatedAt: '2024-01-10T00:00:00Z',
-  },
-];
+  });
+};
 
-const mockPayments: Payment[] = [
-  {
-    id: 'pay1',
-    invoiceId: '1',
-    invoiceNumber: 'INV-2024-001',
-    tenantId: 't1',
-    tenantName: 'John Doe',
-    amount: 1200,
-    paymentMethod: 'mpesa',
-    transactionRef: 'MPE123456789',
-    paymentDate: '2024-01-03',
-    createdAt: '2024-01-03T10:30:00Z',
-  },
-  {
-    id: 'pay2',
-    invoiceId: '3',
-    invoiceNumber: 'INV-2024-003',
-    tenantId: 't2',
-    tenantName: 'Jane Smith',
-    amount: 750,
-    paymentMethod: 'bank',
-    transactionRef: 'BNK987654321',
-    paymentDate: '2024-01-06',
-    notes: 'Partial payment - balance to follow',
-    createdAt: '2024-01-06T14:00:00Z',
-  },
-];
+export const useUpdateInvoice = () => {
+  const qc = useQueryClient();
+  const { toast } = useToast();
 
-export function useBilling() {
-  const [invoices, setInvoices] = useState<Invoice[]>(mockInvoices);
-  const [payments, setPayments] = useState<Payment[]>(mockPayments);
-  const [isLoading, setIsLoading] = useState(false);
+  return useMutation({
+    mutationFn: ({ id, payload }: any) =>
+      updateInvoice(id, payload),
 
-  const createInvoice = useCallback((data: InvoiceFormData) => {
-    setIsLoading(true);
-    const newInvoice: Invoice = {
-      id: `inv-${Date.now()}`,
-      invoiceNumber: `INV-2024-${String(invoices.length + 1).padStart(3, '0')}`,
-      tenantId: data.tenantId,
-      tenantName: 'New Tenant',
-      unitId: data.unitId,
-      unitNumber: 'A101',
-      propertyId: 'p1',
-      propertyName: 'Sunrise Apartments',
-      type: data.type,
-      description: data.description,
-      amount: data.amount,
-      amountPaid: 0,
-      balance: data.amount,
-      status: 'pending',
-      dueDate: data.dueDate,
-      issuedDate: new Date().toISOString().split('T')[0],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setInvoices((prev) => [...prev, newInvoice]);
-    setIsLoading(false);
-    return newInvoice;
-  }, [invoices.length]);
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: billingKeys.invoices() });
 
-  const createWaterInvoice = useCallback((reading: WaterReadingFormData, tenantId: string, tenantName: string, propertyName: string, unitNumber: string) => {
-    setIsLoading(true);
-    const consumption = reading.currentReading - reading.previousReading;
-    const amount = consumption * reading.ratePerUnit;
-    
-    const waterReading: WaterReading = {
-      id: `wr-${Date.now()}`,
-      unitId: reading.unitId,
-      meterId: reading.meterId,
-      previousReading: reading.previousReading,
-      currentReading: reading.currentReading,
-      consumption,
-      ratePerUnit: reading.ratePerUnit,
-      readingDate: reading.readingDate,
-      billingPeriod: reading.billingPeriod,
-    };
+      toast({
+        title: "Invoice updated",
+        description: "Changes saved successfully",
+      });
+    },
 
-    const newInvoice: Invoice = {
-      id: `inv-${Date.now()}`,
-      invoiceNumber: `INV-2024-${String(invoices.length + 1).padStart(3, '0')}`,
-      tenantId,
-      tenantName,
-      unitId: reading.unitId,
-      unitNumber,
-      propertyId: 'p1',
-      propertyName,
-      type: 'water',
-      description: `Water Bill - ${reading.billingPeriod}`,
-      amount,
-      amountPaid: 0,
-      balance: amount,
-      status: 'pending',
-      dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      issuedDate: new Date().toISOString().split('T')[0],
-      waterReading,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    
-    setInvoices((prev) => [...prev, newInvoice]);
-    setIsLoading(false);
-    return newInvoice;
-  }, [invoices.length]);
+    onError: (err: any) => {
+      toast({
+        title: "Update failed",
+        description: err.message,
+        variant: "destructive",
+      });
+    },
+  });
+};
 
-  const recordPayment = useCallback((data: PaymentFormData) => {
-    setIsLoading(true);
-    const invoice = invoices.find((inv) => inv.id === data.invoiceId);
-    if (!invoice) {
-      setIsLoading(false);
-      throw new Error('Invoice not found');
-    }
+export const useCancelInvoice = () => {
+  const qc = useQueryClient();
+  const { toast } = useToast();
 
-    const newPayment: Payment = {
-      id: `pay-${Date.now()}`,
-      invoiceId: data.invoiceId,
-      invoiceNumber: invoice.invoiceNumber,
-      tenantId: invoice.tenantId,
-      tenantName: invoice.tenantName,
-      amount: data.amount,
-      paymentMethod: data.paymentMethod,
-      transactionRef: data.transactionRef,
-      paymentDate: data.paymentDate,
-      notes: data.notes,
-      createdAt: new Date().toISOString(),
-    };
+  return useMutation({
+    mutationFn: (id: number) => cancelInvoice(id),
 
-    setPayments((prev) => [...prev, newPayment]);
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: billingKeys.invoices() });
 
-    // Update invoice
-    const newAmountPaid = invoice.amountPaid + data.amount;
-    const newBalance = invoice.amount - newAmountPaid;
-    const newStatus = newBalance <= 0 ? 'paid' : 'partial';
+      toast({
+        title: "Invoice cancelled",
+        description: "Invoice has been cancelled",
+      });
+    },
 
-    setInvoices((prev) =>
-      prev.map((inv) =>
-        inv.id === data.invoiceId
-          ? {
-              ...inv,
-              amountPaid: newAmountPaid,
-              balance: Math.max(0, newBalance),
-              status: newStatus,
-              paidDate: newStatus === 'paid' ? data.paymentDate : undefined,
-              updatedAt: new Date().toISOString(),
-            }
-          : inv
-      )
-    );
+    onError: (err: any) => {
+      toast({
+        title: "Cancel failed",
+        description: err.message,
+        variant: "destructive",
+      });
+    },
+  });
+};
 
-    setIsLoading(false);
-    return newPayment;
-  }, [invoices]);
+/* =========================
+   MPESA
+========================= */
 
-  const getInvoicesByStatus = useCallback((status: Invoice['status']) => {
-    return invoices.filter((inv) => inv.status === status);
-  }, [invoices]);
-
-  const getPaymentsByInvoice = useCallback((invoiceId: string) => {
-    return payments.filter((pay) => pay.invoiceId === invoiceId);
-  }, [payments]);
-
-  const getTotalRevenue = useCallback(() => {
-    return payments.reduce((sum, pay) => sum + pay.amount, 0);
-  }, [payments]);
-
-  const getTotalOutstanding = useCallback(() => {
-    return invoices
-      .filter((inv) => inv.status !== 'paid' && inv.status !== 'cancelled')
-      .reduce((sum, inv) => sum + inv.balance, 0);
-  }, [invoices]);
-
-  const updateInvoice = useCallback((id: string, data: Partial<InvoiceFormData>) => {
-    setIsLoading(true);
-    const invoice = invoices.find((inv) => inv.id === id);
-    if (!invoice) {
-      setIsLoading(false);
-      throw new Error('Invoice not found');
-    }
-
-    const updatedAmount = data.amount ?? invoice.amount;
-    const newBalance = updatedAmount - invoice.amountPaid;
-
-    setInvoices((prev) =>
-      prev.map((inv) =>
-        inv.id === id
-          ? {
-              ...inv,
-              type: data.type ?? inv.type,
-              description: data.description ?? inv.description,
-              amount: updatedAmount,
-              balance: Math.max(0, newBalance),
-              dueDate: data.dueDate ?? inv.dueDate,
-              status: newBalance <= 0 ? 'paid' : inv.amountPaid > 0 ? 'partial' : inv.status,
-              updatedAt: new Date().toISOString(),
-            }
-          : inv
-      )
-    );
-    setIsLoading(false);
-    return invoices.find((inv) => inv.id === id);
-  }, [invoices]);
-
-  const cancelInvoice = useCallback((id: string, reason?: string) => {
-    setIsLoading(true);
-    const invoice = invoices.find((inv) => inv.id === id);
-    if (!invoice) {
-      setIsLoading(false);
-      throw new Error('Invoice not found');
-    }
-
-    setInvoices((prev) =>
-      prev.map((inv) =>
-        inv.id === id
-          ? {
-              ...inv,
-              status: 'cancelled' as const,
-              cancelledDate: new Date().toISOString().split('T')[0],
-              cancellationReason: reason,
-              updatedAt: new Date().toISOString(),
-            }
-          : inv
-      )
-    );
-    setIsLoading(false);
-    return invoice;
-  }, [invoices]);
-
-  return {
-    invoices,
-    payments,
-    isLoading,
-    createInvoice,
-    createWaterInvoice,
-    recordPayment,
-    updateInvoice,
-    cancelInvoice,
-    getInvoicesByStatus,
-    getPaymentsByInvoice,
-    getTotalRevenue,
-    getTotalOutstanding,
-  };
-}
+export const useMpesaPayment = () => {
+  return useMutation<
+    PaymentResponse,
+    Error,
+    { invoiceId: number; phone: string; amount: number } // ✅ add amount
+  >({
+    mutationFn: ({ invoiceId, phone, amount }) =>
+      payWithMpesa(invoiceId, phone, amount), // ✅ pass it
+  });
+};

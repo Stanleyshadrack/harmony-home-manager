@@ -21,6 +21,11 @@ export type InviteValidationResponse = {
   rentAmount: number;   
   depositAmount: number;
 
+  apartments?: {
+  id: number;
+  name: string;
+}[];
+
   /* 🔥 Tenant context */
   unit?: {
     id: number;
@@ -54,7 +59,7 @@ export async function validateInvite(
     return {
       ...response,
       unit: response.unit ?? undefined,
-      property: response.property ?? undefined,
+      apartments: response.apartments ?? [],
       firstName: response.firstName ?? "",
       lastName: response.lastName ?? "",
       phone: response.phone ?? "",

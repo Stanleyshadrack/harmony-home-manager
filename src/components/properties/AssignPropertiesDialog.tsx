@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -14,11 +14,11 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Building2, Search, MapPin, Home } from 'lucide-react';
 import { Property } from '@/types/property';
-import { Landlord } from '@/hooks/useLandlords';
+import { LandlordTypes } from '@/types/LandlordTypes';
 interface AssignPropertiesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  landlord: Landlord | null;
+  landlord: LandlordTypes | null;
   properties: Property[];
   assignedPropertyIds: string[];
   onSave: (landlordId: string, propertyIds: string[]) => void;
@@ -34,9 +34,9 @@ export function AssignPropertiesDialog({
   const [selected, setSelected] = useState<string[]>(assignedPropertyIds);
   const [search, setSearch] = useState('');
   // Reset selection when dialog opens with new landlord
-  useState(() => {
-    setSelected(assignedPropertyIds);
-  });
+  useEffect(() => {
+  setSelected(assignedPropertyIds);
+}, [assignedPropertyIds, landlord]);
   const filteredProperties = useMemo(() => {
     if (!search) return properties;
     const q = search.toLowerCase();
@@ -54,7 +54,7 @@ export function AssignPropertiesDialog({
   };
   const handleSave = () => {
     if (landlord) {
-      onSave(landlord.id, selected);
+      onSave(landlord.id.toString(), selected);
       onOpenChange(false);
     }
   };
@@ -106,12 +106,14 @@ export function AssignPropertiesDialog({
                 </div>
               ) : (
                 filteredProperties.map((property) => {
-                  const isSelected = selected.includes(property.id);
-                  // Find if property is assigned to another landlord
-                  const assignedToOther = property.landlordId && 
-                    property.landlordId !== landlord.id && 
-                    property.landlordId !== 'current-user' &&
-                    property.landlordId !== 'landlord-1';
+  const isSelected = selected.includes(property.id);
+  const isOwnedByCurrent =
+  property.landlordIds?.includes(landlord.id.toString());
+
+  const assignedToOther =
+    property.landlordIds?.length > 0 &&
+    !property.landlordIds.includes(landlord.id.toString());
+                  
                   return (
                     <label
                       key={property.id}
@@ -122,16 +124,30 @@ export function AssignPropertiesDialog({
                       }`}
                     >
                       <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={() => toggleProperty(property.id)}
-                      />
+  checked={isSelected}
+  disabled={isOwnedByCurrent}
+  onCheckedChange={() => toggleProperty(property.id)}
+/>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium text-sm truncate">{property.name}</p>
-                          <Badge variant="outline" className="text-xs capitalize shrink-0">
-                            {property.propertyType}
-                          </Badge>
-                        </div>
+                       <div className="flex items-center gap-2">
+  <p className="font-medium text-sm truncate">{property.name}</p>
+
+  <Badge variant="outline" className="text-xs capitalize shrink-0">
+    {property.propertyType}
+  </Badge>
+
+  {isOwnedByCurrent && (
+    <Badge className="text-xs bg-green-500/10 text-green-600 border-green-500/20">
+      Owned
+    </Badge>
+  )}
+
+  {assignedToOther && (
+    <Badge className="text-xs bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
+      Shared
+    </Badge>
+  )}
+</div>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
                           <span className="flex items-center gap-1">
                             <MapPin className="h-3 w-3" />
@@ -144,7 +160,7 @@ export function AssignPropertiesDialog({
                         </div>
                         {assignedToOther && (
                           <p className="text-xs text-warning mt-1">
-                            Currently assigned to another landlord
+                           Also assigned to other landlords
                           </p>
                         )}
                       </div>

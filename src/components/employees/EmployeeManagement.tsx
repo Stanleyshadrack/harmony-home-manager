@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Employee } from '@/hooks/useEmployees';
 import { useProperties } from '@/hooks/useProperties';
 import { useMaintenance } from '@/hooks/useMaintenance';
 import { useAuth } from '@/contexts/AuthContext';
@@ -63,8 +62,15 @@ import {
   CreditCard,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { useAllEmployeesData } from '@/hooks/use.employees.hook';
+import {
+  useActivateEmployee,
+  useAllEmployeesData,
+  useAssignEmployeeProperties,
+  useDeactivateEmployee,
+  useDeleteEmployee,
+} from '@/hooks/use.employees.hook';
 import { useQuery } from '@tanstack/react-query';
+import { Employee } from '@/hooks/useEmployees';
 
 export function EmployeeManagement() {
   const { properties } = useProperties();
@@ -78,6 +84,10 @@ export function EmployeeManagement() {
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showTaskAssignDialog, setShowTaskAssignDialog] = useState(false);
   const [selectedPropertyId, setSelectedPropertyId] = useState('');
+  const activateEmployeeMutation = useActivateEmployee();
+const deactivateEmployeeMutation = useDeactivateEmployee();
+const deleteEmployeeMutation = useDeleteEmployee();
+const assignPropertiesMutation = useAssignEmployeeProperties();
   
   // Rejection dialog for pending registrations
   const [selectedRegistration, setSelectedRegistration] = useState<Employee | null>(null);
@@ -102,46 +112,83 @@ export function EmployeeManagement() {
   // Get pending/unassigned maintenance tasks
   const pendingTasks = requests.filter(r => r.status === 'pending');
 
-  const filteredEmployees = allEmployees.filter(emp =>
-    emp.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    emp.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    emp.email.toLowerCase().includes(searchQuery.toLowerCase())
+ const filteredEmployees = allEmployees.filter((emp) => {
+  const query = searchQuery.toLowerCase();
+
+  return (
+    emp.name?.toLowerCase().includes(query) ||
+    emp.email?.toLowerCase().includes(query)
   );
+});
 
-  const handleActivate = async (employee: Employee) => {
-    // await activateEmployee(employee.id);
-    toast.success(`${employee.firstName} ${employee.lastName} has been activated`);
-  };
+const handleActivate = (employee: Employee) => {
+  activateEmployeeMutation.mutate(employee.id, {
+    onSuccess: () => {
+      toast.success(`${employee.firstName} ${employee.lastName} has been activated`);
+    },
+    onError: () => {
+      toast.error("Failed to activate employee");
+    },
+  });
+};
 
-  const handleDeactivate = async (employee: Employee) => {
-    // await deactivateEmployee(employee.id);
-    toast.success(`${employee.firstName} ${employee.lastName} has been deactivated`);
-  };
+const handleDeactivate = (employee: Employee) => {
+  deactivateEmployeeMutation.mutate(employee.id, {
+    onSuccess: () => {
+      toast.success(`${employee.firstName} ${employee.lastName} has been deactivated`);
+    },
+    onError: () => {
+      toast.error("Failed to deactivate employee");
+    },
+  });
+};
 
-  const handleAssignProperty = async () => {
-    if (!selectedEmployee || !selectedPropertyId) return;
-    
-    const property = properties.find(p => p.id === selectedPropertyId);
-    if (property) {
-      // await assignToProperty(selectedEmployee.id, property.id, property.name);
-      toast.success(`${selectedEmployee.firstName} assigned to ${property.name}`);
-      setShowAssignDialog(false);
-      setSelectedEmployee(null);
-      setSelectedPropertyId('');
+
+const handleRemove = (employee: Employee) => {
+  deleteEmployeeMutation.mutate(employee.id, {
+    onSuccess: () => {
+      toast.success(`${employee.firstName} ${employee.lastName} has been removed`);
+    },
+    onError: () => {
+      toast.error("Failed to remove employee");
+    },
+  });
+};
+
+ const handleAssignProperty = () => {
+  if (!selectedEmployee || !selectedPropertyId) return;
+
+  assignPropertiesMutation.mutate(
+    {
+      id: selectedEmployee.id,
+      propertyIds: [Number(selectedPropertyId)],
+    },
+    {
+      onSuccess: () => {
+        const property = properties.find(p => p.id === selectedPropertyId);
+
+        toast.success(
+          `${selectedEmployee.firstName} assigned to ${property?.name}`
+        );
+
+        setShowAssignDialog(false);
+        setSelectedEmployee(null);
+        setSelectedPropertyId('');
+      },
+      onError: () => {
+        toast.error("Failed to assign property");
+      },
     }
-  };
+  );
+};
 
-  const handleRemove = async (employee: Employee) => {
-    // await removeEmployee(employee.id);
-    toast.success(`${employee.firstName} ${employee.lastName} has been removed`);
-  };
 
   const handleAssignTask = async () => {
     if (!selectedEmployee || !selectedTaskId) return;
     
     assignRequest({
       requestId: selectedTaskId,
-      assignedTo: selectedEmployee.id,
+      assignedTo: selectedEmployee.id.toString(),
       scheduledDate: taskScheduledDate || undefined,
       estimatedCost: taskEstimatedCost ? parseFloat(taskEstimatedCost) : undefined,
       notes: taskNotes || undefined,
@@ -216,18 +263,7 @@ export function EmployeeManagement() {
 
     setIsProcessing(true);
     try {
-      // await rejectRegistration(selectedRegistration.id, user?.email || 'Landlord', rejectionReason);
-      
-      // In-app notification
-      // addNotification({
-      //   userId: selectedRegistration.phone,
-      //   title: 'Registration Rejected',
-      //   message: `Your employee registration was not approved. Reason: ${rejectionReason}`,
-      //   category: 'registration_rejected',
-      //   priority: 'high',
-      // });
-
-      // Send SMS notification
+    
       if (selectedRegistration.phone) {
         await sendQuickNotification(
           selectedRegistration.phone,
@@ -383,10 +419,14 @@ export function EmployeeManagement() {
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
-                              {employee.firstName[0]}{employee.lastName[0]}
+                              {employee.name
+  ?.split(" ")
+  .map((n) => n[0])
+  .join("")
+  .slice(0, 2)}
                             </div>
                             <div>
-                              <p className="font-medium">{employee.firstName} {employee.lastName}</p>
+                              <p className="font-medium">{employee.name}</p> 
                               <p className="text-sm text-muted-foreground">{employee.email}</p>
                             </div>
                           </div>
@@ -400,14 +440,23 @@ export function EmployeeManagement() {
                           )}
                         </TableCell>
                         <TableCell>
-                          {employee.assignedPropertyName ? (
-                            <span className="flex items-center gap-1">
-                              <Building2 className="h-4 w-4 text-muted-foreground" />
-                              {employee.assignedPropertyName}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground text-sm">Not assigned</span>
-                          )}
+                        {employee.propertyNames && employee.propertyNames.length > 0 ? (
+  <div className="flex flex-wrap gap-1 items-center">
+    <Building2 className="h-4 w-4 text-muted-foreground" />
+    {employee.propertyNames.map((name, index) => (
+      <span
+        key={index}
+        className="px-2 py-1 text-xs rounded-full bg-primary/10 text-primary"
+      >
+        {name}
+      </span>
+    ))}
+  </div>
+) : (
+  <span className="text-muted-foreground text-sm">
+    Not assigned
+  </span>
+)}
                         </TableCell>
                         <TableCell>{getStatusBadge(employee.status)}</TableCell>
                         <TableCell className="text-right">
@@ -526,7 +575,7 @@ export function EmployeeManagement() {
                       <div className="flex gap-2 sm:flex-shrink-0">
                         <Select
                           onValueChange={(employeeId) => {
-                            const emp = allEmployees.find(e => e.id === employeeId);
+                            const emp = allEmployees.find(e => e.id === Number(employeeId));
                             if (emp) {
                               setSelectedEmployee(emp);
                               setSelectedTaskId(task.id);
@@ -539,8 +588,8 @@ export function EmployeeManagement() {
                           </SelectTrigger>
                           <SelectContent>
                             {allEmployees.filter(e => e.status === 'active').map((emp) => (
-                              <SelectItem key={emp.id} value={emp.id}>
-                                {emp.firstName} {emp.lastName}
+                              <SelectItem key={emp.id} value={String(emp.id)}>
+                                {emp.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -706,7 +755,10 @@ export function EmployeeManagement() {
                 )}
                 <div className="flex items-center gap-2 text-sm">
                   <Building2 className="h-4 w-4 text-muted-foreground" />
-                  {selectedEmployee.assignedPropertyName || 'No property assigned'}
+               {selectedEmployee.propertyNames &&
+selectedEmployee.propertyNames.length > 0
+  ? selectedEmployee.propertyNames.join(", ")
+  : "No property assigned"}
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Clock className="h-4 w-4 text-muted-foreground" />

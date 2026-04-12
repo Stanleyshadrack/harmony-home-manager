@@ -22,18 +22,46 @@ interface UnitCardProps {
 export function UnitCard({ unit, propertyName, onEdit, onDelete }: UnitCardProps) {
   const { t } = useTranslation();
 
-  const getStatusBadge = (status: Unit['status']) => {
-    switch (status) {
-case 'occupied':
-  return <Badge className="bg-green-500 text-white">Occupied</Badge>
-
-case 'vacant':
-  return <Badge className="bg-blue-500 text-white">Vacant</Badge>
-
-case 'maintenance':
-  return <Badge className="bg-yellow-500 text-black">Maintenance</Badge>
+    const getStatusStyle = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case "vacant":
+        return "bg-blue-100 text-blue-700";
+      case "occupied":
+        return "bg-green-100 text-green-700";
+      case "reserved":
+        return "bg-yellow-100 text-yellow-700";
+      case "maintenance":
+        return "bg-red-100 text-red-700";
+      default:
+        return "bg-gray-100 text-gray-700";
     }
   };
+
+
+  const getStatusBadge = (status: Unit['status']) => {
+  const s = status?.toLowerCase(); // 🔥 FIX
+
+  switch (s) {
+    case 'occupied':
+      return <Badge className="bg-green-500 text-white">Occupied</Badge>;
+
+    case 'vacant':
+      return <Badge className="bg-blue-500 text-white">Vacant</Badge>;
+
+    case 'reserved':
+      return <Badge className="bg-yellow-500 text-black">Reserved</Badge>;
+
+    case 'maintenance':
+      return <Badge className="bg-red-500 text-white">Maintenance</Badge>;
+
+    default:
+      return (
+        <Badge className="bg-gray-400 text-white">
+          {status}
+        </Badge>
+      );
+  }
+};
 
   const getUnitTypeLabel = (type: Unit['unitType']) => {
     const labels: Record<Unit['unitType'], string> = {

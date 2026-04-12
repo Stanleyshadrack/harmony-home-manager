@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCurrentTenant } from '@/hooks/useCurrentTenant';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { useQuery } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -27,7 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Plus, Search, Filter, Wrench, AlertCircle } from 'lucide-react';
-import { useMaintenance } from '@/hooks/useMaintenance';
+import {  useMaintenance } from '@/hooks/useMaintenance';
 import { useAuth } from '@/contexts/AuthContext';
 import { MaintenanceStats } from '@/components/maintenance/MaintenanceStats';
 import { MaintenanceCard } from '@/components/maintenance/MaintenanceCard';
@@ -37,6 +38,8 @@ import { MaintenanceDetail } from '@/components/maintenance/MaintenanceDetail';
 import { useToast } from '@/hooks/use-toast';
 import type { MaintenanceFormData, MaintenanceRequest, MaintenanceStatus } from '@/types/maintenance';
 import { useCurrentLandlord } from '@/hooks/useCurrentLandlord.hook';
+import { useAllEmployeesData } from '@/hooks/use.employees.hook';
+import { useMyInvoices } from '@/hooks/useBilling';
 
 
 
@@ -45,15 +48,22 @@ export default function Maintenance() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { user } = useAuth();
-  const {
-    requests,
-    isLoading,
-    createRequest,
-    assignRequest,
-    updateStatus,
-    addNote,
+const {
+  requests,
+  isLoading: maintenanceLoading,
+  createRequest,
+  assignRequest,
+  updateStatus,
+  addNote,
+} = useMaintenance();
 
-  } = useMaintenance();
+// ✅ Billing
+const {
+  data: invoices = [],
+  isLoading: invoicesLoading,
+} = useMyInvoices();
+
+  const { data, isLoading: employeesLoading } = useQuery(useAllEmployeesData());
 
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -72,6 +82,24 @@ const currentTenant =
 const landlord =
   user?.role === "landlord" ? landlordData.landlord : null;
 
+const employees =
+  data?.employees
+    .filter(
+      (emp) =>
+        !selectedRequest ||
+        emp.propertyIds?.includes(selectedRequest.propertyId)
+    )
+    .map((emp) => ({
+      id: String(emp.id),
+
+      // ✅ STRICT NAME (no email fallback)
+      name:
+  `${emp.firstName ?? ""} ${emp.lastName ?? ""}`.trim() ||
+  "Unnamed Employee",
+
+      role: emp.role ?? "EMPLOYEE",
+    })) ?? [];
+
 
   
 
@@ -84,15 +112,17 @@ const visibleRequests = (() => {
     );
   }
 
+
+
   return requests; // landlord/backend already filtered
 })();
 
   const filteredRequests = visibleRequests.filter((request) => {
   const matchesSearch =
-    request.ticketNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    request.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    request.tenantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    request.propertyName.toLowerCase().includes(searchQuery.toLowerCase());
+  request.ticketNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  request.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  request.tenantName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  request.propertyName.toLowerCase().includes(searchQuery.toLowerCase());
 
   const matchesPriority =
     priorityFilter === 'all' || request.priority === priorityFilter;
@@ -275,6 +305,50 @@ const visibleRequests = (() => {
           )}
         </div>
 
+        {invoices && invoices.length > 0 && (
+  <Card>
+    <CardContent className="p-4">
+      <h3 className="font-semibold mb-3">Billing Summary</h3>
+
+      <div className="space-y-2">
+        {invoices.slice(0, 3).map((inv) => (
+          <div
+            key={inv.id}
+            className="flex justify-between items-center border-b pb-2"
+          >
+            <div>
+              <p className="text-sm font-medium">
+                {inv.type} - {inv.unitNumber}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Due: {inv.dueDate}
+              </p>
+            </div>
+
+            <div className="text-right">
+              <p className="font-semibold">
+                KES {inv.balance.toLocaleString()}
+              </p>
+
+              <Badge
+                variant={
+                  inv.status === "paid"
+                    ? "default"
+                    : inv.status === "overdue"
+                    ? "destructive"
+                    : "secondary"
+                }
+              >
+                {inv.status}
+              </Badge>
+            </div>
+          </div>
+        ))}
+      </div>
+    </CardContent>
+  </Card>
+)}
+
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="all">
@@ -337,7 +411,7 @@ const visibleRequests = (() => {
           <MaintenanceForm
             onSubmit={handleCreateRequest}
             onCancel={() => setShowRequestForm(false)}
-            isLoading={isLoading}
+            isLoading={maintenanceLoading}
           />
         </DialogContent>
       </Dialog>
@@ -350,13 +424,13 @@ const visibleRequests = (() => {
           {selectedRequest && (
             <AssignmentForm
               request={selectedRequest}
-              employees={[]}
+              employees={employees}
               onSubmit={handleAssign}
               onCancel={() => {
                 setShowAssignForm(false);
                 setSelectedRequest(undefined);
               }}
-              isLoading={isLoading}
+              isLoading={maintenanceLoading}
             />
           )}
         </DialogContent>

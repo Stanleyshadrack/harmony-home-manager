@@ -2,13 +2,21 @@ import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Eye, CreditCard, FileText, Droplets, Home, Download } from 'lucide-react';
+import {
+  MoreHorizontal,
+  Eye,
+  CreditCard,
+  FileText,
+  Droplets,
+  Home,
+  Download
+} from 'lucide-react';
 import type { Invoice } from '@/types/billing';
 import { downloadInvoicePDF } from '@/utils/invoicePdf';
 import { useToast } from '@/hooks/use-toast';
@@ -18,15 +26,6 @@ interface InvoiceCardProps {
   onView?: (invoice: Invoice) => void;
   onRecordPayment?: (invoice: Invoice) => void;
 }
-
-const statusColors: Record<Invoice['status'], string> = {
-  draft: 'bg-muted text-muted-foreground',
-  pending: 'bg-warning/10 text-warning border-warning/20',
-  paid: 'bg-success/10 text-success border-success/20',
-  partial: 'bg-info/10 text-info border-info/20',
-  overdue: 'bg-destructive/10 text-destructive border-destructive/20',
-  cancelled: 'bg-muted text-muted-foreground',
-};
 
 const typeIcons: Record<Invoice['type'], React.ReactNode> = {
   rent: <Home className="h-4 w-4" />,
@@ -40,20 +39,69 @@ export function InvoiceCard({ invoice, onView, onRecordPayment }: InvoiceCardPro
   const { t } = useTranslation();
   const { toast } = useToast();
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
     }).format(amount);
-  };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+  const formatDate = (date: string) =>
+    new Date(date).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
     });
-  };
+
+  /* =========================
+     TYPE LOGIC
+  ========================= */
+
+  const isWater = invoice.type === 'water';
+  const isRent = invoice.type === 'rent';
+
+  const isOwing = invoice.balance > 0;
+  const isCredit = invoice.balance < 0;
+  const isSettled = invoice.balance === 0;
+
+  /* =========================
+     PAYMENT LOGIC (TYPE AWARE)
+  ========================= */
+
+  let paidAmount = 0;
+  let progress = 0;
+
+  if (isRent) {
+    const paidRaw = invoice.amount - invoice.balance;
+    paidAmount = Math.min(invoice.amount, Math.max(0, paidRaw));
+    progress = (paidAmount / invoice.amount) * 100;
+  } else if (isWater) {
+    paidAmount = invoice.balance <= 0 ? invoice.amount : 0;
+    progress = invoice.balance <= 0 ? 100 : 0;
+  }
+
+  progress = Math.min(Math.max(progress, 0), 100);
+
+  const canPay = invoice.balance > 0.01;
+
+  /* =========================
+     STATUS LABEL
+  ========================= */
+
+  const statusLabel = isWater
+    ? invoice.balance <= 0
+      ? 'Settled'
+      : 'Unpaid'
+    : isCredit
+    ? 'Overpaid'
+    : isSettled
+    ? 'Paid'
+    : invoice.balance < invoice.amount
+    ? 'Partial'
+    : 'Unpaid';
+
+  /* =========================
+     ACTIONS
+  ========================= */
 
   const handleDownloadPDF = () => {
     downloadInvoicePDF({
@@ -67,48 +115,71 @@ export function InvoiceCard({ invoice, onView, onRecordPayment }: InvoiceCardPro
       landlordPhone: '+254 712 345 678',
       landlordEmail: 'manager@property.com',
     });
+
     toast({
       title: 'Invoice Downloaded',
-      description: `Invoice ${invoice.invoiceNumber} has been downloaded.`,
+      description: `Invoice ${invoice.invoiceNumber} downloaded.`,
     });
   };
 
+  /* =========================
+     UI
+  ========================= */
+
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card className="hover:shadow-md transition-all border">
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex justify-between">
+          {/* LEFT */}
+          <div className="flex gap-3">
             <div className="p-2 bg-primary/10 rounded-lg text-primary">
               {typeIcons[invoice.type]}
             </div>
             <div>
               <p className="font-semibold">{invoice.invoiceNumber}</p>
-              <p className="text-sm text-muted-foreground">{invoice.tenantName}</p>
+              <p className="text-sm text-muted-foreground">
+                {invoice.tenantName}
+              </p>
             </div>
           </div>
+
+          {/* RIGHT */}
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className={statusColors[invoice.status]}>
-              {t(`billing.${invoice.status}`)}
+            <Badge
+              variant="outline"
+              className={
+                isCredit
+                  ? 'text-blue-600 border-blue-200'
+                  : isOwing
+                  ? 'bg-destructive/10 text-destructive border-destructive/20'
+                  : 'bg-success/10 text-success border-success/20'
+              }
+            >
+              {statusLabel}
             </Badge>
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Button variant="ghost" size="icon">
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
+
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => onView?.(invoice)}>
                   <Eye className="h-4 w-4 mr-2" />
-                  View Details
+                  View
                 </DropdownMenuItem>
+
                 <DropdownMenuItem onClick={handleDownloadPDF}>
                   <Download className="h-4 w-4 mr-2" />
-                  Download PDF
+                  Download
                 </DropdownMenuItem>
-                {invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
+
+                {canPay && (
                   <DropdownMenuItem onClick={() => onRecordPayment?.(invoice)}>
                     <CreditCard className="h-4 w-4 mr-2" />
-                    Record Payment
+                    Pay
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>
@@ -116,57 +187,81 @@ export function InvoiceCard({ invoice, onView, onRecordPayment }: InvoiceCardPro
           </div>
         </div>
       </CardHeader>
+
       <CardContent>
-        <p className="text-sm text-muted-foreground mb-3">{invoice.description}</p>
-        
-        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
-          <span>{invoice.propertyName}</span>
-          <span>•</span>
-          <span>Unit {invoice.unitNumber}</span>
+        {/* PROPERTY */}
+        <div className="text-sm text-muted-foreground mb-3">
+          {invoice.propertyName} • Unit {invoice.unitNumber}
         </div>
 
-        <div className="grid grid-cols-2 gap-4 pt-3 border-t">
+        {/* AMOUNTS */}
+        <div className="grid grid-cols-2 gap-4 border-t pt-3">
           <div>
-            <p className="text-xs text-muted-foreground">{t('billing.totalDue')}</p>
-            <p className="font-semibold">{formatCurrency(invoice.amount)}</p>
+            <p className="text-xs text-muted-foreground">
+              {t('billing.totalDue')}
+            </p>
+            <p className="font-semibold">
+              {formatCurrency(invoice.amount)}
+            </p>
           </div>
+
           <div>
-            <p className="text-xs text-muted-foreground">{t('billing.balance')}</p>
-            <p className={`font-semibold ${invoice.balance > 0 ? 'text-destructive' : 'text-success'}`}>
-              {formatCurrency(invoice.balance)}
+            <p className="text-xs text-muted-foreground">
+              {t('billing.balance')}
+            </p>
+            <p
+              className={`font-semibold ${
+                isOwing
+                  ? 'text-destructive'
+                  : isCredit
+                  ? 'text-blue-600'
+                  : 'text-success'
+              }`}
+            >
+              {isCredit
+                ? `Credit ${formatCurrency(Math.abs(invoice.balance))}`
+                : formatCurrency(invoice.balance)}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center justify-between mt-3 pt-3 border-t text-xs text-muted-foreground">
-          <span>{t('billing.dueDate')}: {formatDate(invoice.dueDate)}</span>
-          {invoice.paidDate && (
-            <span className="text-success">{t('billing.paidDate')}: {formatDate(invoice.paidDate)}</span>
-          )}
+        {/* PROGRESS */}
+        <div className="mt-4">
+          <div className="flex justify-between text-xs mb-1">
+            <span className="text-muted-foreground">Paid</span>
+            <span className="font-medium">{progress.toFixed(0)}%</span>
+          </div>
+
+          <div className="h-2 rounded-full bg-muted overflow-hidden">
+            <div
+              className={`h-full transition-all ${
+                isWater
+                  ? progress === 100
+                    ? 'bg-success'
+                    : 'bg-destructive'
+                  : isCredit
+                  ? 'bg-blue-500'
+                  : isOwing
+                  ? 'bg-destructive'
+                  : 'bg-success'
+              }`}
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+
+          <div className="text-xs text-muted-foreground mt-1">
+            {isWater
+              ? progress === 100
+                ? 'Fully paid'
+                : 'Not paid'
+              : `Paid ${formatCurrency(paidAmount)} of ${formatCurrency(invoice.amount)}`}
+          </div>
         </div>
 
-        {invoice.waterReading && (
-          <div className="mt-3 pt-3 border-t bg-muted/50 rounded-lg p-3">
-            <p className="text-xs font-medium mb-2 flex items-center gap-1">
-              <Droplets className="h-3 w-3" />
-              Water Reading Details
-            </p>
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              <div>
-                <span className="text-muted-foreground">Previous:</span>
-                <span className="ml-1 font-medium">{invoice.waterReading.previousReading}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Current:</span>
-                <span className="ml-1 font-medium">{invoice.waterReading.currentReading}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Usage:</span>
-                <span className="ml-1 font-medium">{invoice.waterReading.consumption} units</span>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* DATES */}
+        <div className="flex justify-between text-xs mt-4 pt-3 border-t text-muted-foreground">
+          <span>Due: {formatDate(invoice.dueDate)}</span>
+        </div>
       </CardContent>
     </Card>
   );

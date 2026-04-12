@@ -46,6 +46,7 @@ import {
   Zap,
   Image,
 } from "lucide-react";
+import { LandlordTypes } from "@/types/LandlordTypes";
 
 /* =========================
    Amenity icons
@@ -72,11 +73,17 @@ export default function PropertyDetail() {
   const [propertyPhotos, setPropertyPhotos] = useState<string[]>([]);
   const [featuredPhotoIndex, setFeaturedPhotoIndex] = useState(0);
 
-  const { getLandlordById } = useLandlords();
+  const { landlords: allLandlords, getLandlordById, isLoading } = useLandlords();
 
-const landlord = property?.landlordId
-  ? getLandlordById(Number(property.landlordId))
-  : undefined;
+const landlords = useMemo(() => {
+  if (!property || isLoading) return [];
+
+  return property.landlordIds
+    ?.map((id) => getLandlordById(id))
+    .filter((l): l is LandlordTypes => l !== undefined);
+}, [property, isLoading, getLandlordById]);
+
+  
 
 
   /* =========================
@@ -212,14 +219,19 @@ const landlord = property?.landlordId
     </div>
 
     {/* Owner */}
-    {landlord && (
-      <p className="text-sm text-muted-foreground">
-        Owner:{" "}
-        <span className="font-medium text-foreground">
-          {landlord.firstName} {landlord.lastName}
+   {landlords && landlords.length > 0 && (
+  <p className="text-sm text-muted-foreground">
+    Owners:{" "}
+    <span className="font-medium text-foreground">
+      {landlords.map((l, index) => (
+        <span key={l.id}>
+          {l.firstName} {l.lastName}
+          {index < landlords.length - 1 && ", "}
         </span>
-      </p>
-    )}
+      ))}
+    </span>
+  </p>
+)}
 
   </div>
 

@@ -32,7 +32,7 @@ const assignmentSchema = z.object({
 
 interface AssignmentFormProps {
   request: MaintenanceRequest;
-  employees: { id: string; name: string; specialty: string }[];
+  employees: { id: string; name: string; role: string }[];
   onSubmit: (data: AssignmentFormData) => void;
   onCancel: () => void;
   isLoading?: boolean;
@@ -47,7 +47,7 @@ export function AssignmentForm({ request, employees, onSubmit, onCancel, isLoadi
       requestId: request.id,
       assignedTo: '',
       scheduledDate: '',
-      estimatedCost: undefined,
+      estimatedCost: "" as any,
       notes: '',
     },
   });
@@ -71,7 +71,7 @@ export function AssignmentForm({ request, employees, onSubmit, onCancel, isLoadi
           render={({ field }) => (
             <FormItem>
               <FormLabel>Assign To</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select value={field.value} onValueChange={field.onChange}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select employee or contractor" />
@@ -80,8 +80,8 @@ export function AssignmentForm({ request, employees, onSubmit, onCancel, isLoadi
                 <SelectContent>
                   {employees.map((emp) => (
                     <SelectItem key={emp.id} value={emp.id}>
-                      {emp.name} ({emp.specialty})
-                    </SelectItem>
+  {emp.name || "Unknown"} ({emp.role || "General"})
+</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -97,7 +97,11 @@ export function AssignmentForm({ request, employees, onSubmit, onCancel, isLoadi
             <FormItem>
               <FormLabel>Scheduled Date</FormLabel>
               <FormControl>
-                <Input type="date" {...field} />
+                <Input
+  type="date"
+  value={field.value ?? ""} 
+  onChange={field.onChange}
+/>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -112,12 +116,16 @@ export function AssignmentForm({ request, employees, onSubmit, onCancel, isLoadi
               <FormLabel>{t('maintenance.estimatedCost')}</FormLabel>
               <FormControl>
                 <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  {...field}
-                  onChange={(e) => field.onChange(parseFloat(e.target.value) || undefined)}
-                />
+  type="number"
+  step="0.01"
+  placeholder="0.00"
+  value={field.value ?? ""} 
+  onChange={(e) =>
+    field.onChange(
+      e.target.value === "" ? "" : parseFloat(e.target.value)
+    )
+  }
+/>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -131,7 +139,11 @@ export function AssignmentForm({ request, employees, onSubmit, onCancel, isLoadi
             <FormItem>
               <FormLabel>{t('common.notes')}</FormLabel>
               <FormControl>
-                <Textarea placeholder="Add notes for the assignee..." {...field} />
+                <Textarea
+  placeholder="Add notes for the assignee..."
+  value={field.value ?? ""} 
+  onChange={field.onChange}
+/>
               </FormControl>
               <FormMessage />
             </FormItem>

@@ -67,6 +67,7 @@ export default function Units() {
     }
   };
 
+
   const handleUpdateUnit = async (data: UnitFormData) => {
     if (!editingUnit) return;
     try {
@@ -105,6 +106,7 @@ export default function Units() {
     occupied: filteredUnits.filter((u) => u.status === 'occupied').length,
     vacant: filteredUnits.filter((u) => u.status === 'vacant').length,
     maintenance: filteredUnits.filter((u) => u.status === 'maintenance').length,
+    reserved:filteredUnits.filter((u)=> u.status === 'reserved').length
   };
 
   return (

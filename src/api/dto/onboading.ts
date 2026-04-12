@@ -48,10 +48,10 @@ export type CompleteOnboardingPayload =
 
       user: BaseUser;
 
-      employee: {
-        role: "MANAGER" | "CARETAKER" | "ACCOUNTANT";
-        propertyId?: number;
-      };
+    employee?: {
+  role: "MANAGER" | "CARETAKER" | "ACCOUNTANT";
+  propertyIds?: number[]; // ✅ NEW
+};
     })
 
   | (BasePayload & {

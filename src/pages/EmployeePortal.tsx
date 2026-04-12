@@ -33,38 +33,44 @@ import {
 } from 'lucide-react';
 import { useMaintenance } from '@/hooks/useMaintenance';
 import { useUnits } from '@/hooks/useProperties';
-import { useBilling } from '@/hooks/useBilling';
+import { useMpesaPayment } from '@/hooks/useBilling';
 import { useToast } from '@/hooks/use-toast';
 import { MaintenanceCard } from '@/components/maintenance/MaintenanceCard';
 import { WaterReadingForm } from '@/components/billing/WaterReadingForm';
 import { useAuth } from '@/contexts/AuthContext';
+import { useQuery } from '@tanstack/react-query';
+import { useEmployeeProfile } from '@/hooks/use.employees.hook';
+import { useWaterData } from '@/hooks/useWaterData';
 
-// Mock current employee data
-const MOCK_EMPLOYEE = {
-  id: 'emp-1',
-  name: 'James Kamau',
-  email: 'james.kamau@property.com',
-  role: 'Maintenance Technician',
-  assignedProperties: ['1', '2'],
-};
+
 
 export default function EmployeePortal() {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const { requests, updateStatus, addNote } = useMaintenance();
   const { units } = useUnits();
-  const { createWaterInvoice } = useBilling();
-
+  const { mutateAsync: payWithMpesa, isPending: mpesaLoading } = useMpesaPayment();
+  const { data: employee, isLoading: profileLoading } = useQuery(
+  useEmployeeProfile()
+);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showWaterReadingForm, setShowWaterReadingForm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const { addReading, canAddReading } = useWaterData();
   const { user } = useAuth();
+
+  const {
+  requests,
+  isLoading: maintenanceLoading,
+  updateStatus,
+  addNote,
+  fetchRequests,
+} = useMaintenance();
 
   // Filter requests assigned to this employee
  const assignedRequests = requests.filter(
-  (req) => req.assignedTo === user?.id
+  (req) => String(req.assignedTo) === String(user?.id)
 );
 
   const filteredRequests = assignedRequests.filter((req) => {
@@ -91,6 +97,8 @@ export default function EmployeePortal() {
 
     await addNote(requestId, 'Work started by technician');
 
+    await fetchRequests();
+
     toast({
       title: 'Task Started',
       description: 'You have started working on this task.',
@@ -113,6 +121,8 @@ export default function EmployeePortal() {
 
     await addNote(requestId, 'Task completed by technician');
 
+    await fetchRequests();
+
     toast({
       title: 'Task Completed',
       description: 'The maintenance task has been marked as completed.',
@@ -129,29 +139,36 @@ export default function EmployeePortal() {
 };
 
   const handleWaterReading = async (data: any) => {
-    setIsLoading(true);
-    try {
-      const unit = units.find((u) => u.id === data.unitId);
-      if (unit) {
-        createWaterInvoice(
-          data,
-          'tenant-1',
-          'Tenant Name',
-          'Property Name',
-          unit.unitNumber
-        );
-        toast({
-          title: 'Water Reading Recorded',
-          description: 'Invoice has been generated for the tenant.',
-        });
-        setShowWaterReadingForm(false);
-      }
-    } catch {
-      toast({ title: 'Error', variant: 'destructive' });
-    } finally {
-      setIsLoading(false);
+  setIsLoading(true);
+
+  try {
+    const response = await addReading(data); // ✅ CALL BACKEND
+
+    if (!response) {
+      throw new Error("Failed");
     }
-  };
+
+    toast({
+      title: 'Water Reading Recorded',
+      description: 'Reading saved successfully.',
+    });
+
+    setShowWaterReadingForm(false);
+
+  } catch (error) {
+    toast({
+      title: 'Error',
+      description: 'Failed to record water reading',
+      variant: 'destructive',
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+ if (profileLoading || maintenanceLoading) {
+  return <div className="p-6">Loading data...</div>;
+}
 
   return (
     <DashboardLayout
@@ -166,13 +183,17 @@ export default function EmployeePortal() {
               <User className="h-8 w-8 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">{MOCK_EMPLOYEE.name}</h1>
-              <p className="text-muted-foreground">{MOCK_EMPLOYEE.role}</p>
+              <h1 className="text-2xl font-bold">
+  {employee?.name || "Loading..."}
+</h1>
+              <p className="text-muted-foreground">
+  {employee?.role || "Employee"}
+</p>
             </div>
           </div>
           <Badge variant="outline" className="text-sm">
-            {MOCK_EMPLOYEE.assignedProperties.length} Properties Assigned
-          </Badge>
+  {employee?.propertyIds?.length || 0} Properties Assigned
+</Badge>
         </div>
 
         {/* Quick Stats */}
@@ -418,9 +439,9 @@ export default function EmployeePortal() {
                     <div className="flex items-center justify-between mb-3">
                       <div>
                         <p className="font-semibold">Unit {unit.unitNumber}</p>
-                        <p className="text-sm text-muted-foreground">Meter: {unit.meterId}</p>
+                        <p className="text-sm text-muted-foreground">Meter: {unit.meterName}</p>
                       </div>
-                      <Droplets className="h-5 w-5 text-info" />
+                      <Droplets className="h-5 w-5 text-info"/>
                     </div>
                     <Button
                       variant="outline"

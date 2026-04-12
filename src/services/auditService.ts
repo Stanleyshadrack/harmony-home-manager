@@ -5,7 +5,7 @@ export type AuditAction =
   | 'create_property' | 'update_property' | 'delete_property'
   | 'create_unit' | 'update_unit' | 'delete_unit'
   | 'create_tenant' | 'update_tenant' | 'delete_tenant'
-  | 'create_invoice' | 'update_invoice' | 'delete_invoice'
+  | 'create_invoice' | 'update_invoice' | 'delete_invoice' | 'cancel_invoice'
   | 'record_payment' | 'update_payment' | 'delete_payment'
   | 'create_maintenance' | 'update_maintenance' | 'assign_maintenance' | 'complete_maintenance'
   | 'send_message' | 'send_notification'
@@ -47,6 +47,7 @@ const actionSeverity: Record<AuditAction, AuditSeverity> = {
   create_invoice: 'info',
   update_invoice: 'info',
   delete_invoice: 'warning',
+  cancel_invoice: 'warning',
   record_payment: 'info',
   update_payment: 'warning',
   delete_payment: 'critical',

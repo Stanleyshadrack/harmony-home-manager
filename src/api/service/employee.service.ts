@@ -2,18 +2,77 @@ import { Employee } from "@/hooks/useEmployees";
 import { API_PATHS } from "../constants/constants";
 import { apiRequest } from "../https";
 
+/* =========================
+   TYPES
+========================= */
 interface EmployeeApiResponse {
   id: number;
   userId: number;
+
+  firstName: string;
+  lastName: string;
+  fullName: string;
+
   email: string;
   status: string;
+
   landlordId: number | null;
   landlordName: string | null;
-  assignedPropertyId: number | null;
-  assignedPropertyName: string | null;
+
+  propertyIds: number[];
+  propertyNames: string[];
+
   phone: string;
 }
 
+/* =========================
+   MAPPER (REUSABLE 🔥)
+========================= */
+const mapEmployee = (emp: EmployeeApiResponse): Employee => ({
+  id: emp.id,
+  email: emp.email,
+
+  firstName: emp.firstName,
+  lastName: emp.lastName,
+
+  name:
+    emp.fullName ||
+    `${emp.firstName ?? ""} ${emp.lastName ?? ""}`.trim() ||
+    "Unnamed Employee",
+
+  phone: emp.phone ?? undefined,
+
+  propertyIds: emp.propertyIds?.map(String) ?? [],
+  propertyNames: emp.propertyNames ?? [],
+
+  status:
+    emp.status?.toLowerCase() === "active"
+      ? "active"
+      : emp.status?.toLowerCase() === "pending"
+      ? "pending"
+      : "inactive",
+
+  role: "employee",
+
+  hiredAt: new Date().toISOString(),
+  landlordId: emp.landlordId ? String(emp.landlordId) : "",
+});
+
+/* =========================
+   GET PROFILE
+========================= */
+export const getEmployeeProfile = async (): Promise<Employee> => {
+  const emp = await apiRequest<null, EmployeeApiResponse>({
+    path: API_PATHS.EMPLOYEE_PROFILE,
+    method: "GET",
+  });
+
+  return mapEmployee(emp);
+};
+
+/* =========================
+   GET ALL
+========================= */
 export const getAllEmployees = async (): Promise<{
   employees: Employee[];
   totalActiveEmployees: number;
@@ -26,53 +85,85 @@ export const getAllEmployees = async (): Promise<{
     method: "GET",
   });
 
-  const employees: Employee[] = resp.map((emp) => ({
-    id: String(emp.id),
-    email: emp.email,
-    firstName: "",
-    lastName: "",
-    phone: emp.phone ?? undefined,
-    assignedPropertyId: emp.assignedPropertyId
-      ? String(emp.assignedPropertyId)
-      : undefined,
-    assignedPropertyName: emp.assignedPropertyName ?? undefined,
-    status:
-      emp.status.toLowerCase() === "active"
-        ? "active"
-        : emp.status.toLowerCase() === "pending"
-        ? "pending"
-        : "inactive",
-    role: "employee",
-    hiredAt: new Date().toISOString(), 
-    landlordId: emp.landlordId ? String(emp.landlordId) : "",
-  }));
-
-  const activeEmployees = employees.filter(
-    (emp) => emp.status === "active",
-  ).length;
-
-  const pendingEmployees = employees.filter(
-    (emp) => emp.status === "pending",
-  ).length;
+  const employees = resp.map(mapEmployee);
 
   const totalEmployees = employees.length;
-  const pendingregistration = employees.filter(
-    (emp) => emp.status === "pending",
-  );
 
-  console.log(
-    "Employee response--->",
-    employees,
-    activeEmployees,
-    totalEmployees,
-    pendingEmployees,
+  const totalActiveEmployees = employees.filter(
+    (e) => e.status === "active"
+  ).length;
+
+  const totalPendingEmployees = employees.filter(
+    (e) => e.status === "pending"
+  ).length;
+
+  const pendingRegistration = employees.filter(
+    (e) => e.status === "pending"
   );
 
   return {
     employees,
-    totalActiveEmployees: activeEmployees,
     totalEmployees,
-    totalPendingEmployees: pendingEmployees,
-    pendingRegistration: pendingregistration,
+    totalActiveEmployees,
+    totalPendingEmployees,
+    pendingRegistration,
   };
+};
+
+/* =========================
+   UPDATE EMPLOYEE
+========================= */
+export const updateEmployee = async (
+  id: number,
+  payload: any
+) => {
+  return apiRequest({
+    path: API_PATHS.UPDATE_EMPLOYEE(id),
+    method: "PUT",
+    body: payload,
+  });
+};
+
+/* =========================
+   DELETE EMPLOYEE
+========================= */
+export const deleteEmployee = async (id: number) => {
+  return apiRequest({
+    path: API_PATHS.DELETE_EMPLOYEE(id),
+    method: "DELETE",
+  });
+};
+
+/* =========================
+   ASSIGN PROPERTIES
+========================= */
+export const assignEmployeeProperties = async (
+  id: number,
+  propertyIds: number[]
+) => {
+  return apiRequest({
+    path: API_PATHS.ASSIGN_EMPLOYEE_PROPERTIES(id),
+    method: "PATCH",
+    body: propertyIds,
+  });
+};
+
+/* =========================
+   ACTIVATE
+========================= */
+export const activateEmployee = async (id: number) => {
+  return apiRequest({
+    path: API_PATHS.ACTIVATE_EMPLOYEE(id),
+    method: "PATCH",
+  });
+};
+
+/* =========================
+   DEACTIVATE
+========================= */
+export const deactivateEmployee = async (id: number) => {
+  return apiRequest({
+    path: API_PATHS.DEACTIVATE_EMPLOYEE(id),
+    method: "PATCH",
+  });
 };

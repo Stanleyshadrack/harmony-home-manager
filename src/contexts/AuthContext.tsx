@@ -50,7 +50,20 @@ interface AuthContextType {
 ========================= */
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const normalizeRole = (role?: string): UserRole => {
+  const r = role?.toLowerCase();
 
+  switch (r) {
+    case "super_admin":
+    case "landlord":
+    case "employee":
+    case "tenant":
+      return r;
+    default:
+      console.error("Unsupported role:", role);
+      return "tenant";
+  }
+};
 /* =========================
    Provider
 ========================= */
@@ -82,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userFromToken: UserWithRole = {
         id: String(decoded.userId),
         email: decoded.sub,
-        role: decoded.role.toLowerCase() as UserRole,
+        role: normalizeRole(decoded.role),
         isApproved: true,
       };
 
@@ -136,7 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const newUser: UserWithRole = {
         id: String(decoded.userId),
         email: decoded.sub,
-        role: decoded.role.toLowerCase() as UserRole,
+        role: normalizeRole(decoded.role),
         isApproved: true,
       };
 

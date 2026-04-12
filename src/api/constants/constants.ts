@@ -17,6 +17,36 @@ export const API_PATHS = {
   MOVE_OUT_TENANT: (id: number) =>
     `/api/tenants/${id}/move-out`,
 
+  /* ===============================
+   💰 BILLING (Invoices & Payments)
+=============================== */
+
+  BASE: "/api/billing",
+
+  // ---------- INVOICES ----------
+  CREATE_INVOICE: "/api/billing/invoice",
+  INVOICE_BY_ID: (id: number) => `/api/billing/invoice/${id}`,
+  MY_INVOICES: "/api/billing/invoice/my",
+  CREATE_WATER_INVOICE: "/api/billing/invoice/water",
+
+    // UPDATE INVOICE
+  UPDATE_INVOICE: (id: number) =>
+    `/api/billing/invoice/${id}`,
+
+  // CANCEL INVOICE
+  CANCEL_INVOICE: (id: number) =>
+    `/api/billing/invoice/${id}/cancel`,
+
+  // ---------- PAYMENTS ----------
+  RECORD_PAYMENT: "/api/billing/payment",
+  PAYMENT_STATUS: (checkoutId: string) =>
+    `/api/billing/payment/status/${checkoutId}`,
+
+  // ---------- MPESA ----------
+  MPESA_PAY: "/api/billing/pay/mpesa",
+  MPESA_CALLBACK: "/api/mpesa/callback",
+
+
 
 
  // ---------- Landlords ----------
@@ -33,17 +63,33 @@ APPROVE_LANDLORD: (landlordId: number) =>
 REJECT_LANDLORD: (landlordId: number) =>
   `/api/landlords/${landlordId}/reject`,
 
-// ---------- Employees (Landlord) ----------
-LANDLORD_EMPLOYEES: "/api/landlords/employees",
+// ---------- Employees ----------
 
-APPROVE_LANDLORD_EMPLOYEE: (employeeId: number) =>
-  `/api/landlords/employees/${employeeId}/approve`,
+CREATE_EMPLOYEE: "/api/employees",
 
-REJECT_LANDLORD_EMPLOYEE: (employeeId: number) =>
-  `/api/landlords/employees/${employeeId}/reject`,
+UPDATE_EMPLOYEE: (id: number) =>
+  `/api/employees/${id}`,
 
-ASSIGN_EMPLOYEE_TO_PROPERTY: (employeeId: number, propertyId: number) =>
-  `/api/landlords/employees/${employeeId}/assign-property/${propertyId}`,
+DELETE_EMPLOYEE: (id: number) =>
+  `/api/employees/${id}`,
+
+// ✅ Assign multiple properties
+ASSIGN_EMPLOYEE_PROPERTIES: (id: number) =>
+  `/api/employees/${id}/properties`,
+
+// ✅ Activate / Deactivate
+ACTIVATE_EMPLOYEE: (id: number) =>
+  `/api/employees/${id}/activate`,
+
+DEACTIVATE_EMPLOYEE: (id: number) =>
+  `/api/employees/${id}/deactivate`,
+
+// ✅ Profile
+EMPLOYEE_PROFILE: "/api/employees/me",
+
+EMPLOYEES: "/api/employees",
+EMPLOYEE_BY_ID: (id: number) => `/api/employees/${id}`,
+
 
 
 
@@ -91,6 +137,9 @@ UNITS_BY_PROPERTY: (propertyId: number | string) =>
   `/api/units/property/${propertyId}`,
 
 TENANT_VACANT_UNITS: "/api/units/vacant/tenant",
+
+EMPLOYEE_UNITS: "/api/tenants/employee/units",
+LANDLORD_UNITS: "/api/tenants/landlord/units",
 
       /* =========================
      📄 Fetch ALL units ✅
@@ -220,7 +269,6 @@ WATER_STATS: "/api/water-readings/stats",
 WATER_MONTHLY_STATS: "/api/water-readings/monthly",
 
 // -------------------- Employees -----------------
-EMPLOYEES: "/api/employees",
-EMPLOYEE_BY_ID: (id: number) => `/api/employees/${id}`,
+
 
 } as const;

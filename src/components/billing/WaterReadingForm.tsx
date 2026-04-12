@@ -81,48 +81,48 @@ export function WaterReadingForm({ onSubmit, onCancel, isLoading }: WaterReading
   const estimatedBill = consumption * ratePerUnit
 
 
-
-
-const handleUnitChange = async (unitId: number) => {
-
+const handleUnitChange = (unitId: number) => {
   const unit = units.find((u) => Number(u.id) === unitId)
-
   if (!unit) return
 
-  // Autofill meter id
+  // Autofill meter
   form.setValue("meterId", unit.meterId || "")
-setMeterName(unit.meterName || "")
-
+  setMeterName(unit.meterName || "")
 
   console.log("Selected Unit:", unit)
-  // 1️⃣ First use meter last reading
+
+  // ✅ ONLY USE UNIT DATA (NO API)
   if (unit.lastReading !== undefined && unit.lastReading !== null) {
     form.setValue("previousReading", unit.lastReading)
-    
-    return
-
-     
-  }
-
-  const lastReading = await getLastReadingForUnit(unitId)
-
-  // ✅ Use meter data directly
-if (unit.lastReading !== undefined && unit.lastReading !== null) {
-  form.setValue("previousReading", unit.lastReading)
-  return
-}
-
-// fallback
-form.setValue("previousReading", 0)
-  console.log("Last Reading:", lastReading)
-
-  if (lastReading) {
-    form.setValue("previousReading", lastReading.currentReading)
-  setLastReadingDate(lastReading.readingDate)
+    setLastReadingDate(unit.lastReadingDate || null)
   } else {
     form.setValue("previousReading", 0)
+    setLastReadingDate(null)
   }
 }
+
+// const handleUnitChange = async (unitId: number) => {
+
+//   const unit = units.find((u) => Number(u.id) === unitId)
+
+//   if (!unit) return
+
+//   // Autofill meter id
+//   form.setValue("meterId", unit.meterId || "")
+// setMeterName(unit.meterName || "")
+
+
+//   console.log("Selected Unit:", unit)
+//   // 1️⃣ First use meter last reading
+//   if (unit.lastReading !== undefined && unit.lastReading !== null) {
+//     form.setValue("previousReading", unit.lastReading)
+    
+//     return
+
+     
+//   }
+
+
 
 
 
@@ -202,9 +202,11 @@ form.setValue("previousReading", 0)
 
               </FormControl>
 
-              <FormDescription>
-                Auto-filled from the selected unit
-              </FormDescription>
+             <FormDescription>
+  {lastReadingDate
+    ? `Last reading on ${new Date(lastReadingDate).toLocaleDateString()}`
+    : "No previous reading — starting fresh"}
+</FormDescription>
 
               <FormMessage />
             </FormItem>

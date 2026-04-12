@@ -7,6 +7,7 @@ import {
   upgradeMySubscription,
   renewSubscriptionAdmin,
 } from "@/api/service/subscription.service";
+import { useAuth } from "@/contexts/AuthContext";
 
 export type SubscriptionPlan = "BASIC" | "PREMIUM" | "ENTERPRISE";
 export type LandlordStatus = "active" | "suspended" | "pending";
@@ -58,23 +59,40 @@ const getDaysUntilExpiration = (date: string) => {
 };
 
 export function useLandlords() {
+ const { user } = useAuth();
+
   const [landlords, setLandlords] = useState<LandlordTypes[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
+useEffect(() => {
     const loadLandlords = async () => {
       try {
         setIsLoading(true);
-        const data = await fetchAllLandlords();
-        const mapped = data.map(mapLandlordDto);
-        setLandlords(mapped);
+
+        // 🔥 ROLE AWARE LOGIC
+        if (user?.role === "super_admin") {
+          const data = await fetchAllLandlords();
+          const mapped = data.map(mapLandlordDto);
+          setLandlords(mapped);
+        } else if (user?.role === "landlord") {
+          // Optional: fetch only self (if endpoint exists)
+          setLandlords([]); // or fetchMyLandlord()
+        } else {
+          // EMPLOYEE / TENANT → no access
+          setLandlords([]);
+        }
+
+      } catch (error) {
+        console.error("Failed to load landlords", error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadLandlords();
-  }, []);
+    if (user) {
+      loadLandlords();
+    }
+  }, [user]);
 
   const addLandlord = useCallback(
     async (data: { userId: number; companyName: string; phone: string }) => {
@@ -187,11 +205,12 @@ const updateSubscription = useCallback(
   }, [landlords]);
 
   const getLandlordById = useCallback(
-  (id: number) => {
-    return landlords.find((l) => l.id === id);
+  (id: string | number): LandlordTypes | undefined => {
+    return landlords.find((l) => String(l.id) === String(id));
   },
   [landlords]
 );
+ 
 
   const getExpiringSubscriptions = useCallback(
     (withinDays: number = 30) => {

@@ -28,7 +28,9 @@ const mapApiProperty = (p: any): Property => ({
   occupiedUnits: p.occupiedUnits ?? 0,
   amenities: p.amenities ?? [],
   photos: [],
-  landlordId: String(p.landlordId ?? ''),
+ landlordIds: Array.isArray(p.landlordIds)
+  ? p.landlordIds.map((id: any) => String(id))
+  : [],
   createdAt: p.createdAt,
   updatedAt: p.updatedAt,
 });
@@ -90,7 +92,7 @@ export function useProperties() {
      UPDATE PROPERTY
   ========================= */
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: PropertyFormData }) =>
+    mutationFn: ({ id, data }: { id: number; data: PropertyFormData }) =>
       PropertyApi.update(Number(id), data),
 
     onSuccess: () => {
@@ -197,7 +199,7 @@ export function useProperties() {
     /* CRUD */
     addProperty: createMutation.mutateAsync,
 
-    updateProperty: (id: string, data: PropertyFormData) =>
+    updateProperty: (id: number, data: PropertyFormData) =>
       updateMutation.mutateAsync({ id, data }),
 
     deleteProperty: deleteMutation.mutateAsync,
@@ -236,6 +238,9 @@ export function mapUnitFromApi(api: PropertyUnitApiResponse): Unit {
     meterId: api.meterId ?? "",
     meterName: api.meterName ?? "",
 
+ lastReading: api.lastReading ?? 0,
+lastReadingDate: api.lastReadingDate! ?? null,
+
     photos: [],
     currentTenantId: undefined,
 
@@ -270,26 +275,52 @@ useEffect(() => {
     try {
       let res;
 
-      // ✅ TENANT (still role-aware)
-     if (apartmentId) {
-  // ✅ ALWAYS filter by apartment first
+      const role = user.role?.toUpperCase(); // ✅ normalize
 
-  if (user.role === 'tenant') {
-    // 🔥 Tenant → vacant + apartment
-    res = await PropertyUnitsApi.fetchTenantVacantUnits();
-  } else {
-    // Admin / landlord → all units in apartment
-    res = await PropertyUnitsApi.fetchAvailableByProperty(apartmentId);
-  }
+      if (apartmentId) {
+        switch (role) {
+          case "TENANT":
+            res = await PropertyUnitsApi.fetchTenantVacantUnits();
+            break;
 
-} else {
-  // fallback
-  res = await PropertyUnitsApi.fetchAll();
-}
+          case "EMPLOYEE":
+            // 🔥 employee should only see assigned property units
+            res = await PropertyUnitsApi.fetchByEmployeeProperties();
+            break;
+
+         case "LANDLORD":
+  res = await PropertyUnitsApi.fetchLandlordUnits();
+  break;
+
+          case "SUPER_ADMIN":
+            res = await PropertyUnitsApi.fetchAvailableByProperty(apartmentId);
+            break;
+
+          default:
+            res = [];
+        }
+      } else {
+        switch (role) {
+          case "SUPER_ADMIN":
+            res = await PropertyUnitsApi.fetchAll();
+            break;
+
+          case "LANDLORD":
+            res = await PropertyUnitsApi.fetchLandlordUnits();
+            break;
+
+          case "EMPLOYEE":
+            res = await PropertyUnitsApi.fetchByEmployeeProperties();
+            break;
+
+          default:
+            res = [];
+        }
+      }
 
       setUnits(res.map(mapUnitFromApi));
     } catch (err) {
-      console.error('Failed to fetch units', err);
+      console.error("Failed to fetch units", err);
       setUnits([]);
     } finally {
       setIsLoading(false);
@@ -297,7 +328,7 @@ useEffect(() => {
   };
 
   fetch();
-}, [user, apartmentId]); // ✅ IMPORTANT
+}, [user, apartmentId]);
 
   /* =========================
      ➕ ADD UNIT

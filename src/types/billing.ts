@@ -34,11 +34,15 @@ export interface Invoice {
   tenantId: number;
   tenantName: string;
 
+  waterReading?: WaterReadingResponse;
+
+  email: string;
+  propertyName:string;
+
+  issuedDate:string;
+
   unitId: number;
   unitNumber: string;
-
-  propertyId: number;
-  propertyName: string;
 
   type: InvoiceType;
 
@@ -51,39 +55,28 @@ export interface Invoice {
   status: InvoiceStatus;
 
   dueDate: string;
-  issuedDate: string;
-  paidDate?: string;
 
-  waterReading?: WaterReadingResponse;
+    paidDate?: string;
 
-  createdAt: string;
-  updatedAt: string;
+  payments?: Payment[];
 }
-
 /* =====================================
    Payment
 ===================================== */
 
 export interface Payment {
+  invoiceId: string;
   id: number;
-
-  invoiceId: number;
-  invoiceNumber: string;
-
-  tenantId: number;
-  tenantName: string;
 
   amount: number;
 
-  paymentMethod: PaymentMethod;
+  method: PaymentMethod;
 
   transactionRef: string;
 
   paymentDate: string;
 
   notes?: string;
-
-  createdAt: string;
 }
 
 /* =====================================
@@ -91,8 +84,8 @@ export interface Payment {
 ===================================== */
 
 export interface InvoiceFormData {
-  tenantId: number;
-  unitId: number;
+  tenantId: string;
+  unitId: string;
 
   type: InvoiceType;
 
@@ -119,15 +112,12 @@ export interface WaterReadingFormData {
 }
 
 export interface PaymentFormData {
-  invoiceId: number;
-
+  invoiceId: string; 
   amount: number;
-
   paymentMethod: PaymentMethod;
 
-  transactionRef: string;
-
-  paymentDate: string;
+  phoneNumber?: string; 
+  reference?: string;  
 
   notes?: string;
 }
@@ -149,6 +139,25 @@ export interface CreateWaterReadingRequest {
   readingDate: string;
 
   billingPeriod: string;
+}
+
+export interface PaymentResponse {
+  id?: number;
+  invoiceId?: number;
+
+  amount?: number;
+
+  method?: string;
+
+  status?: string; // pending | success | failed
+
+  transactionRef?: string;
+
+  checkoutRequestId?: string;
+
+  paymentDate?: string;
+
+  message?: string;
 }
 
 export interface WaterReadingResponse {

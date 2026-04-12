@@ -5,6 +5,7 @@ type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 interface ApiRequestOptions<T> {
   path: string;
   method?: HttpMethod;
+  params?: Record<string, any>;
   body?: T;
   retry?: boolean;
   timeout?: number;
@@ -17,6 +18,7 @@ export async function apiRequest<TReq, TRes>({
   path,
   method = "POST",
   body,
+  params,
   retry = true,
   timeout = 15000,
 }: ApiRequestOptions<TReq>): Promise<TRes> {
@@ -28,7 +30,19 @@ export async function apiRequest<TReq, TRes>({
   let res: Response;
 
   try {
-    res = await fetch(`${BASE_URL}${path}`, {
+
+    const query = params
+  ? "?" +
+    new URLSearchParams(
+      Object.entries(params).reduce((acc, [k, v]) => {
+        if (v !== undefined && v !== null) acc[k] = String(v);
+        return acc;
+      }, {} as Record<string, string>)
+    )
+  : "";
+
+
+    res = await fetch(`${BASE_URL}${path}${query}`, {
       method,
       signal: controller.signal,
       headers: {

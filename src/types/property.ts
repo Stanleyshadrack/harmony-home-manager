@@ -13,7 +13,7 @@ export interface Property {
   occupiedUnits: number;
   amenities: string[];
   photos: string[];
-  landlordId: string;
+ landlordIds: string[]; 
   createdAt: string;
   updatedAt: string;
 }

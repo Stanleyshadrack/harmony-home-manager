@@ -84,6 +84,7 @@ const typeLabels: Record<Invoice['type'], string> = {
   other: 'Other',
 };
 
+
 export function InvoiceDetail({ 
   invoice, 
   payments = [], 
@@ -96,6 +97,7 @@ export function InvoiceDetail({
   const { t } = useTranslation();
   const { toast } = useToast();
   const [cancelReason, setCancelReason] = useState('');
+  
 
   if (!invoice) return null;
 
@@ -136,7 +138,9 @@ export function InvoiceDetail({
     });
   };
 
-  const invoicePayments = payments.filter(p => p.invoiceId === invoice.id);
+ const invoicePayments = payments.filter(
+  p => Number(p.invoiceId) === invoice.id
+);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -165,6 +169,7 @@ export function InvoiceDetail({
             <div className="p-4 bg-muted/50 rounded-lg">
               <p className="text-xs text-muted-foreground mb-1">Total Amount</p>
               <p className="text-lg font-bold">{formatCurrency(invoice.amount)}</p>
+              
             </div>
             <div className="p-4 bg-muted/50 rounded-lg">
               <p className="text-xs text-muted-foreground mb-1">Amount Paid</p>
@@ -198,8 +203,8 @@ export function InvoiceDetail({
                   <span className="text-sm font-medium">{invoice.tenantName}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Unit</span>
-                  <span className="text-sm font-medium">{invoice.unitNumber}</span>
+                  <span className="text-sm text-muted-foreground">Email</span>
+                  <span className="text-sm font-medium">{invoice.email}</span>
                 </div>
               </div>
             </div>
@@ -216,7 +221,7 @@ export function InvoiceDetail({
                   <span className="text-sm font-medium">{invoice.propertyName}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Unit Number</span>
+                  <span className="text-sm text-muted-foreground">Unit</span>
                   <span className="text-sm font-medium">{invoice.unitNumber}</span>
                 </div>
               </div>
@@ -253,53 +258,120 @@ export function InvoiceDetail({
             </div>
           </div>
 
-          {/* Water Reading Details */}
-          {invoice.waterReading && (
-            <>
-              <Separator />
-              <div className="space-y-4">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Droplets className="h-4 w-4" />
-                  Water Reading Details
-                </h3>
-                <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Meter ID</p>
-                      <p className="font-medium text-sm">{invoice.waterReading.meterId}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Previous Reading</p>
-                      <p className="font-medium text-sm">{invoice.waterReading.previousReading}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Current Reading</p>
-                      <p className="font-medium text-sm">{invoice.waterReading.currentReading}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Consumption</p>
-                      <p className="font-medium text-sm">{invoice.waterReading.consumption} units</p>
-                    </div>
-                  </div>
-                  <Separator className="my-3" />
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Rate per Unit</p>
-                      <p className="font-medium">{formatCurrency(invoice.waterReading.ratePerUnit)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Billing Period</p>
-                      <p className="font-medium">{invoice.waterReading.billingPeriod}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Reading Date</p>
-                      <p className="font-medium">{formatDate(invoice.waterReading.readingDate)}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
+   {/* Water Meter Details (ONLY for water invoices) */}
+{invoice.type === 'water' && invoice.waterReading && (
+  <>
+    <Separator />
+
+    <div className="space-y-4">
+      <h3 className="font-semibold flex items-center gap-2 text-blue-600">
+        <Droplets className="h-4 w-4" />
+        Water Meter Details
+      </h3>
+
+      <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-5 space-y-5">
+
+        {/* 🔥 MAIN GRID */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+
+          {/* Meter */}
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Meter</p>
+            <p className="font-medium text-sm">
+              {invoice.waterReading.meterId || '—'}
+            </p>
+          </div>
+
+          {/* Previous */}
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Previous</p>
+            <p className="font-medium text-sm">
+              {invoice.waterReading.previousReading}
+            </p>
+          </div>
+
+          {/* Current */}
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Current</p>
+            <p className="font-medium text-sm">
+              {invoice.waterReading.currentReading}
+            </p>
+          </div>
+
+          {/* Consumption */}
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Consumption</p>
+            <p className="font-semibold text-sm text-blue-700">
+              {invoice.waterReading.consumption} units
+            </p>
+          </div>
+
+          {/* Rate */}
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Rate</p>
+            <p className="font-medium text-sm">
+              {formatCurrency(invoice.waterReading.ratePerUnit)}
+            </p>
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* 🔥 EXTRA INFO */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+
+          {/* Total Cost */}
+          <div className="p-3 bg-primary/5 rounded-lg border">
+            <p className="text-xs text-muted-foreground">Water Cost</p>
+            <p className="font-bold text-primary text-lg">
+              {formatCurrency(invoice.waterReading.amount)}
+            </p>
+          </div>
+
+          {/* Billing Period */}
+          <div>
+            <p className="text-xs text-muted-foreground">Billing Period</p>
+            <p className="font-medium">
+              {invoice.waterReading.billingPeriod || '—'}
+            </p>
+          </div>
+
+          {/* Reading Date */}
+          <div>
+            <p className="text-xs text-muted-foreground">Reading Date</p>
+            <p className="font-medium">
+              {invoice.waterReading.readingDate
+                ? formatDate(invoice.waterReading.readingDate)
+                : '—'}
+            </p>
+          </div>
+        </div>
+
+        {/* 🔥 OPTIONAL: USAGE INDICATOR */}
+        <div className="pt-2">
+          <p className="text-xs text-muted-foreground mb-1">Usage Level</p>
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <div
+              className={`h-full ${
+                invoice.waterReading.consumption > 100
+                  ? 'bg-destructive'
+                  : invoice.waterReading.consumption > 50
+                  ? 'bg-warning'
+                  : 'bg-success'
+              }`}
+              style={{
+                width: `${Math.min(
+                  invoice.waterReading.consumption,
+                  150
+                )}%`,
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  </>
+)}
 
           {/* Payment History */}
           {invoicePayments.length > 0 && (
@@ -323,7 +395,7 @@ export function InvoiceDetail({
                         <div>
                           <p className="font-medium text-sm">{formatCurrency(payment.amount)}</p>
                           <p className="text-xs text-muted-foreground">
-                            {payment.paymentMethod.toUpperCase()} • {payment.transactionRef}
+                            {payment.method.toUpperCase()} • {payment.transactionRef}
                           </p>
                         </div>
                       </div>

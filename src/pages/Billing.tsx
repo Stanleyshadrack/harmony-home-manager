@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useUpdateInvoice, useCancelInvoice } from '@/hooks/useBilling';
 import { Input } from '@/components/ui/input';
 import {
   Dialog,
@@ -21,7 +22,11 @@ import {
 } from '@/components/ui/select';
 import { Plus, Search, Droplets, FileText, Filter, Zap, Download, CheckCircle, Mail, Loader2, Edit } from 'lucide-react';
 import { logAuditEvent } from '@/services/auditService';
-import { useBilling } from '@/hooks/useBilling';
+import {
+  useMyInvoices,
+  useCreateInvoice,
+  useRecordPayment,
+} from '@/hooks/useBilling';
 import { useAutoInvoice } from '@/hooks/useAutoInvoice';
 import { BillingStats } from '@/components/billing/BillingStats';
 import { InvoiceCard } from '@/components/billing/InvoiceCard';
@@ -34,24 +39,23 @@ import { useToast } from '@/hooks/use-toast';
 import { downloadPaymentReceiptPDF } from '@/utils/paymentReceiptPdf';
 import { sendPaymentReceiptEmail } from '@/services/emailService';
 import type { Invoice, InvoiceStatus, Payment } from '@/types/billing';
+import { createWaterInvoice } from '@/api/service/billing.service';
 
 export default function Billing() {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const {
-    invoices,
-    payments,
-    isLoading,
-    createInvoice,
-    createWaterInvoice,
-    recordPayment,
-    updateInvoice,
-    cancelInvoice,
-    getTotalRevenue,
-    getTotalOutstanding,
-  } = useBilling();
+ const { data: invoices = [], isLoading } = useMyInvoices();
+ const [selectedInvoice, setSelectedInvoice] = useState<Invoice | undefined>();
+ const { mutateAsync: updateInvoiceMutate } = useUpdateInvoice();
+const { mutateAsync: cancelInvoiceMutate } = useCancelInvoice();
+ const payments = useMemo(
+  () => invoices.flatMap(inv => inv.payments ?? []),
+  [invoices]
+);
+const { mutate: createInvoice } = useCreateInvoice();
+const { mutate: recordPayment } = useRecordPayment();
 
-  const { generateMonthlyRentInvoices, getTenantsWithoutInvoice } = useAutoInvoice();
+  const { generateMonthlyRentInvoices, getTenantsWithoutInvoice, generateInvoicesForTenant  } = useAutoInvoice();
   const tenantsWithoutInvoice = getTenantsWithoutInvoice();
 
   const [activeTab, setActiveTab] = useState('invoices');
@@ -61,84 +65,131 @@ export default function Billing() {
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [showWaterForm, setShowWaterForm] = useState(false);
   const [showReceiptDialog, setShowReceiptDialog] = useState(false);
-  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | undefined>();
+  
   const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [lastPayment, setLastPayment] = useState<{ payment: Payment; invoice: Invoice } | null>(null);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
 
-  const filteredInvoices = invoices.filter((invoice) => {
-    const matchesSearch =
-      invoice.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      invoice.tenantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      invoice.propertyName.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || invoice.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+ const filteredInvoices = invoices.filter((invoice) => {
+  const matchesSearch =
+    invoice.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    invoice.tenantName.toLowerCase().includes(searchQuery.toLowerCase());
 
-  const filteredPayments = payments.filter((payment) => {
-    return (
-      payment.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      payment.tenantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      payment.transactionRef.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  });
+  const matchesStatus =
+    statusFilter === 'all' || invoice.status === statusFilter;
 
-  const handleCreateInvoice = (data: any) => {
-    const invoice = createInvoice(data);
-    logAuditEvent(
-      'user1', 'Current User', 'landlord',
-      'create_invoice', 'Invoice',
-      `Created invoice ${invoice.invoiceNumber}`,
-      invoice.id
-    );
-    setShowInvoiceForm(false);
-    toast({
-      title: 'Invoice Created',
-      description: 'The invoice has been created successfully.',
+  return matchesSearch && matchesStatus;
+});
+
+ const filteredPayments = payments.filter((payment) => {
+  return (
+    payment.transactionRef?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+});
+
+  const handleCreateInvoice = async (data: any) => {
+  const invoice = await generateInvoicesForTenant(String(data.tenantId));
+
+  if (!invoice) return;
+
+  logAuditEvent(
+    'user1',
+    'Current User',
+    'landlord',
+    'create_invoice',
+    'Invoice',
+    `Created invoice ${invoice.invoiceNumber}`,
+    invoice.id.toString()
+  );
+
+  setShowInvoiceForm(false);
+
+  toast({
+    title: 'Invoice Created',
+    description: 'The invoice has been created successfully.',
+  });
+};
+
+ const handleUpdateInvoice = async (data: any) => {
+  if (!editingInvoice) return;
+
+  const current = editingInvoice;
+  setEditingInvoice(null);
+
+  try {
+    await updateInvoiceMutate({
+      id: current.id,
+      payload: data,
     });
-  };
 
-  const handleUpdateInvoice = (data: any) => {
-    if (!editingInvoice) return;
-    updateInvoice(editingInvoice.id, data);
     logAuditEvent(
-      'user1', 'Current User', 'landlord',
-      'update_invoice', 'Invoice',
-      `Updated invoice ${editingInvoice.invoiceNumber}: amount=${data.amount}, type=${data.type}`,
-      editingInvoice.id,
-      { previousAmount: editingInvoice.amount, newAmount: data.amount }
+      'user1',
+      'Current User',
+      'landlord',
+      'update_invoice',
+      'Invoice',
+      `Updated invoice ${current.invoiceNumber}`,
+      current.id.toString(),
+      {
+        previousAmount: current.amount,
+        newAmount: data.amount,
+      }
     );
-    setEditingInvoice(null);
+
     toast({
       title: 'Invoice Updated',
       description: 'The invoice has been updated successfully.',
     });
-  };
+  } catch (error: any) {
+    toast({
+      title: 'Update failed',
+      description: error.message || 'Something went wrong',
+      variant: 'destructive',
+    });
+  }
+};
 
-  const handleCancelInvoice = (invoice: Invoice, reason: string) => {
-    cancelInvoice(invoice.id, reason);
+ const handleCancelInvoice = async (
+  invoice: Invoice,
+  reason?: string
+) => {
+  setViewingInvoice(null);
+
+  try {
+    await cancelInvoiceMutate(invoice.id);
+
     logAuditEvent(
-      'user1', 'Current User', 'landlord',
-      'delete_invoice', 'Invoice',
+      'user1',
+      'Current User',
+      'landlord',
+      'cancel_invoice',
+      'Invoice',
       `Cancelled invoice ${invoice.invoiceNumber}. Reason: ${reason || 'No reason provided'}`,
-      invoice.id,
+      invoice.id.toString(),
       { cancellationReason: reason }
     );
-    setViewingInvoice(null);
+
     toast({
       title: 'Invoice Cancelled',
       description: `Invoice ${invoice.invoiceNumber} has been cancelled.`,
     });
-  };
+  } catch (error: any) {
+    toast({
+      title: 'Cancel failed',
+      description: error.message || 'Something went wrong',
+      variant: 'destructive',
+    });
+  }
+};
 
   const handleEditInvoice = (invoice: Invoice) => {
     setViewingInvoice(null);
     setEditingInvoice(invoice);
   };
 
-  const handleRecordPayment = (data: any) => {
-    const payment = recordPayment(data);
+  const handleRecordPayment = async (data: any) => {
+    const payment = await recordPayment(data);
     const invoice = selectedInvoice;
     setShowPaymentForm(false);
     setSelectedInvoice(undefined);
@@ -182,8 +233,8 @@ export default function Billing() {
         payment: lastPayment.payment,
         invoice: lastPayment.invoice,
         recipient: {
-          name: lastPayment.payment.tenantName,
-          email: `${lastPayment.payment.tenantName.toLowerCase().replace(' ', '.')}@email.com`,
+          name: lastPayment.invoice.tenantName,
+          email: `${lastPayment.invoice.tenantName.toLowerCase().replace(' ', '.')}@email.com`,
         },
         propertyName: lastPayment.invoice.propertyName,
         landlordName: 'Property Management Co.',
@@ -191,7 +242,7 @@ export default function Billing() {
       
       toast({
         title: 'Email Sent',
-        description: `Receipt emailed to ${lastPayment.payment.tenantName}.`,
+        description: `Receipt emailed to ${lastPayment.invoice.tenantName}.`,
       });
     } catch (error) {
       toast({
@@ -204,8 +255,8 @@ export default function Billing() {
     }
   };
 
-  const handleCreateWaterBill = (data: any) => {
-    createWaterInvoice(data, 't1', 'John Doe', 'Sunrise Apartments', 'A101');
+  const handleCreateWaterBill = async (data: any) => {
+    await createWaterInvoice(data);
     setShowWaterForm(false);
     toast({
       title: 'Water Bill Generated',
@@ -213,8 +264,8 @@ export default function Billing() {
     });
   };
 
-  const handleAutoGenerateInvoices = () => {
-    const { generated, skipped } = generateMonthlyRentInvoices();
+  const handleAutoGenerateInvoices = async () => {
+    const { generated, skipped } = await generateMonthlyRentInvoices();
     toast({
       title: 'Auto-Generate Complete',
       description: `Generated ${generated} invoice(s). Skipped ${skipped} (already billed or no active lease).`,
@@ -236,6 +287,14 @@ export default function Billing() {
     setShowPaymentForm(true);
   };
 
+  const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
+
+const totalOutstanding = invoices.reduce(
+  (sum, inv) => sum + inv.balance,
+  0
+);
+
+
   return (
     <DashboardLayout
       title={t('billing.title')}
@@ -247,10 +306,10 @@ export default function Billing() {
       <div className="space-y-6">
         {/* Stats */}
         <BillingStats
-          invoices={invoices}
-          totalRevenue={getTotalRevenue()}
-          totalOutstanding={getTotalOutstanding()}
-        />
+  invoices={invoices}
+  totalRevenue={totalRevenue}
+  totalOutstanding={totalOutstanding}
+/>
 
         {/* Actions Bar */}
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
@@ -273,11 +332,10 @@ export default function Billing() {
                 <SelectValue placeholder={t('common.filter')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">{t('common.all')}</SelectItem>
-                <SelectItem value="pending">{t('billing.pending')}</SelectItem>
-                <SelectItem value="paid">{t('billing.paid')}</SelectItem>
-                <SelectItem value="partial">{t('billing.partial')}</SelectItem>
-                <SelectItem value="overdue">{t('billing.overdue')}</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
+<SelectItem value="PAID">Paid</SelectItem>
+<SelectItem value="PARTIAL">Partial</SelectItem>
+<SelectItem value="OVERDUE">Overdue</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -401,10 +459,9 @@ export default function Billing() {
               isLoading={isLoading}
               isEditing
               initialData={{
-                tenantId: editingInvoice.tenantId,
-                unitId: editingInvoice.unitId,
+                tenantId: String(editingInvoice.tenantId), // ✅ FIX
+                unitId: String(editingInvoice.unitId), 
                 type: editingInvoice.type,
-                description: editingInvoice.description,
                 amount: editingInvoice.amount,
                 dueDate: editingInvoice.dueDate,
               }}

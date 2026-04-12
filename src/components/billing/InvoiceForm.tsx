@@ -21,6 +21,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { InvoiceFormData, InvoiceType } from '@/types/billing';
+import { useEffect } from 'react';
+import { useLeases, useTenants } from '@/hooks/useTenants';
+import { useAutoInvoice } from '@/hooks/useAutoInvoice';
 
 const invoiceSchema = z.object({
   tenantId: z.string().min(1, 'Please select a tenant'),
@@ -42,7 +45,7 @@ interface InvoiceFormProps {
   onSubmit: (data: InvoiceFormData) => void;
   onCancel: () => void;
   isLoading?: boolean;
-  initialData?: Partial<InvoiceFormData> & { tenantId?: string; unitId?: string };
+  initialData?: Partial<InvoiceFormData>;
   isEditing?: boolean;
 }
 
@@ -61,17 +64,20 @@ const mockUnits = [
 
 export function InvoiceForm({ onSubmit, onCancel, isLoading, initialData, isEditing }: InvoiceFormProps) {
   const { t } = useTranslation();
+  const { tenants } = useTenants();
+const { leases } = useLeases();
+const { generateInvoicesForTenant } = useAutoInvoice();
 
   const form = useForm<InvoiceFormData>({
     resolver: zodResolver(invoiceSchema),
-    defaultValues: {
-      tenantId: initialData?.tenantId || '',
-      unitId: initialData?.unitId || '',
-      type: initialData?.type || 'rent',
-      description: initialData?.description || '',
-      amount: initialData?.amount || 0,
-      dueDate: initialData?.dueDate || new Date().toISOString().split('T')[0],
-    },
+   defaultValues: {
+  tenantId: initialData?.tenantId ? String(initialData.tenantId) : '',
+  unitId: initialData?.unitId ? String(initialData.unitId) : '',
+  type: initialData?.type || 'rent',
+  description: initialData?.description || '',
+  amount: initialData?.amount || 0,
+  dueDate: initialData?.dueDate || new Date().toISOString().split('T')[0],
+},
   });
 
   const invoiceTypes: { value: InvoiceType; label: string }[] = [
@@ -82,9 +88,43 @@ export function InvoiceForm({ onSubmit, onCancel, isLoading, initialData, isEdit
     { value: 'other', label: 'Other' },
   ];
 
-  const handleSubmit = (data: InvoiceFormData) => {
-    onSubmit(data);
-  };
+const selectedTenant = tenants.find(t => String(t.id) === form.watch('tenantId'));
+
+useEffect(() => {
+  if (!selectedTenant) return;
+
+  // ✅ auto-set unit
+  form.setValue('unitId', String(selectedTenant.unitId));
+
+  // 🔥 auto-set rent amount if type = rent
+  const lease = leases.find(
+    l => l.tenantId === selectedTenant.id && l.status === 'active'
+  );
+
+  if (lease && form.getValues('type') === 'rent') {
+    form.setValue('amount', lease.monthlyRent);
+  }
+
+}, [selectedTenant, leases, form]);
+
+
+  const handleSubmit = async (data: InvoiceFormData) => {
+  if (data.type === 'rent') {
+    await generateInvoicesForTenant(data.tenantId);
+    return;
+  }
+
+  // fallback
+  onSubmit(data);
+};
+
+  const selectedType = form.watch('type');
+
+useEffect(() => {
+  if (selectedType === 'water') {
+    form.setValue('amount', 0); // water will come from backend
+  }
+}, [selectedType, form]);
 
   return (
     <Form {...form}>
@@ -95,18 +135,22 @@ export function InvoiceForm({ onSubmit, onCancel, isLoading, initialData, isEdit
           render={({ field }) => (
             <FormItem>
               <FormLabel>Tenant</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select
+  onValueChange={field.onChange}
+  value={field.value}
+  disabled={isEditing}
+>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select tenant" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {mockTenants.map((tenant) => (
-                    <SelectItem key={tenant.id} value={tenant.id}>
-                      {tenant.name}
-                    </SelectItem>
-                  ))}
+                  {tenants.map((tenant) => (
+  <SelectItem key={tenant.id} value={String(tenant.id)}>
+    {tenant.firstName} {tenant.lastName}
+  </SelectItem>
+))}
                 </SelectContent>
               </Select>
               <FormMessage />
@@ -127,12 +171,12 @@ export function InvoiceForm({ onSubmit, onCancel, isLoading, initialData, isEdit
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {mockUnits.map((unit) => (
-                    <SelectItem key={unit.id} value={unit.id}>
-                      {unit.number} - {unit.propertyName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
+  {form.watch('unitId') && (
+    <SelectItem key={form.watch('unitId')} value={form.watch('unitId')}>
+      {selectedTenant?.unitNumber || 'Auto-selected'}
+    </SelectItem>
+  )}
+</SelectContent>
               </Select>
               <FormMessage />
             </FormItem>

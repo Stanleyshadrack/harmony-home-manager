@@ -43,9 +43,8 @@ export default function EmployeeOnboarding() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const [property, setProperty] =
-    useState<InviteValidationResponse["property"] | null>(null);
+  const [apartments, setApartments] =
+  useState<InviteValidationResponse["apartments"] | null>(null);
 
   const {
     register,
@@ -73,7 +72,7 @@ export default function EmployeeOnboarding() {
         setValue("phone", res.phone || "");
 
         // Property assignment
-        setProperty(res.property || null);
+        setApartments(res.apartments || []);
 
         setLoading(false);
       })
@@ -100,10 +99,10 @@ export default function EmployeeOnboarding() {
     phone: data.phone,
   },
 
-  employee: {
-    role: data.role,
-    propertyId: property?.id,
-  },
+ employee: {
+  role: data.role,
+  propertyIds: apartments?.map((p) => p.id) || [],
+},
 
   termsAccepted: data.termsAccepted,
 };
@@ -123,16 +122,20 @@ export default function EmployeeOnboarding() {
   /* ========================= STATES ========================= */
 
   if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="animate-spin" />
-      </div>
-    );
-  }
+  return (
+    <div className="flex h-screen items-center justify-center bg-slate-900">
+      <Loader2 className="animate-spin text-white" />
+    </div>
+  );
+}
 
-  if (error) {
-    return <div className="text-center mt-10">{error}</div>;
-  }
+  if (loading) {
+  return (
+    <div className="flex h-screen items-center justify-center bg-slate-900">
+      <Loader2 className="animate-spin text-white" />
+    </div>
+  );
+}
 
   /* ========================= UI ========================= */
 
@@ -147,25 +150,66 @@ export default function EmployeeOnboarding() {
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
 
-            {/* PROPERTY */}
-            {property && (
-              <div className="border rounded-lg p-4 bg-muted/40">
-                <p className="text-sm text-muted-foreground">
-                  Assigned Property
-                </p>
-                <p className="font-medium">{property.name}</p>
+            {apartments && apartments.length > 0 && (
+            <div className="border rounded-lg p-4 bg-muted/40">
+              <p className="text-sm text-muted-foreground mb-3">
+                Assigned Properties
+              </p>
+
+              <div className="flex flex-wrap gap-2">
+                {apartments.map((p) => (
+                  <span
+                    key={p.id}
+                    className="px-3 py-1 text-xs rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                  >
+                    {p.name}
+                  </span>
+                ))}
               </div>
-            )}
+            </div>
+          )}
 
             {/* PERSONAL */}
-            <div className="space-y-3">
-              <div className="grid md:grid-cols-2 gap-4">
-                <Input placeholder="First Name" {...register("firstName")} />
-                <Input placeholder="Last Name" {...register("lastName")} />
-              </div>
+            
+           <div className="space-y-4">
 
-              <Input placeholder="Phone" {...register("phone")} />
-            </div>
+  {/* NAME ROW */}
+  <div className="grid md:grid-cols-2 gap-4">
+
+    <div className="space-y-1">
+      <label className="text-sm font-medium">
+        First Name
+      </label>
+      <Input
+        placeholder="Enter first name"
+        {...register("firstName")}
+      />
+    </div>
+
+    <div className="space-y-1">
+      <label className="text-sm font-medium">
+        Last Name
+      </label>
+      <Input
+        placeholder="Enter last name"
+        {...register("lastName")}
+      />
+    </div>
+
+  </div>
+
+  {/* PHONE */}
+  <div className="space-y-1">
+    <label className="text-sm font-medium">
+      Phone Number
+    </label>
+    <Input
+      placeholder="e.g. 0712345678"
+      {...register("phone")}
+    />
+  </div>
+
+</div>
 
             {/* ROLE */}
             <div className="space-y-2">
@@ -182,18 +226,22 @@ export default function EmployeeOnboarding() {
             </div>
 
             {/* TERMS */}
-            <div className="space-y-1">
-              <div className="flex gap-2 items-center">
-                <input type="checkbox" {...register("termsAccepted")} />
-                <span className="text-sm">Accept terms</span>
-              </div>
+            <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              
+              {...register("termsAccepted")}
+            />
+            <span className="text-sm text-muted-foreground">
+              I agree to the terms
+            </span>
+          </div>
 
-              {errors.termsAccepted && (
-                <p className="text-red-500 text-sm">
-                  You must accept terms
-                </p>
-              )}
-            </div>
+          {errors.termsAccepted && (
+            <p className="text-red-500 text-sm">
+              You must accept terms
+            </p>
+          )}
 
             {/* SUBMIT */}
             <Button type="submit" className="w-full">

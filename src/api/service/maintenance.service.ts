@@ -74,6 +74,7 @@ interface MaintenanceApiResponse {
   category: string;
   createdAt: string;
   updatedAt: string;
+  tenantName: string ;
 }
 
 /* =========================================================
@@ -85,10 +86,10 @@ const mapMaintenance = (req: any): MaintenanceRequest => {
     id: String(req.id),
     ticketNumber: req.ticketNumber ?? `MT-${req.id}`,
 
-    tenantId: req.tenant?.id ? String(req.tenant.id) : "",
-    tenantName: req.tenant
-  ? `${req.tenant.firstName ?? ""} ${req.tenant.lastName ?? ""}`.trim()
-  : "",
+    tenantId: req.tenantId ? String(req.tenantId) : "",
+
+    // ✅ FIXED HERE
+    tenantName: req.tenantName ?? "",
 
     unitId: req.unitId ? String(req.unitId) : "",
     unitNumber: req.unitNumber ?? "",
@@ -96,9 +97,9 @@ const mapMaintenance = (req: any): MaintenanceRequest => {
     propertyId: req.propertyId ? String(req.propertyId) : "",
     propertyName: req.propertyName ?? "",
 
-    category: req.category?.toLowerCase() as MaintenanceCategory,
-    priority: req.priority?.toLowerCase() as MaintenancePriority,
-    status: req.status?.toLowerCase() as MaintenanceStatus,
+    category: req.category?.toLowerCase(),
+    priority: req.priority?.toLowerCase(),
+    status: req.status?.toLowerCase(),
 
     title: req.title,
     description: req.description,
