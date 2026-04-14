@@ -38,7 +38,6 @@ export default function LandlordOnboarding({ token }: { token: string }) {
 
   const [selectedApartments, setSelectedApartments] = useState<number[]>([]);
   const [loadingInvite, setLoadingInvite] = useState(true);
-  const [inviteData, setInviteData] = useState<any>(null);
 
   const {
     register,
@@ -59,7 +58,6 @@ export default function LandlordOnboarding({ token }: { token: string }) {
 
     validateInvite(token)
       .then((res: any) => {
-        setInviteData(res);
         // Prefill user data
         if (res.firstName) setValue("firstName", res.firstName);
         if (res.lastName) setValue("lastName", res.lastName);
@@ -81,47 +79,44 @@ export default function LandlordOnboarding({ token }: { token: string }) {
   /* ========================= SUBMIT ========================= */
 
   const onSubmit = async (data: FormData) => {
-  try {
-    if (!token) {
-      toast.error("Invalid invite");
-      return;
+    try {
+      if (!token) {
+        toast.error("Invalid invite");
+        return;
+      }
+
+      const payload = {
+        token,
+
+        user: {
+          firstName: data.firstName,
+          lastName: data.lastName,
+          phone: data.phone,
+        },
+
+        landlord: {
+          companyName: data.companyName,
+        },
+
+        apartmentIds: selectedApartments,
+        termsAccepted: data.termsAccepted,
+      };
+
+      console.log("PAYLOAD", payload);
+
+      await apiRequest({
+        path: "/api/auth/onboarding",
+        method: "POST",
+        body: payload,
+      });
+
+      toast.success("Onboarding completed");
+      router.push("/check-email");
+
+    } catch (err: any) {
+      toast.error(err?.message || "Failed");
     }
-
-    const payload = {
-      token,
-      user: {
-        firstName: data.firstName,
-        lastName: data.lastName,
-        phone: data.phone,
-      },
-      landlord: {
-        companyName: data.companyName,
-      },
-      apartmentIds: selectedApartments,
-      termsAccepted: data.termsAccepted,
-    };
-
-    await apiRequest({
-      path: "/api/auth/onboarding",
-      method: "POST",
-      body: payload,
-    });
-
-    toast.success("Onboarding completed");
-
-    if (!inviteData?.email) {
-      toast.error("Missing email from invite");
-      return;
-    }
-
-    router.push(
-  `/awaiting-approval?email=${inviteData.email}&role=${inviteData.role}`
-);
-
-  } catch (err: any) {
-    toast.error(err?.message || "Failed");
-  }
-};
+  };
 
   /* ========================= UI ========================= */
 

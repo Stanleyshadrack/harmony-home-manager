@@ -24,9 +24,12 @@ export default function Onboarding() {
       return;
     }
 
+    console.log("🔑 TOKEN:", token);
 
     validateInvite(token)
       .then((res) => {
+        // 🔥 FULL LOG
+        console.log("📦 INVITE RESPONSE:", res);
 
         setInviteData(res);
         setRole(res.role);

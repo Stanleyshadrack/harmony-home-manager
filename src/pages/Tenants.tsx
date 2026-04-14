@@ -31,7 +31,6 @@ import {
 } from 'lucide-react';
 
 import { useTenants } from '@/hooks/useTenants';
-import { usePendingRegistrations } from '@/hooks/useRegistrations';
 import { useAuth } from '@/contexts/AuthContext';
 import { TenantCard } from '@/components/tenants/TenantCard';
 import { TenantDetail } from '@/components/tenants/TenantDetail';
@@ -39,17 +38,18 @@ import { TenantApprovals } from '@/components/tenants/TenantApprovals';
 import { Tenant } from '@/types/tenant';
 import { useToast } from '@/hooks/use-toast';
 import { InviteUserDialog } from '@/components/admin/InviteUserDialog';
+import { useApprovals } from '@/hooks/useApprovals';
 
 export default function Tenants() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { tenants, isLoading, updateTenant, deleteTenant } = useTenants();
-  const { registrations } = usePendingRegistrations();
+ const { approvals } = useApprovals();
   const { user } = useAuth();
 
-  const pendingTenantRegistrations = registrations.filter(
-    r => r.requestedRole === 'tenant' && r.status === 'pending'
-  );
+ const tenantApprovals = approvals.filter(
+  a => a.type === "TENANT" && a.status === "PENDING"
+);
 
   const isLandlordOrAdmin =
     user?.role === 'landlord' || user?.role === 'super_admin';
@@ -187,9 +187,9 @@ const filteredTenants = tenants.filter((tenant) => {
           {isLandlordOrAdmin && (
             <TabsTrigger value="approvals">
               Approvals
-              {pendingTenantRegistrations.length > 0 && (
+              {tenantApprovals.length > 0 && (
                 <span className="ml-2 h-5 w-5 rounded-full bg-destructive text-xs flex items-center justify-center">
-                  {pendingTenantRegistrations.length}
+                  {tenantApprovals.length}
                 </span>
               )}
             </TabsTrigger>
@@ -198,7 +198,7 @@ const filteredTenants = tenants.filter((tenant) => {
 
         <TabsContent value={activeTab} className="mt-6">
           {activeTab === 'approvals' ? (
-            <TenantApprovals />
+            <TenantApprovals approvals={tenantApprovals} />
           ) : isLoading ? (
             <div className="flex justify-center py-12">Loading…</div>
           ) : filteredTenants.length ? (

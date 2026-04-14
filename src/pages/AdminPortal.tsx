@@ -677,7 +677,7 @@ if (invoicesError) {
         <TableHeader>
           <TableRow>
             <TableHead>Type</TableHead>
-            <TableHead>Target</TableHead>
+            <TableHead>User</TableHead>
             <TableHead>Property</TableHead>
             <TableHead>Requested</TableHead>
             <TableHead className="text-right">Actions</TableHead>
@@ -695,11 +695,42 @@ if (invoicesError) {
                   </Badge>
                 </TableCell>
 
-                <TableCell>{approval.targetId}</TableCell>
-
                 <TableCell>
-                  {approval.propertyId ?? "—"}
-                </TableCell>
+  {approval.targetName ? (
+    <div className="flex flex-col">
+      <span className="font-medium">
+        {approval.targetName}
+      </span>
+
+      {approval.targetExtra && (
+        <span className="text-xs text-muted-foreground">
+          {approval.targetExtra}
+        </span>
+      )}
+    </div>
+  ) : (
+    approval.targetId
+  )}
+</TableCell>
+
+           <TableCell>
+  {approval.propertyNames?.length ? (
+    <div className="flex flex-wrap gap-1">
+      {approval.propertyNames.map((name, i) => (
+        <span
+          key={i}
+          className="px-2 py-1 text-xs bg-muted rounded"
+        >
+          {name}
+        </span>
+      ))}
+    </div>
+  ) : (
+    <span className="text-muted-foreground text-xs">
+      No property
+    </span>
+  )}
+</TableCell>
 
                 <TableCell>
                   {formatDate(approval.createdAt)}
@@ -1241,74 +1272,116 @@ if (invoicesError) {
     </DialogHeader>
 
     {selectedApproval && (
-      <div className="space-y-4 text-sm">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-muted-foreground">Type</p>
-            <p className="font-medium">{selectedApproval.type}</p>
-          </div>
+      
+  <div className="space-y-6 text-sm">
+    {/* 🔹 Requester Info */}
+    <div className="p-3 bg-muted/50 rounded-lg">
+      <p className="text-xs text-muted-foreground">Requested By</p>
+      <p className="font-medium">
+        {selectedApproval.requestedByName || "Unknown User"}
+      </p>
+      <p className="text-xs text-muted-foreground">
+        {selectedApproval.requestedByEmail || "No email"}
+      </p>
+    </div>
 
-          <div>
-            <p className="text-muted-foreground">Status</p>
-            <Badge variant="secondary">
-              {selectedApproval.status}
-            </Badge>
-          </div>
-        </div>
+    {/* 🔹 Metadata */}
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <p className="text-muted-foreground">Approval ID</p>
+        <p className="font-medium">#{selectedApproval.id}</p>
+      </div>
 
-        <div>
-          <p className="text-muted-foreground">Target ID</p>
-          <p className="font-medium">{selectedApproval.targetId}</p>
-        </div>
+      <div>
+        <p className="text-muted-foreground">Status</p>
+        <Badge variant="secondary">
+          {selectedApproval.status}
+        </Badge>
+      </div>
 
-        <div>
-          <p className="text-muted-foreground">Property</p>
-          <p>{selectedApproval.propertyId ?? "—"}</p>
-        </div>
+      <div>
+        <p className="text-muted-foreground">Type</p>
+        <p>{selectedApproval.type}</p>
+      </div>
 
-        <div>
-          <p className="text-muted-foreground">Requested At</p>
-          <p>{formatDate(selectedApproval.createdAt)}</p>
-        </div>
+      <div>
+        <p className="text-muted-foreground">Requested At</p>
+        <p>{formatDate(selectedApproval.createdAt)}</p>
+      </div>
+    </div>
 
-        {/* Actions */}
-        {selectedApproval.status === "PENDING" && (
-          <div className="flex justify-end gap-2 pt-4">
-            <Button
-              variant="outline"
-              onClick={() => setShowApprovalDetails(false)}
-            >
-              Close
-            </Button>
+    {/* 🔹 Action Summary */}
+    <div className="space-y-2">
+      <p className="text-muted-foreground">Action Summary</p>
 
-            <Button
-              variant="destructive"
-              onClick={() => {
-                setShowApprovalDetails(false);
-                setRejectionReason("");
-                setShowRejectDialog(true);
-              }}
-            >
-              Reject
-            </Button>
+      <div className="p-3 border rounded-lg bg-muted/30">
+        <p>
+          <strong>{selectedApproval.type}</strong> request for
+          <span className="font-medium"> {selectedApproval.targetId}</span>
+        </p>
 
-            <Button
-              onClick={async () => {
-                await approve(selectedApproval.id);
-                toast({
-                  title: "Approval Approved",
-                  description: `Approval ${selectedApproval.id} approved`,
-                });
-                setShowApprovalDetails(false);
-                setSelectedApproval(null);
-              }}
-            >
-              Approve
-            </Button>
-          </div>
+        {selectedApproval.propertyIds && (
+        <div className="flex items-center gap-2">
+  <Building2 className="h-4 w-4 text-muted-foreground" />
+  <span>
+    {selectedApproval.propertyNames
+      ? `${selectedApproval.propertyNames} • ${selectedApproval.propertyCities}`
+      : "No property"}
+  </span>
+</div>
         )}
       </div>
+    </div>
+
+    {/* 🔹 Risk Warning */}
+    <div className="p-3 border border-warning/20 bg-warning/5 rounded-lg flex gap-2">
+      <AlertTriangle className="h-4 w-4 text-warning" />
+      <div>
+        <p className="font-medium">Review Required</p>
+        <p className="text-xs text-muted-foreground">
+          This action may affect system data. Please verify before approving.
+        </p>
+      </div>
+    </div>
+
+    {/* 🔹 Actions */}
+    {selectedApproval.status === "PENDING" && (
+      <div className="flex justify-end gap-2 pt-4">
+        <Button
+          variant="outline"
+          onClick={() => setShowApprovalDetails(false)}
+        >
+          Close
+        </Button>
+
+        <Button
+          variant="destructive"
+          onClick={() => {
+            setShowApprovalDetails(false);
+            setRejectionReason("");
+            setShowRejectDialog(true);
+          }}
+        >
+          Reject
+        </Button>
+
+        <Button
+          onClick={async () => {
+            await approve(selectedApproval.id);
+            toast({
+              title: "Approval Approved",
+              description: `Approval ${selectedApproval.id} approved`,
+            });
+            setShowApprovalDetails(false);
+            setSelectedApproval(null);
+          }}
+        >
+          Approve
+        </Button>
+      </div>
     )}
+  </div>
+)}
   </DialogContent>
 </Dialog>
 

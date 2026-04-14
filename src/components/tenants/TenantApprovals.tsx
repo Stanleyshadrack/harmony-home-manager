@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
-import { usePendingRegistrations, PendingRegistration } from '@/hooks/useRegistrations';
 import { useInAppNotifications } from '@/hooks/useInAppNotifications';
 import { useNotifications } from '@/hooks/useNotifications';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -22,115 +21,96 @@ import {
   UserPlus,
   CheckCircle,
   XCircle,
-  Mail,
-  Phone,
-  Clock,
   Home,
-  User,
 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { useApprovals } from '@/hooks/useApprovals';
 
-export function TenantApprovals() {
+type Props = {
+  approvals: any[];
+};
+
+export function TenantApprovals({ approvals }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { registrations, approveRegistration, rejectRegistration } = usePendingRegistrations();
+
+  const { approve, reject } = useApprovals();
   const { addNotification } = useInAppNotifications();
   const { sendQuickNotification } = useNotifications();
-  
-  const [selectedRegistration, setSelectedRegistration] = useState<PendingRegistration | null>(null);
+
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedApprovalId, setSelectedApprovalId] = useState<number | null>(null);
 
-  const pendingTenantRegistrations = registrations.filter(
-    r => r.requestedRole === 'tenant' && r.status === 'pending'
-  );
-
-  const handleApproveRegistration = async (registration: PendingRegistration) => {
+  /* =========================
+     APPROVE
+  ========================= */
+  const handleApprove = async (approval: any) => {
     setIsProcessing(true);
     try {
-      await approveRegistration(registration.id, user?.email || 'Landlord');
-      
-      // In-app notification
-      addNotification({
-        userId: registration.phone,
-        title: 'Registration Approved!',
-        message: 'Your tenant account has been approved by the landlord. You can now log in.',
-        category: 'registration_approved',
-        priority: 'high',
-        link: '/auth',
-      });
+      await approve(approval.id);
 
-      // Send SMS/WhatsApp notification
-      if (registration.phone) {
-        await sendQuickNotification(
-          registration.phone,
-          `${registration.firstName} ${registration.lastName}`,
-          'custom',
-          'sms',
-          {
-            message: `Congratulations ${registration.firstName}! Your tenant registration has been approved. You can now log in to access your account.`
-          }
-        );
+      // 🔔 Notification
+      if (approval.requestedByEmail) {
+        addNotification({
+          userId: approval.requestedByEmail,
+          title: 'Tenant Approved',
+          message: `${approval.targetName} has been approved.`,
+          category: 'registration_approved',
+          priority: 'high',
+        });
       }
 
-      toast.success(`${registration.firstName} ${registration.lastName}'s tenant account approved. Notification sent.`);
+      toast.success("Tenant approved successfully");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const handleRejectRegistration = async () => {
-    if (!selectedRegistration || !rejectionReason.trim()) {
-      toast.error('Please provide a rejection reason');
+  /* =========================
+     REJECT (OPEN DIALOG)
+  ========================= */
+  const handleReject = (id: number) => {
+    setSelectedApprovalId(id);
+    setShowRejectDialog(true);
+  };
+
+  /* =========================
+     CONFIRM REJECT
+  ========================= */
+  const handleRejectConfirm = async () => {
+    if (!selectedApprovalId || !rejectionReason.trim()) {
+      toast.error("Please provide a reason");
       return;
     }
 
     setIsProcessing(true);
     try {
-      await rejectRegistration(selectedRegistration.id, user?.email || 'Landlord', rejectionReason);
-      
-      // In-app notification
-      addNotification({
-        userId: selectedRegistration.phone,
-        title: 'Registration Rejected',
-        message: `Your tenant registration was not approved. Reason: ${rejectionReason}`,
-        category: 'registration_rejected',
-        priority: 'high',
-      });
+      await reject(selectedApprovalId, rejectionReason);
 
-      // Send SMS/WhatsApp notification
-      if (selectedRegistration.phone) {
-        await sendQuickNotification(
-          selectedRegistration.phone,
-          `${selectedRegistration.firstName} ${selectedRegistration.lastName}`,
-          'custom',
-          'sms',
-          {
-            message: `Hello ${selectedRegistration.firstName}, we regret to inform you that your tenant registration was not approved. Reason: ${rejectionReason}. Please contact support for more information.`
-          }
-        );
-      }
+      toast.success("Tenant rejected successfully");
 
-      toast.success('Registration rejected. Notification sent.');
       setShowRejectDialog(false);
-      setSelectedRegistration(null);
+      setSelectedApprovalId(null);
       setRejectionReason('');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  if (pendingTenantRegistrations.length === 0) {
+  /* =========================
+     EMPTY STATE
+  ========================= */
+  if (approvals.length === 0) {
     return (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5" />
-            Pending Tenant Registrations
+            Pending Tenant Approvals
           </CardTitle>
           <CardDescription>
-            Review and approve tenant registration requests
+            Review and approve tenant requests
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -138,7 +118,7 @@ export function TenantApprovals() {
             <CheckCircle className="h-12 w-12 mx-auto text-success mb-4" />
             <h3 className="font-semibold mb-2">All caught up!</h3>
             <p className="text-sm text-muted-foreground">
-              No pending tenant registrations to review
+              No pending tenant approvals
             </p>
           </div>
         </CardContent>
@@ -146,78 +126,60 @@ export function TenantApprovals() {
     );
   }
 
+  /* =========================
+     MAIN UI
+  ========================= */
   return (
     <>
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5" />
-            Pending Tenant Registrations
+            Pending Tenant Approvals
             <Badge variant="secondary" className="ml-2">
-              {pendingTenantRegistrations.length}
+              {approvals.length}
             </Badge>
           </CardTitle>
           <CardDescription>
-            Review and approve tenant registration requests. Approved or rejected tenants will receive SMS/Email notifications.
+            Review and approve tenant requests
           </CardDescription>
         </CardHeader>
+
         <CardContent>
           <div className="space-y-4">
-            {pendingTenantRegistrations.map((registration) => (
-              <div
-                key={registration.id}
-                className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border bg-card gap-4"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="p-2 rounded-full bg-primary/10">
+            {approvals.map((approval) => (
+              <div key={approval.id} className="p-4 border rounded-lg">
+                
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-primary/10 rounded-full">
                     <Home className="h-5 w-5 text-primary" />
                   </div>
-                  <div>
+
+                  <div className="flex-1">
                     <p className="font-medium">
-                      {registration.firstName} {registration.lastName}
+                      {approval.targetName || "Unknown"}
                     </p>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground mt-1">
-                      <span className="flex items-center gap-1">
-                        <Phone className="h-3 w-3" />
-                        {registration.phone}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        ID: {registration.idNumber}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {formatDistanceToNow(new Date(registration.submittedAt), { addSuffix: true })}
-                      </span>
-                    </div>
-                    <div className="mt-2">
-                      <Badge variant="outline" className="text-xs">
-                        <User className="h-3 w-3 mr-1" />
-                        Tenant Application
-                      </Badge>
-                    </div>
+
+                    <p className="text-sm text-muted-foreground">
+                      {approval.propertyNames?.[0]} • {approval.propertyCities?.[0]}
+                    </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 self-end sm:self-center">
+
+                <div className="flex gap-2 mt-3">
                   <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-destructive hover:bg-destructive/10"
-                    onClick={() => {
-                      setSelectedRegistration(registration);
-                      setShowRejectDialog(true);
-                    }}
+                    onClick={() => handleApprove(approval)}
                     disabled={isProcessing}
                   >
-                    <XCircle className="h-4 w-4 mr-1" />
-                    Reject
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => handleApproveRegistration(registration)}
-                    disabled={isProcessing}
-                  >
-                    <CheckCircle className="h-4 w-4 mr-1" />
                     Approve
+                  </Button>
+
+                  <Button
+                    variant="destructive"
+                    onClick={() => handleReject(approval.id)}
+                    disabled={isProcessing}
+                  >
+                    Reject
                   </Button>
                 </div>
               </div>
@@ -226,45 +188,46 @@ export function TenantApprovals() {
         </CardContent>
       </Card>
 
-      {/* Reject Dialog */}
+      {/* =========================
+         REJECT DIALOG
+      ========================= */}
       <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reject Registration</DialogTitle>
+            <DialogTitle>Reject Tenant</DialogTitle>
             <DialogDescription>
-              Please provide a reason for rejecting {selectedRegistration?.firstName} {selectedRegistration?.lastName}'s registration. They will be notified via SMS/Email.
+              Provide a reason for rejection
             </DialogDescription>
           </DialogHeader>
+
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="rejection-reason">Rejection Reason</Label>
-              <Textarea
-                id="rejection-reason"
-                placeholder="e.g., Incomplete documentation, unit no longer available..."
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                rows={3}
-              />
-            </div>
+            <Label>Rejection Reason</Label>
+            <Textarea
+              placeholder="Enter reason..."
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+            />
           </div>
+
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => {
                 setShowRejectDialog(false);
-                setSelectedRegistration(null);
+                setSelectedApprovalId(null);
                 setRejectionReason('');
               }}
               disabled={isProcessing}
             >
               Cancel
             </Button>
+
             <Button
               variant="destructive"
-              onClick={handleRejectRegistration}
+              onClick={handleRejectConfirm}
               disabled={!rejectionReason.trim() || isProcessing}
             >
-              {isProcessing ? 'Sending...' : 'Reject & Notify'}
+              {isProcessing ? 'Processing...' : 'Reject'}
             </Button>
           </DialogFooter>
         </DialogContent>
