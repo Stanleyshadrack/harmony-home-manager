@@ -33,7 +33,6 @@ const waterReadingSchema = z.object({
   currentReading: z.number().min(0),
   ratePerUnit: z.number().min(0.01),
   readingDate: z.string(),
-  billingPeriod: z.string(),
 })
 
 
@@ -48,8 +47,9 @@ export function WaterReadingForm({ onSubmit, onCancel, isLoading }: WaterReading
 
   const { t } = useTranslation()
   const { units, isLoading: unitsLoading } = useUnits()
-  const { getLastReadingForUnit } = useWaterData()
+  const { readings } = useWaterData()
   const [lastReadingDate, setLastReadingDate] = useState<string | null>(null)
+
 
 
 
@@ -72,6 +72,11 @@ export function WaterReadingForm({ onSubmit, onCancel, isLoading }: WaterReading
 
   const selectedUnitId = form.watch('unitId')
   const unit = units.find((u) => Number(u.id) === selectedUnitId)
+  const disabledDates = readings
+  .filter((r) => r.unitId === selectedUnitId)
+  .map((r) =>
+    new Date(r.readingDate).toISOString().split("T")[0]
+  );
 
   const previousReading = form.watch('previousReading')
   const currentReading = form.watch('currentReading')
@@ -79,6 +84,7 @@ export function WaterReadingForm({ onSubmit, onCancel, isLoading }: WaterReading
   const [meterName, setMeterName] = useState("")
   const consumption = Math.max(0, currentReading - previousReading)
   const estimatedBill = consumption * ratePerUnit
+    const lastDate = disabledDates[disabledDates.length - 1];
 
 
 const handleUnitChange = (unitId: number) => {
@@ -101,34 +107,30 @@ const handleUnitChange = (unitId: number) => {
   }
 }
 
-// const handleUnitChange = async (unitId: number) => {
-
-//   const unit = units.find((u) => Number(u.id) === unitId)
-
-//   if (!unit) return
-
-//   // Autofill meter id
-//   form.setValue("meterId", unit.meterId || "")
-// setMeterName(unit.meterName || "")
 
 
-//   console.log("Selected Unit:", unit)
-//   // 1️⃣ First use meter last reading
-//   if (unit.lastReading !== undefined && unit.lastReading !== null) {
-//     form.setValue("previousReading", unit.lastReading)
-    
-//     return
+const handleSubmit = (data: WaterReadingFormData) => {
 
-     
-//   }
+  const formattedDate = new Date(data.readingDate)
+    .toISOString()
+    .split("T")[0];
 
+  const alreadyExists = readings.some(
+    (r) =>
+      r.unitId === data.unitId &&
+      r.readingDate === formattedDate
+  );
 
-
-
-
-  const handleSubmit = (data: WaterReadingFormData) => {
-    onSubmit(data)
+  if (alreadyExists) {
+    form.setError("readingDate", {
+      type: "manual",
+      message: "A reading already exists for this date",
+    });
+    return;
   }
+
+  onSubmit(data);
+};
 
 
   return (
@@ -202,12 +204,6 @@ const handleUnitChange = (unitId: number) => {
 
               </FormControl>
 
-             <FormDescription>
-  {lastReadingDate
-    ? `Last reading on ${new Date(lastReadingDate).toLocaleDateString()}`
-    : "No previous reading — starting fresh"}
-</FormDescription>
-
               <FormMessage />
             </FormItem>
           )}
@@ -235,10 +231,10 @@ const handleUnitChange = (unitId: number) => {
                   />
                 </FormControl>
 
-            <FormDescription>
-  {lastReadingDate
-    ? `Last reading on ${new Date(lastReadingDate).toLocaleDateString()}`
-    : "Automatically calculated from the last reading"}
+           <FormDescription>
+  {lastDate
+    ? `Last reading was on ${new Date(lastDate).toLocaleDateString()}`
+    : "No previous readings"}
 </FormDescription>
 
 
@@ -319,31 +315,74 @@ const handleUnitChange = (unitId: number) => {
               <FormItem>
                 <FormLabel>Reading Date</FormLabel>
                 <FormControl>
-                  <Input type="date" {...field} />
+                  <Input
+  type="date"
+  {...field}
+  onChange={(e) => {
+    const selectedDate = e.target.value;
+
+    if (disabledDates.includes(selectedDate)) {
+      form.setError("readingDate", {
+        type: "manual",
+        message: "A reading already exists for this date",
+      });
+      return;
+    }
+
+    form.clearErrors("readingDate");
+    field.onChange(selectedDate);
+  }}
+/>
                 </FormControl>
+              <FormField
+  control={form.control}
+  name="readingDate"
+  render={({ field }) => (
+    <FormItem>
+      <FormLabel>Reading Date</FormLabel>
+
+      <FormControl>
+        <Input
+          type="date"
+          {...field}
+          onChange={(e) => {
+            const selectedDate = e.target.value;
+
+            if (disabledDates.includes(selectedDate)) {
+              form.setError("readingDate", {
+                type: "manual",
+                message: "A reading already exists for this date",
+              });
+              return;
+            }
+
+            form.clearErrors("readingDate");
+            field.onChange(selectedDate);
+          }}
+        />
+      </FormControl>
+
+      <FormDescription>
+        {disabledDates.length > 0
+          ? `Unavailable dates: ${disabledDates.join(", ")}`
+          : "No previous readings for this unit"}
+      </FormDescription>
+
+      <FormMessage />
+    </FormItem>
+  )}
+/>
                 <FormMessage />
               </FormItem>
             )}
           />
 
 
-          <FormField
-            control={form.control}
-            name="billingPeriod"
-            render={({ field }) => (
-              <FormItem>
-
-                <FormLabel>Billing Period</FormLabel>
-
-                <FormControl>
-                  <Input {...field} />
-                </FormControl>
-
-                <FormMessage />
-
-              </FormItem>
-            )}
-          />
+        <FormDescription>
+  {disabledDates.length > 0
+    ? `Unavailable dates: ${disabledDates.join(", ")}`
+    : "No previous readings for this unit"}
+</FormDescription>
 
         </div>
 

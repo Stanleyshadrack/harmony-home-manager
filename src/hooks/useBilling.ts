@@ -7,7 +7,8 @@ import {
   payWithMpesa,
   getPaymentStatus,
    updateInvoice, 
-  cancelInvoice, 
+  cancelInvoice,
+  generateInvoices, 
 } from "@/api/service/billing.service";
 import { Invoice, Payment, PaymentResponse } from "@/types/billing";
 import { useToast } from "./use-toast";
@@ -43,6 +44,33 @@ export const useInvoice = (id: number) =>
     queryFn: () => getInvoice(id),
     enabled: !!id,
   });
+
+
+  export const useGenerateInvoices = () => {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: generateInvoices,
+
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: billingKeys.invoices() });
+
+      toast({
+        title: "Invoices generated",
+        description: `${res.generated} created, ${res.skipped} skipped`,
+      });
+    },
+
+    onError: (err: any) => {
+      toast({
+        title: "Generation failed",
+        description: err.message,
+        variant: "destructive",
+      });
+    },
+  });
+};
 
 /* =========================
    PAYMENT STATUS (NEW 🔥)

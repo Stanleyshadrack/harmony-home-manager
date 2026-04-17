@@ -180,27 +180,54 @@ export default function WaterData() {
     setShowRejectDialog(true);
   };
 
-  const handleAddReading = async (data: any) => {
+ 
 
-    const result = await addReading({
-      unitId: data.unitId,
-      meterId: data.meterId,
-      currentReading: data.currentReading,
-      ratePerUnit: data.ratePerUnit,
-      readingDate: data.readingDate,
-      billingPeriod: data.billingPeriod,
+ const handleAddReading = async (data: any) => {
+
+   const alreadyExists = readings.some(
+  (r) =>
+    r.unitId === data.unitId &&
+    r.readingDate === data.readingDate
+);
+
+if (alreadyExists) {
+  toast({
+    title: "Duplicate Reading",
+    description: "A reading already exists for this date",
+    variant: "destructive",
+  });
+  return;
+}
+
+  const result = await addReading({
+    unitId: data.unitId,
+    meterId: data.meterId,
+    currentReading: data.currentReading,
+    ratePerUnit: data.ratePerUnit,
+    readingDate: new Date(data.readingDate)
+      .toISOString()
+      .split("T")[0],
+  });
+
+  if (!result.success) {
+    toast({
+      title: "Error",
+      description: result.message || "Failed to add reading",
+      variant: "destructive",
     });
+    return;
+  }
 
-    if (result) {
-      toast({
-        title: "Water Reading Added",
-        description: `Reading for unit ${result.unitNumber} recorded successfully`,
-      });
+  const reading = result.data;
 
-      setShowAddDialog(false);
-      reload();
-    }
-  };
+  toast({
+    title: "Water Reading Added",
+    description: `Reading for unit ${reading?.unitNumber} recorded successfully`,
+  });
+
+  setShowAddDialog(false);
+  reload();
+};
 
 
   const getStatusBadge = (status: string) => {
@@ -588,7 +615,7 @@ export default function WaterData() {
                                   Unit {reading.unitNumber} - {reading.tenantName}
                                 </p>
                                 <p className="text-sm text-muted-foreground">
-                                  {reading.property} • {reading.billingPeriod}
+                                  {reading.property} • format(new Date(reading.readingDate), 'MMM yyyy')
                                 </p>
                                 <p className="text-xs text-muted-foreground mt-1">
                                   Recorded by: {reading.recordedBy} ({reading.recordedByRole})
@@ -709,7 +736,7 @@ export default function WaterData() {
                             </p>
 
                             <p className="text-sm text-muted-foreground">
-                              {reading.property} • {reading.billingPeriod}
+                              {reading.property} • format(new Date(reading.readingDate), 'MMM yyyy')
                             </p>
                           </div>
                         </div>

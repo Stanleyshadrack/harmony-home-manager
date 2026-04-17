@@ -9,6 +9,11 @@ export type InvoiceType =
   | 'late_fee'
   | 'other';
 
+  export type PaymentStatus =
+  | 'pending'
+  | 'success'
+  | 'failed';
+
 export type InvoiceStatus =
   | 'draft'
   | 'pending'
@@ -36,7 +41,7 @@ export interface Invoice {
 
   waterReading?: WaterReadingResponse;
 
-  email: string;
+  tenantEmail: string;
   propertyName:string;
 
   issuedDate:string;
@@ -65,12 +70,20 @@ export interface Invoice {
 ===================================== */
 
 export interface Payment {
-  invoiceId: string;
+  invoiceId: number;
   id: number;
 
   amount: number;
 
   method: PaymentMethod;
+
+  status: PaymentStatus; 
+
+
+  checkoutRequestId?: string;
+
+  failureReason?: string;
+  invoiceNumber: string;
 
   transactionRef: string;
 
@@ -112,6 +125,8 @@ export interface WaterReadingFormData {
 }
 
 export interface PaymentFormData {
+    transactionRef: string; 
+  paymentDate: string; 
   invoiceId: string; 
   amount: number;
   paymentMethod: PaymentMethod;
@@ -147,7 +162,11 @@ export interface PaymentResponse {
 
   amount?: number;
 
+   invoiceNumber?: string;
+
   method?: string;
+
+  failureReason?: string;
 
   status?: string; // pending | success | failed
 

@@ -73,7 +73,10 @@ export function InvoiceCard({ invoice, onView, onRecordPayment }: InvoiceCardPro
   if (isRent) {
     const paidRaw = invoice.amount - invoice.balance;
     paidAmount = Math.min(invoice.amount, Math.max(0, paidRaw));
-    progress = (paidAmount / invoice.amount) * 100;
+    progress =
+  invoice.amount > 0
+    ? (paidAmount / invoice.amount) * 100
+    : 100;
   } else if (isWater) {
     paidAmount = invoice.balance <= 0 ? invoice.amount : 0;
     progress = invoice.balance <= 0 ? 100 : 0;
@@ -249,13 +252,20 @@ export function InvoiceCard({ invoice, onView, onRecordPayment }: InvoiceCardPro
             />
           </div>
 
-          <div className="text-xs text-muted-foreground mt-1">
-            {isWater
-              ? progress === 100
-                ? 'Fully paid'
-                : 'Not paid'
-              : `Paid ${formatCurrency(paidAmount)} of ${formatCurrency(invoice.amount)}`}
-          </div>
+<div className="text-xs text-muted-foreground mt-1">
+  {isWater && invoice.waterReading ? (
+    <>
+      <div>
+        {invoice.waterReading.previousReading} → {invoice.waterReading.currentReading}
+      </div>
+      <div>
+        {invoice.balance <= 0 ? "Bill settled" : "Pending payment"}
+      </div>
+    </>
+  ) : (
+    `Paid ${formatCurrency(paidAmount)} of ${formatCurrency(invoice.amount)}`
+  )}
+</div>
         </div>
 
         {/* DATES */}

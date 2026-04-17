@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
 import {
+  CreateWaterReadingRequest,
   HighUsageResponse,
   MonthlyWaterStats,
   WaterReadingResponse,
@@ -135,18 +136,33 @@ export function useWaterData() {
      Create Reading
   ================================= */
 
-  const addReading = useCallback(async (data: any) => {
+const addReading = useCallback(
+  async (data: CreateWaterReadingRequest) => {
     try {
       const newReading = await waterReadingsApi.create(data);
 
       setReadings((prev) => [newReading, ...prev]);
 
-      return newReading;
-    } catch (error) {
+      return { success: true, data: newReading };
+    } catch (error: any) {
       console.error("Failed to create reading", error);
-      return null;
+
+      // 🔥 HANDLE DUPLICATE DATE ERROR
+      if (error.message?.includes("Reading already exists")) {
+        return {
+          success: false,
+          message: "A reading already exists for this date.",
+        };
+      }
+
+      return {
+        success: false,
+        message: "Failed to create reading. Try again.",
+      };
     }
-  }, []);
+  },
+  []
+);
 
   /* =================================
      Delete Reading

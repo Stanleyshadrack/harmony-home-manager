@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUpdateInvoice, useCancelInvoice } from '@/hooks/useBilling';
+import { useProperties, useUnits } from "@/hooks/useProperties";
 import { Input } from '@/components/ui/input';
 import {
   Dialog,
@@ -52,10 +53,20 @@ const { mutateAsync: cancelInvoiceMutate } = useCancelInvoice();
   () => invoices.flatMap(inv => inv.payments ?? []),
   [invoices]
 );
+const { properties = [] } = useProperties();
+
 const { mutate: createInvoice } = useCreateInvoice();
 const { mutate: recordPayment } = useRecordPayment();
 
-  const { generateMonthlyRentInvoices, getTenantsWithoutInvoice, generateInvoicesForTenant  } = useAutoInvoice();
+const [showGenerateDialog, setShowGenerateDialog] = useState(false);
+
+const [generateType, setGenerateType] = useState<'RENT' | 'WATER'>('RENT');
+
+const [selectedMonth, setSelectedMonth] = useState("");
+
+const [selectedUnits, setSelectedUnits] = useState<string[]>([]);
+
+  const { generateMonthlyRentInvoices,generateInvoicesScoped, getTenantsWithoutInvoice, generateInvoicesForTenant  } = useAutoInvoice();
   const tenantsWithoutInvoice = getTenantsWithoutInvoice();
 
   const [activeTab, setActiveTab] = useState('invoices');
@@ -65,11 +76,14 @@ const { mutate: recordPayment } = useRecordPayment();
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [showWaterForm, setShowWaterForm] = useState(false);
   const [showReceiptDialog, setShowReceiptDialog] = useState(false);
+  const [selectedProperty, setSelectedProperty] = useState<string | null>(null);
+  
   
   const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [lastPayment, setLastPayment] = useState<{ payment: Payment; invoice: Invoice } | null>(null);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const { units = [] } = useUnits(selectedProperty || undefined);
 
  const filteredInvoices = invoices.filter((invoice) => {
   const matchesSearch =
@@ -110,6 +124,13 @@ const { mutate: recordPayment } = useRecordPayment();
     description: 'The invoice has been created successfully.',
   });
 };
+
+useEffect(() => {
+  const now = new Date();
+  now.setMonth(now.getMonth() - 1);
+
+  setSelectedMonth(now.toISOString().slice(0, 7)); // YYYY-MM
+}, []);
 
  const handleUpdateInvoice = async (data: any) => {
   if (!editingInvoice) return;
@@ -264,13 +285,34 @@ const { mutate: recordPayment } = useRecordPayment();
     });
   };
 
-  const handleAutoGenerateInvoices = async () => {
-    const { generated, skipped } = await generateMonthlyRentInvoices();
+ 
+
+const handleGenerateInvoices = async () => {
+  if (!selectedMonth) {
     toast({
-      title: 'Auto-Generate Complete',
-      description: `Generated ${generated} invoice(s). Skipped ${skipped} (already billed or no active lease).`,
+      title: "Select month",
+      description: "Please choose a billing month",
+      variant: "destructive",
     });
-  };
+    return;
+  }
+
+  try {
+    await generateInvoicesScoped({
+      type: generateType,
+      month: selectedMonth, // ✅ CRITICAL
+      propertyId: selectedProperty || undefined,
+      unitIds: selectedUnits.length ? selectedUnits : undefined,
+    });
+
+    setShowGenerateDialog(false);
+
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+
 
   const handleViewInvoice = (invoice: Invoice) => {
     setViewingInvoice(invoice);
@@ -342,8 +384,8 @@ const totalOutstanding = invoices.reduce(
           <div className="flex gap-2 flex-wrap">
             <Button 
               variant="secondary" 
-              onClick={handleAutoGenerateInvoices}
-              disabled={tenantsWithoutInvoice.length === 0}
+              onClick={() => setShowGenerateDialog(true)}
+              disabled={false}
             >
               <Zap className="h-4 w-4 mr-2" />
               Auto-Generate ({tenantsWithoutInvoice.length})
@@ -553,6 +595,86 @@ const totalOutstanding = invoices.reduce(
           </div>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={showGenerateDialog} onOpenChange={setShowGenerateDialog}>
+  <DialogContent className="max-w-md">
+    <DialogHeader>
+      <DialogTitle>Generate Invoices</DialogTitle>
+      <DialogDescription>
+        Choose how you want to generate invoices
+      </DialogDescription>
+    </DialogHeader>
+
+    {/* TYPE */}
+    <Select value={generateType} onValueChange={(v) => setGenerateType(v as any)}>
+      <SelectTrigger>
+        <SelectValue placeholder="Invoice Type" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="RENT">Rent</SelectItem>
+        <SelectItem value="WATER">Water</SelectItem>
+      </SelectContent>
+    </Select>
+
+    {/* PROPERTY */}
+   <Select
+  value={selectedProperty ?? "ALL"}
+  onValueChange={(v) => setSelectedProperty(v === "ALL" ? null : v)}
+>
+  <SelectTrigger>
+    <SelectValue placeholder="All Properties" />
+  </SelectTrigger>
+
+  <SelectContent>
+    <SelectItem value="ALL">All Properties</SelectItem>
+
+    {properties.map((p) => (
+      <SelectItem key={p.id} value={String(p.id)}>
+        {p.name}
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
+{/* UNIT SELECT */}
+<Select onValueChange={(v) => setSelectedUnits([v])}>
+  <SelectTrigger>
+    <SelectValue placeholder="Select Unit (optional)" />
+  </SelectTrigger>
+
+  <SelectContent>
+    {units.map((u) => (
+      <SelectItem key={u.id} value={String(u.id)}>
+        {u.unitNumber}
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
+
+{/* ✅ MONTH INPUT (SEPARATE) */}
+<div className="mt-3">
+  {/* <p className="text-sm text-muted-foreground mb-1">
+    Billing Month
+  </p> */}
+
+  <Input
+    type="month"
+    value={selectedMonth}
+    onChange={(e) => setSelectedMonth(e.target.value)}
+  />
+</div>
+
+    {/* UNITS (optional multi-select later) */}
+    {/* You can plug your units list here */}
+
+    <Button
+  disabled={!selectedMonth}
+  className="w-full mt-4"
+  onClick={handleGenerateInvoices}
+>
+  Generate
+</Button>
+  </DialogContent>
+</Dialog>
 
       {/* Invoice Detail Dialog */}
       <InvoiceDetail

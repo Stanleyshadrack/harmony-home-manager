@@ -11,7 +11,6 @@ export interface CreateWaterReadingRequest {
   ratePerUnit: number;
 
   readingDate: string;
-  billingPeriod: string;
 }
 
 export interface WaterReadingResponse {

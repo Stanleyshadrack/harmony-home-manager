@@ -51,7 +51,7 @@ export function PaymentForm({ invoice, onSubmit, onCancel, isLoading }: PaymentF
   const form = useForm<PaymentFormData>({
     resolver: zodResolver(paymentSchema),
     defaultValues: {
-      invoiceId: invoice?.id || '',
+      invoiceId: invoice?.id.toString() || '',
       amount: invoice?.balance || 0,
       paymentMethod: 'mpesa',
       transactionRef: '',

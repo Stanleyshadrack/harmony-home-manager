@@ -1,18 +1,34 @@
-import { Invoice, InvoiceType, Payment, PaymentMethod, PaymentResponse } from "@/types/billing";
+import { Invoice, InvoiceType, Payment, PaymentMethod, PaymentResponse, PaymentStatus } from "@/types/billing";
 import { API_PATHS } from "../constants/constants";
 import { apiRequest } from "../https";
 
 
 
-const mapPayment = (p: any): Payment => ({
-  id: p.id,
-  amount: Number(p.amount),
- method: (p.method?.toLowerCase() ?? 'cash') as PaymentMethod,
- invoiceId: String(p.invoiceId),
-  transactionRef: p.transactionRef,
-  paymentDate: p.paymentDate,
-  notes: p.notes,
-});
+const mapPayment = (p: PaymentResponse): Payment => {
+  
+
+  const mapped: Payment = {
+    id: Number(p.id),
+    invoiceId: Number(p.invoiceId),
+
+    amount: Number(p.amount),
+
+    method: (p.method?.toLowerCase() ?? 'cash') as PaymentMethod,
+
+    status: (p.status?.toLowerCase() ?? 'pending') as PaymentStatus,
+
+    transactionRef: p.transactionRef ?? '',
+
+    invoiceNumber: p.invoiceNumber ?? '',
+
+    paymentDate: p.paymentDate ?? '',
+
+    notes: '',
+  };
+
+
+  return mapped;
+};
 
 const mapInvoice = (inv: any): Invoice => ({
   id: Number(inv.id),
@@ -22,15 +38,15 @@ const mapInvoice = (inv: any): Invoice => ({
   tenantId: Number(inv.tenantId),
   tenantName: inv.tenantName,
 
-  email: inv.email,
-  propertyName: inv.propertyName, // ✅ fixed (was propertyNames)
+  tenantEmail: inv.tenantEmail,
+  propertyName: inv.propertyName,
 
   issuedDate: inv.issuedDate,
 
   unitId: Number(inv.unitId),
   unitNumber: inv.unitNumber,
 
-  type: inv.type?.toLowerCase() as InvoiceType, // ✅ safe cast
+  type: inv.type?.toLowerCase() as InvoiceType,
 
   description: inv.description,
 
@@ -69,6 +85,7 @@ const mapInvoice = (inv: any): Invoice => ({
   payments: inv.payments?.map(mapPayment) ?? [],
 });
 
+
 /* =========================
    CREATE INVOICE
 ========================= */
@@ -87,6 +104,21 @@ export const createInvoice = async (payload: {
   });
 
   return mapInvoice(resp);
+};
+
+export const generateInvoices = async (payload: {
+  type: 'RENT' | 'WATER';
+  year: number;
+  month: number;
+  propertyId?: number;
+  unitIds?: number[];
+}): Promise<{ generated: number; skipped: number }> => {
+
+  return apiRequest<typeof payload, any>({
+    path: "/api/billing/invoice/generate",
+    method: "POST",
+    body: payload,
+  });
 };
 
 /* =========================

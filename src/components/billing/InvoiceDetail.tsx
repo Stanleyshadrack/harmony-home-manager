@@ -76,6 +76,8 @@ const typeIcons: Record<Invoice['type'], React.ReactNode> = {
   other: <FileText className="h-5 w-5" />,
 };
 
+
+
 const typeLabels: Record<Invoice['type'], string> = {
   rent: 'Rent',
   water: 'Water Bill',
@@ -101,8 +103,13 @@ export function InvoiceDetail({
 
   if (!invoice) return null;
 
+
+
   const canEdit = invoice.status !== 'paid' && invoice.status !== 'cancelled';
   const canCancel = invoice.status !== 'paid' && invoice.status !== 'cancelled';
+
+  const isWater = invoice.type === "water";
+const water = invoice.waterReading;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-KE', {
@@ -158,34 +165,68 @@ export function InvoiceDetail({
             </div>
             <Badge variant="outline" className={`${statusColors[invoice.status]} gap-1`}>
               {statusIcons[invoice.status]}
-              {t(`billing.${invoice.status}`)}
+              {t(`${invoice.status}`)}
             </Badge>
           </div>
         </DialogHeader>
 
         <div className="space-y-6 mt-4">
           {/* Invoice Summary */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-4 bg-muted/50 rounded-lg">
-              <p className="text-xs text-muted-foreground mb-1">Total Amount</p>
-              <p className="text-lg font-bold">{formatCurrency(invoice.amount)}</p>
-              
-            </div>
-            <div className="p-4 bg-muted/50 rounded-lg">
-              <p className="text-xs text-muted-foreground mb-1">Amount Paid</p>
-              <p className="text-lg font-bold text-success">{formatCurrency(invoice.amountPaid)}</p>
-            </div>
-            <div className="p-4 bg-muted/50 rounded-lg">
-              <p className="text-xs text-muted-foreground mb-1">Balance Due</p>
-              <p className={`text-lg font-bold ${invoice.balance > 0 ? 'text-destructive' : 'text-success'}`}>
-                {formatCurrency(invoice.balance)}
-              </p>
-            </div>
-            <div className="p-4 bg-muted/50 rounded-lg">
-              <p className="text-xs text-muted-foreground mb-1">Due Date</p>
-              <p className="text-lg font-bold">{formatDate(invoice.dueDate).split(',')[0]}</p>
-            </div>
-          </div>
+         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+
+  {/* CARD 1 */}
+  <div className="p-4 bg-muted/50 rounded-lg">
+    <p className="text-xs text-muted-foreground mb-1">
+      {isWater ? "Consumption" : "Total Amount"}
+    </p>
+
+    <p className="text-lg font-bold">
+      {isWater
+        ? `${water?.consumption || 0} units`
+        : formatCurrency(invoice.amount)}
+    </p>
+  </div>
+
+  {/* CARD 2 */}
+  <div className="p-4 bg-muted/50 rounded-lg">
+    <p className="text-xs text-muted-foreground mb-1">
+      {isWater ? "Rate" : "Amount Paid"}
+    </p>
+
+    <p className="text-lg font-bold">
+      {isWater
+        ? formatCurrency(water?.ratePerUnit || 0)
+        : formatCurrency(invoice.amountPaid)}
+    </p>
+  </div>
+
+  {/* CARD 3 */}
+  <div className="p-4 bg-muted/50 rounded-lg">
+    <p className="text-xs text-muted-foreground mb-1">
+      {isWater ? "Water Cost" : "Balance Due"}
+    </p>
+
+    <p className="text-lg font-bold">
+      {isWater
+        ? formatCurrency(water?.amount || 0)
+        : formatCurrency(invoice.balance)}
+    </p>
+  </div>
+
+  {/* CARD 4 */}
+  <div className="p-4 bg-muted/50 rounded-lg">
+    <p className="text-xs text-muted-foreground mb-1">
+      {isWater ? "Reading" : "Due Date"}
+    </p>
+
+    <p className="text-lg font-bold">
+      {isWater
+        ? `${water?.previousReading} → ${water?.currentReading}`
+        : formatDate(invoice.dueDate).split(',')[0]}
+    </p>
+  </div>
+
+</div>
 
           <Separator />
 
@@ -204,7 +245,7 @@ export function InvoiceDetail({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Email</span>
-                  <span className="text-sm font-medium">{invoice.email}</span>
+                  <span className="text-sm font-medium">{invoice.tenantEmail}</span>
                 </div>
               </div>
             </div>
@@ -258,120 +299,7 @@ export function InvoiceDetail({
             </div>
           </div>
 
-   {/* Water Meter Details (ONLY for water invoices) */}
-{invoice.type === 'water' && invoice.waterReading && (
-  <>
-    <Separator />
-
-    <div className="space-y-4">
-      <h3 className="font-semibold flex items-center gap-2 text-blue-600">
-        <Droplets className="h-4 w-4" />
-        Water Meter Details
-      </h3>
-
-      <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-5 space-y-5">
-
-        {/* 🔥 MAIN GRID */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-
-          {/* Meter */}
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Meter</p>
-            <p className="font-medium text-sm">
-              {invoice.waterReading.meterId || '—'}
-            </p>
-          </div>
-
-          {/* Previous */}
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Previous</p>
-            <p className="font-medium text-sm">
-              {invoice.waterReading.previousReading}
-            </p>
-          </div>
-
-          {/* Current */}
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Current</p>
-            <p className="font-medium text-sm">
-              {invoice.waterReading.currentReading}
-            </p>
-          </div>
-
-          {/* Consumption */}
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Consumption</p>
-            <p className="font-semibold text-sm text-blue-700">
-              {invoice.waterReading.consumption} units
-            </p>
-          </div>
-
-          {/* Rate */}
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Rate</p>
-            <p className="font-medium text-sm">
-              {formatCurrency(invoice.waterReading.ratePerUnit)}
-            </p>
-          </div>
-        </div>
-
-        <Separator />
-
-        {/* 🔥 EXTRA INFO */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-
-          {/* Total Cost */}
-          <div className="p-3 bg-primary/5 rounded-lg border">
-            <p className="text-xs text-muted-foreground">Water Cost</p>
-            <p className="font-bold text-primary text-lg">
-              {formatCurrency(invoice.waterReading.amount)}
-            </p>
-          </div>
-
-          {/* Billing Period */}
-          <div>
-            <p className="text-xs text-muted-foreground">Billing Period</p>
-            <p className="font-medium">
-              {invoice.waterReading.billingPeriod || '—'}
-            </p>
-          </div>
-
-          {/* Reading Date */}
-          <div>
-            <p className="text-xs text-muted-foreground">Reading Date</p>
-            <p className="font-medium">
-              {invoice.waterReading.readingDate
-                ? formatDate(invoice.waterReading.readingDate)
-                : '—'}
-            </p>
-          </div>
-        </div>
-
-        {/* 🔥 OPTIONAL: USAGE INDICATOR */}
-        <div className="pt-2">
-          <p className="text-xs text-muted-foreground mb-1">Usage Level</p>
-          <div className="h-2 bg-muted rounded-full overflow-hidden">
-            <div
-              className={`h-full ${
-                invoice.waterReading.consumption > 100
-                  ? 'bg-destructive'
-                  : invoice.waterReading.consumption > 50
-                  ? 'bg-warning'
-                  : 'bg-success'
-              }`}
-              style={{
-                width: `${Math.min(
-                  invoice.waterReading.consumption,
-                  150
-                )}%`,
-              }}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  </>
-)}
+  
 
           {/* Payment History */}
           {invoicePayments.length > 0 && (

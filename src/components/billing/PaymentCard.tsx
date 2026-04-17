@@ -16,6 +16,19 @@ const methodIcons: Record<Payment['method'], React.ReactNode> = {
   cash: <Banknote className="h-4 w-4" />,
 };
 
+
+const statusColors = {
+  success: "bg-success/10 text-success border-success/20",
+  pending: "bg-warning/10 text-warning border-warning/20",
+  failed: "bg-destructive/10 text-destructive border-destructive/20",
+};
+
+const statusIcons = {
+  success: "✅",
+  pending: "⏳",
+  failed: "❌",
+};
+
 const methodColors: Record<Payment['method'], string> = {
   mpesa: 'bg-green-500/10 text-green-600 border-green-500/20',
   card: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
@@ -41,6 +54,8 @@ export function PaymentCard({ payment, invoice }: PaymentCardProps) {
     });
   };
 
+  
+
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="pt-4">
@@ -54,16 +69,34 @@ export function PaymentCard({ payment, invoice }: PaymentCardProps) {
               <p className="text-sm text-muted-foreground">{invoice?.tenantName}</p>
             </div>
           </div>
-          <Badge variant="outline" className={methodColors[payment.method]}>
-            {t(`billing.${payment.method}`)}
-          </Badge>
+         <div className="flex flex-col items-end gap-1">
+  <Badge variant="outline" className={methodColors[payment.method]}>
+    {t(`billing.${payment.method}`)}
+  </Badge>
+
+  <Badge
+    variant="outline"
+    className={statusColors[payment.status]}
+  >
+    {statusIcons[payment.status]} {payment.status}
+  </Badge>
+</div>
         </div>
 
         <div className="space-y-2 text-sm">
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Invoice:</span>
-            <span className="font-medium">{invoice?.invoiceNumber}</span>
-          </div>
+  <span className="text-muted-foreground">Invoice:</span>
+  <div className="text-right">
+    <p className="font-medium">
+      {payment.invoiceNumber ?? `#${payment.invoiceId}`}
+    </p>
+    {invoice?.invoiceNumber && (
+      <p className="text-xs text-muted-foreground">
+        ID: {payment.invoiceId}
+      </p>
+    )}
+  </div>
+</div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Reference:</span>
             <span className="font-mono text-xs">{payment.transactionRef}</span>

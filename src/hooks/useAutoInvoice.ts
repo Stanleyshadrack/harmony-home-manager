@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useTenants, useLeases } from '@/hooks/useTenants';
-import { useMyInvoices, useCreateInvoice, useCancelInvoice, useUpdateInvoice} from '@/hooks/useBilling';
+import { useMyInvoices, useCreateInvoice, useCancelInvoice, useUpdateInvoice, useGenerateInvoices} from '@/hooks/useBilling';
 import { useToast } from '@/hooks/use-toast';
 
 export function useAutoInvoice() {
@@ -11,8 +11,47 @@ export function useAutoInvoice() {
   const { mutateAsync: createInvoice } = useCreateInvoice();
   const { mutateAsync: cancelInvoiceMutate } = useCancelInvoice();
 const { mutateAsync: updateInvoiceMutate } = useUpdateInvoice();
+const { mutateAsync: generateInvoices } = useGenerateInvoices();
+
 
   const { toast } = useToast();
+
+
+const generateInvoicesScoped = useCallback(async (payload: {
+  type: 'RENT' | 'WATER';
+  month: string; // ✅ NEW (YYYY-MM)
+  propertyId?: string;
+  unitIds?: string[];
+}) => {
+  try {
+    // 🔥 Parse selected month
+    const [year, month] = payload.month.split('-').map(Number);
+
+    const res = await generateInvoices({
+      type: payload.type,
+      year,
+      month,
+      propertyId: payload.propertyId ? Number(payload.propertyId) : undefined,
+      unitIds: payload.unitIds?.map(Number),
+    });
+
+    toast({
+      title: "Generation Complete",
+      description: `Generated ${res.generated}, Skipped ${res.skipped}`,
+    });
+
+    return res;
+
+  } catch (err: any) {
+    toast({
+      title: "Generation Failed",
+      description: err.message,
+      variant: "destructive",
+    });
+    throw err;
+  }
+
+}, [generateInvoices, toast]);
 
   /* =========================
      🔁 GENERATE ALL
@@ -156,5 +195,6 @@ const updateTenantInvoice = async (invoiceId: number, amount: number) => {
     getTenantsWithoutInvoice,
     cancelTenantInvoice, 
   updateTenantInvoice, 
+  generateInvoicesScoped,
   };
 }
