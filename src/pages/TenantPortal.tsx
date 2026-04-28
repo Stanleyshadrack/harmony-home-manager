@@ -38,7 +38,7 @@ import { MaintenanceCard } from '@/components/maintenance/MaintenanceCard';
 import { Unit } from '@/types/property';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCurrentTenant } from '@/hooks/useCurrentTenant';
-import { PaymentFormData } from '@/types/billing';
+import type { PaymentFormData } from '@/types/billing';
 
 
 // Mock current tenant data - would come from auth context in real app

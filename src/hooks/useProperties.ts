@@ -19,6 +19,8 @@ const mapApiProperty = (p: any): Property => ({
   id: String(p.id),
   name: safe(p.name),
   address: safe(p.address),
+   companyId: String(p.companyId ?? ''),
+  companyName: safe(p.companyName),
   city: safe(p.city),
   state: safe(p.state),
   country: safe(p.country),

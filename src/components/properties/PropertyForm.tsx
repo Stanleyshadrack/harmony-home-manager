@@ -29,10 +29,12 @@ import { Badge } from '@/components/ui/badge';
 import { useState, useEffect } from 'react';
 import { PropertyApi } from '@/api/service/add.apartments.service.api';
 import { mapPropertyFormToCreateDTO } from '@/api/mapper/mapPropertyForm';
+import { useGetCompanies } from '@/hooks/useCompanies';
 
 const propertySchema = z.object({
   name: z.string().min(1, 'Property name is required'),
   address: z.string().min(1, 'Address is required'),
+  companyId: z.coerce.number().min(1, 'Company is required'),
   city: z.string().min(1, 'City is required'),
   state: z.string().min(1, 'State is required'),
   country: z.string().min(1, 'Country is required'),
@@ -63,43 +65,56 @@ const COMMON_AMENITIES = [
 export function PropertyForm({ open, onOpenChange, property }: PropertyFormProps) {
   const { t } = useTranslation();
   const [amenities, setAmenities] = useState<string[]>(property?.amenities || []);
+  const { data: companies = [], isLoading: isLoadingCompanies } = useGetCompanies();
   const [newAmenity, setNewAmenity] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const queryClient = useQueryClient();
 
+const {
+  register,
+  handleSubmit,
+  setValue,
+  watch,
+  reset,
+  formState: { errors },
+} = useForm<PropertyFormData>({
+  resolver: zodResolver(propertySchema),
+  defaultValues: {
+    name: property?.name ?? '',
+    address: property?.address ?? '',
+    city: property?.city ?? '',
+    state: property?.state ?? '',
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    reset,
-    formState: { errors },
-  } = useForm<PropertyFormData>({
-    resolver: zodResolver(propertySchema),
-    defaultValues: {
-      name: property?.name || '',
-      address: property?.address || '',
-      city: property?.city || '',
-      state: property?.state || '',
-      country: property?.country || 'Kenya',
-      postalCode: property?.postalCode || '',
-      propertyType: property?.propertyType || 'apartment',
-      amenities: property?.amenities || [],
-    },
-  });
+    // ✅ FIX: ensure number
+    companyId: property?.companyId ! ?? 0,
 
-  // Reset form when property changes (for edit mode)
+    country: property?.country ?? 'Kenya',
+    postalCode: property?.postalCode ?? '',
+
+    // ✅ FIX: uppercase enum
+    propertyType: property?.propertyType ?? 'APARTMENT',
+
+    amenities: property?.amenities ?? [],
+  },
+});
+
+
+
+
   useEffect(() => {
     if (open) {
       reset({
         name: property?.name || '',
         address: property?.address || '',
+        companyId: property?.companyId || 0, 
+        companyName: property?.companyName || '', 
+        
         city: property?.city || '',
         state: property?.state || '',
         country: property?.country || 'Kenya',
         postalCode: property?.postalCode || '',
-        propertyType: property?.propertyType || 'apartment',
+        propertyType: property?.propertyType || 'APARTMENT', 
+        
         amenities: property?.amenities || [],
       });
       setAmenities(property?.amenities || []);
@@ -196,6 +211,33 @@ const handleFormSubmit = async (data: PropertyFormData) => {
                 <p className="text-sm text-destructive">{errors.name.message}</p>
               )}
             </div>
+     <div className="space-y-2 sm:col-span-2">
+  <Label>Company *</Label>
+
+  <Select
+    value={watch('companyId') ? String(watch('companyId')) : undefined}
+    onValueChange={(value) => setValue('companyId', Number(value))}
+    disabled={isLoadingCompanies} // Disable while fetching
+  >
+    <SelectTrigger className={errors.companyId ? 'border-destructive' : ''}>
+      <SelectValue placeholder={isLoadingCompanies ? "Loading companies..." : "Select a company"} />
+    </SelectTrigger>
+
+    <SelectContent>
+      {companies.map((company) => (
+        <SelectItem key={company.id} value={String(company.id)}>
+          {company.name}
+        </SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+
+  {errors.companyId && (
+    <p className="text-sm text-destructive">
+      {errors.companyId.message}
+    </p>
+  )}
+</div>
 
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="address">{t('properties.address')} *</Label>

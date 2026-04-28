@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CreditCard, Smartphone, Building2 } from 'lucide-react';
-import { Invoice } from '@/types/billing';
+import { Invoice, PaymentFormInput } from '@/types/billing';
 
 const paymentSchema = z.object({
   invoiceId: z.string().min(1, 'Please select an invoice'),
@@ -43,7 +43,7 @@ type PaymentFormData = z.infer<typeof paymentSchema>;
 
 interface TenantPaymentFormProps {
   invoices: Invoice[];
-  onSubmit: (data: PaymentFormData) => void;
+  onSubmit: (data: PaymentFormInput) => void | Promise<void>;
   isLoading?: boolean;
 }
 

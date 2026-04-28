@@ -43,6 +43,7 @@ export default function LandlordOnboarding({ token }: { token: string }) {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(landlordSchema),
@@ -62,6 +63,10 @@ export default function LandlordOnboarding({ token }: { token: string }) {
         if (res.firstName) setValue("firstName", res.firstName);
         if (res.lastName) setValue("lastName", res.lastName);
         if (res.phone) setValue("phone", res.phone);
+
+        if (res.companyName) {
+            setValue("companyName", res.companyName);
+        }
 
         // Load apartments
         if (res.apartments) {
@@ -146,9 +151,11 @@ export default function LandlordOnboarding({ token }: { token: string }) {
             </div>
 
             {/* BUSINESS */}
-            <Input
+           <Input
               placeholder="Company Name"
               {...register("companyName")}
+              readOnly={!!watch("companyName")}
+              className={watch("companyName") ? "bg-muted cursor-not-allowed" : ""}
             />
 
             {/* APARTMENTS */}

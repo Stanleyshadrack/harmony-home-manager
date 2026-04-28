@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,29 +15,39 @@ import { TwoFactorSetup } from '@/components/auth/TwoFactorSetup';
 import { NotificationPreferences } from '@/components/settings/NotificationPreferences';
 import { updateUserProfile, fileToBase64 } from '@/services/userManagementService';
 import { useToast } from '@/hooks/use-toast';
+import { useMyProfile } from '@/hooks/useMyProfile';
+
 
 export default function Settings() {
-  const { t } = useTranslation();
   const { user } = useAuth();
+  const { t } = useTranslation();
+  const { profile, updateProfile } = useMyProfile();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const API_BASE_URL = "http://localhost:8080";
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState({
-    firstName: user?.firstName || '',
-    lastName: user?.lastName || '',
-    phone: user?.phone || '',
-    avatarUrl: user?.avatarUrl || '',
-  });
+const [formData, setFormData] = useState({
+  firstName: '',
+  lastName: '',
+  phone: '',
+  avatarUrl: '',
+});
   const [previewAvatar, setPreviewAvatar] = useState<string | null>(null);
 
-  const getInitials = () => {
-    if (formData.firstName && formData.lastName) {
-      return `${formData.firstName[0]}${formData.lastName[0]}`.toUpperCase();
-    }
-    return user?.email?.[0].toUpperCase() || 'U';
-  };
+const getInitials = () => {
+  if (formData.firstName && formData.lastName) {
+    return `${formData.firstName[0]}${formData.lastName[0]}`.toUpperCase();
+  }
+  return user?.email?.[0].toUpperCase() || 'U';
+};
+
+const displayAvatar = previewAvatar
+  ? previewAvatar
+  : formData.avatarUrl
+  ? `${API_BASE_URL}${formData.avatarUrl}`
+  : undefined;
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -76,65 +86,50 @@ export default function Settings() {
     }
   };
 
-  const handleSave = async () => {
-    if (!user?.id) return;
+const handleSave = async () => {
+  setIsSaving(true);
 
-    setIsSaving(true);
-    try {
-      const result = updateUserProfile(user.id, {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        phone: formData.phone,
-        avatarUrl: formData.avatarUrl,
-      });
+  try {
+    await updateProfile({
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      phone: formData.phone,
+      avatarUrl: formData.avatarUrl,
+    });
 
-      if (result.success) {
-        // Update the auth user in localStorage to reflect changes immediately
-        const authUser = localStorage.getItem('auth_user');
-        if (authUser) {
-          const parsed = JSON.parse(authUser);
-          const updated = {
-            ...parsed,
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-            phone: formData.phone,
-            avatarUrl: formData.avatarUrl,
-          };
-          localStorage.setItem('auth_user', JSON.stringify(updated));
-        }
+    toast({
+      title: "Profile Updated",
+      description: "Your profile has been updated successfully.",
+    });
 
-        toast({
-          title: 'Profile Updated',
-          description: 'Your profile has been updated successfully.',
-        });
-        setIsEditing(false);
-        setPreviewAvatar(null);
-        // Reload to reflect changes
-        window.location.reload();
-      } else {
-        toast({
-          title: 'Update Failed',
-          description: result.message,
-          variant: 'destructive',
-        });
-      }
-    } finally {
-      setIsSaving(false);
-    }
-  };
+    setIsEditing(false);
+  } finally {
+    setIsSaving(false);
+  }
+};
 
   const handleCancel = () => {
-    setFormData({
-      firstName: user?.firstName || '',
-      lastName: user?.lastName || '',
-      phone: user?.phone || '',
-      avatarUrl: user?.avatarUrl || '',
-    });
+setFormData({
+  firstName: profile?.firstName || '',
+  lastName: profile?.lastName || '',
+  phone: profile?.phone || '',
+  avatarUrl: profile?.avatarUrl || '',
+});
     setPreviewAvatar(null);
     setIsEditing(false);
   };
 
-  const displayAvatar = previewAvatar || formData.avatarUrl;
+
+useEffect(() => {
+  if (profile) {
+    setFormData({
+      firstName: profile.firstName || '',
+      lastName: profile.lastName || '',
+      phone: profile.phone || '',
+      avatarUrl: profile.avatarUrl || '',
+    });
+  }
+}, [profile]);
 
   return (
     <DashboardLayout
@@ -177,7 +172,9 @@ export default function Settings() {
               />
             </div>
             <h3 className="text-xl font-semibold">
-              {formData.firstName ? `${formData.firstName} ${formData.lastName}` : 'Demo User'}
+             {profile
+  ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || user?.email
+  : 'Loading...'}
             </h3>
             <p className="text-sm text-muted-foreground">{user?.email}</p>
             <Badge className="mt-2">{t(`roles.${user?.role}`)}</Badge>

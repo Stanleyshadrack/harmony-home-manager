@@ -1,6 +1,9 @@
 export interface InviteUserRequest {
-  email: string;
-  role: "LANDLORD" | "TENANT" | "ADMIN" | "SUPER_ADMIN";
+ email: string;
+  role: "LANDLORD" | "TENANT" | "EMPLOYEE" | "ADMIN" | "SUPER_ADMIN";
+  companyId?: number; 
+  apartmentIds?: number[]; 
+  unitId?: number;
 }
 
 export interface InviteUserResponse {

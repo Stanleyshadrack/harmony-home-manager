@@ -62,6 +62,7 @@ export function InvoiceCard({ invoice, onView, onRecordPayment }: InvoiceCardPro
   const isOwing = invoice.balance > 0;
   const isCredit = invoice.balance < 0;
   const isSettled = invoice.balance === 0;
+  
 
   /* =========================
      PAYMENT LOGIC (TYPE AWARE)
@@ -124,6 +125,14 @@ export function InvoiceCard({ invoice, onView, onRecordPayment }: InvoiceCardPro
       description: `Invoice ${invoice.invoiceNumber} downloaded.`,
     });
   };
+
+  const getPaymentStep = () => {
+  if (invoice.balance === invoice.amount) return 0; // Unpaid
+  if (invoice.balance > 0) return 1; // Partial
+  return 2; // Fully Paid
+};
+
+const step = getPaymentStep();
 
   /* =========================
      UI
@@ -227,6 +236,8 @@ export function InvoiceCard({ invoice, onView, onRecordPayment }: InvoiceCardPro
             </p>
           </div>
         </div>
+
+        
 
         {/* PROGRESS */}
         <div className="mt-4">

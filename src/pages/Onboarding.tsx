@@ -28,15 +28,14 @@ export default function Onboarding() {
 
     validateInvite(token)
       .then((res) => {
-        // 🔥 FULL LOG
-        console.log("📦 INVITE RESPONSE:", res);
+        console.log(" INVITE RESPONSE:", res);
 
         setInviteData(res);
         setRole(res.role);
         setLoading(false);
       })
       .catch((err) => {
-        console.error("❌ VALIDATE INVITE ERROR:", err);
+        console.error(" VALIDATE INVITE ERROR:", err);
         setLoading(false);
       });
   }, [token]);

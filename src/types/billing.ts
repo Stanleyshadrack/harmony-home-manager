@@ -124,6 +124,14 @@ export interface WaterReadingFormData {
   billingPeriod: string;
 }
 
+export interface PaymentFormInput {
+  invoiceId: string;
+  amount: number;
+  paymentMethod: PaymentMethod;
+  phoneNumber?: string;
+  reference?: string;
+}
+
 export interface PaymentFormData {
     transactionRef: string; 
   paymentDate: string; 

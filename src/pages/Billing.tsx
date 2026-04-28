@@ -77,6 +77,7 @@ const [selectedUnits, setSelectedUnits] = useState<string[]>([]);
   const [showWaterForm, setShowWaterForm] = useState(false);
   const [showReceiptDialog, setShowReceiptDialog] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
   
   const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
@@ -365,6 +366,8 @@ const totalOutstanding = invoices.reduce(
                 className="pl-9"
               />
             </div>
+
+            
             <Select
               value={statusFilter}
               onValueChange={(value) => setStatusFilter(value as InvoiceStatus | 'all')}

@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { MoreVertical, Eye, Edit, Mail, Phone, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useState } from 'react';
 
 interface TenantCardProps {
   tenant: Tenant;
@@ -28,10 +29,13 @@ const statusColors = {
 
 
 export function TenantCard({ tenant, onView, onEdit, onDelete }: TenantCardProps) {
+
+  const API_BASE_URL = "http://localhost:8080";
   const { t } = useTranslation();
-    const avatarUrl = tenant.avatarUrl
-  ? `http://localhost:8080${tenant.avatarUrl}`
-  : null;
+
+const displayAvatar = tenant.avatarUrl
+  ? `${API_BASE_URL}${tenant.avatarUrl}`
+  : undefined;
 
   return (
     <Card className="hover:shadow-md transition-shadow">
@@ -41,12 +45,12 @@ export function TenantCard({ tenant, onView, onEdit, onDelete }: TenantCardProps
            
 <Avatar className="h-16 w-16">
   <AvatarImage
-    src={avatarUrl || undefined}
+    src={displayAvatar}
     className="object-cover w-full h-full"
   />
   <AvatarFallback>
-    {tenant.firstName[0]}
-    {tenant.lastName[0]}
+    {tenant.firstName?.[0]}
+    {tenant.lastName?.[0]}
   </AvatarFallback>
 </Avatar>
             <div>

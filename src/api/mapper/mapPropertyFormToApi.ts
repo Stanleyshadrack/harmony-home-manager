@@ -8,6 +8,7 @@ export function mapPropertyFormToApi(
   return {
     name: form.name,
     address: form.address,
+     companyId: Number(form.companyId),
     city: form.city,
     state: form.state,
     country: form.country,

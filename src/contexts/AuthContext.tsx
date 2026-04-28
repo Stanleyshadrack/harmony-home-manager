@@ -43,6 +43,8 @@ interface AuthContextType {
   ) => Promise<{ error: string | null; redirect?: string }>;
   completeLogin: (accessToken: string) => void;
   logout: () => void;
+
+  updateUser: (data: Partial<UserWithRole>) => void;
 }
 
 /* =========================
@@ -144,7 +146,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const decoded = jwtDecode<JwtPayload>(accessToken);
-      console.log("✅ JWT decoded in completeLogin:", decoded);
 
       const newUser: UserWithRole = {
         id: String(decoded.userId),
@@ -170,6 +171,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     tokenService.clearTokens();
   };
 
+  const updateUser = (data: Partial<UserWithRole>) => {
+  setUser((prev) => {
+    if (!prev) return prev;
+
+    return {
+      ...prev,
+      ...data,
+    };
+  });
+};
+
   /* =========================
      Provider
   ========================= */
@@ -183,8 +195,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         completeLogin,
         logout,
+        updateUser
       }}
     >
+
+      
       {children}
     </AuthContext.Provider>
   );

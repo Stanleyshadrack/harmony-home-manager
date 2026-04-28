@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useProperties } from '@/hooks/useProperties';
 import { useMaintenance } from '@/hooks/useMaintenance';
-import { useAuth } from '@/contexts/AuthContext';
 import { useInAppNotifications } from '@/hooks/useInAppNotifications';
 import { useNotifications } from '@/hooks/useNotifications';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -10,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Dialog,
   DialogContent,
@@ -71,6 +71,7 @@ import {
 } from '@/hooks/use.employees.hook';
 import { useQuery } from '@tanstack/react-query';
 import { Employee } from '@/hooks/useEmployees';
+import { InviteUserDialog } from '../admin/InviteUserDialog';
 
 export function EmployeeManagement() {
   const { properties } = useProperties();
@@ -88,6 +89,7 @@ export function EmployeeManagement() {
 const deactivateEmployeeMutation = useDeactivateEmployee();
 const deleteEmployeeMutation = useDeleteEmployee();
 const assignPropertiesMutation = useAssignEmployeeProperties();
+const { user } = useAuth();
   
   // Rejection dialog for pending registrations
   const [selectedRegistration, setSelectedRegistration] = useState<Employee | null>(null);
@@ -107,6 +109,7 @@ const assignPropertiesMutation = useAssignEmployeeProperties();
   const totalPendingEmployees = employeeData?.totalPendingEmployees || 0;
   const totalEmployees = employeeData?.totalEmployees || 0;
   const pendingRegistration = employeeData?.pendingRegistration || [];
+  const [showInviteDialog, setShowInviteDialog] = useState(false);
   // Filter employee registrations only (tenant approvals moved to Tenants module)
   
   // Get pending/unassigned maintenance tasks
@@ -223,17 +226,6 @@ const handleRemove = (employee: Employee) => {
   const handleApproveRegistration = async (registration: Employee) => {
     setIsProcessing(true);
     try {
-      // await approveRegistration(registration.id, user?.email || 'Landlord');
-      
-      // In-app notification
-      // addNotification({
-      //   userId: registration.phone,
-      //   title: 'Registration Approved!',
-      //   message: 'Your employee account has been approved by the landlord. You can now log in.',
-      //   category: 'registration_approved',
-      //   priority: 'high',
-      //   link: '/auth',
-      // });
 
       // Send SMS notification
       if (registration.phone) {
@@ -302,6 +294,7 @@ const handleRemove = (employee: Employee) => {
 
   return (
     <div className="space-y-6">
+
       {/* Header Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
@@ -371,28 +364,42 @@ const handleRemove = (employee: Employee) => {
               </span>
             )}
           </TabsTrigger>
-        </TabsList>
+        </TabsList>         
 
         {/* Employees Tab */}
         <TabsContent value="employees" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                  <CardTitle>Employee Directory</CardTitle>
-                  <CardDescription>Manage your property employees and assignments</CardDescription>
-                </div>
-                <div className="relative w-full sm:w-64">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search employees..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-              </div>
-            </CardHeader>
+  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    {/* LEFT SIDE */}
+    <div>
+      <CardTitle>Employee Directory</CardTitle>
+      <CardDescription>
+        Manage your property employees and assignments
+      </CardDescription>
+    </div>
+
+    {/* RIGHT SIDE */}
+    <div className="flex items-center gap-2 w-full sm:w-auto">
+      {/* Search */}
+      <div className="relative w-full sm:w-64">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search employees..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
+      {/* Invite Button */}
+      <Button onClick={() => setShowInviteDialog(true)}>
+        <UserPlus className="h-4 w-4 mr-2" />
+        Invite User
+      </Button>
+    </div>
+  </div>
+</CardHeader>
             <CardContent>
               {filteredEmployees.length === 0 ? (
                 <div className="text-center py-12">
@@ -602,6 +609,13 @@ const handleRemove = (employee: Employee) => {
             </CardContent>
           </Card>
         </TabsContent>
+
+              {/* Invite User Dialog */}
+              <InviteUserDialog
+          open={showInviteDialog}
+          onOpenChange={setShowInviteDialog}
+          inviterRole={user?.role || 'landlord'}
+        />
 
         {/* Approvals Tab */}
         <TabsContent value="approvals" className="space-y-4">

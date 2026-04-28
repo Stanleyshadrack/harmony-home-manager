@@ -35,7 +35,7 @@ function mapSubscriptionToPayment(
    HOOK
 ====================================================== */
 
-export function useSubscriptionPayments() {
+export function useSubscriptionPayments(onUpdate?: () => void) {
   const [payments, setPayments] = useState<SubscriptionPayment[]>([]);
   const [subscription, setSubscription] =
     useState<SubscriptionResponse | null>(null);
@@ -76,8 +76,13 @@ const upgrade = useCallback(
       billingCycle,
     });
 
+    // 1. update local subscription state
     setSubscription(updated);
 
+    // 2. notify parent (VERY IMPORTANT)
+    onUpdate?.();
+
+    // 3. update payments
     setPayments((prev) => [
       mapSubscriptionToPayment(updated, "UPGRADE"),
       ...prev,
@@ -85,22 +90,26 @@ const upgrade = useCallback(
 
     return updated;
   },
-  []
+  [onUpdate] // include dependency
 );
 
   /* ================= RENEW ================= */
 
-  const renew = useCallback(async () => {
-    const updated = await renewMySubscription();
+const renew = useCallback(async () => {
+  const updated = await renewMySubscription();
 
-    setSubscription(updated);
-    setPayments((prev) => [
-      mapSubscriptionToPayment(updated, "RENEW"),
-      ...prev,
-    ]);
+  setSubscription(updated);
 
-    return updated;
-  }, []);
+  // ✅ SAME HERE
+  onUpdate?.();
+
+  setPayments((prev) => [
+    mapSubscriptionToPayment(updated, "RENEW"),
+    ...prev,
+  ]);
+
+  return updated;
+}, [onUpdate]);
 
   /* ================= STATS ================= */
 

@@ -1,19 +1,29 @@
+import { PropertyType } from "@/api/dto/apartmentApiDTO";
 import { UnitStatus, UnitType } from "./enums";
 
 export interface Property {
-  id: string;
+  id: number;
   name: string;
+
+  companyId: number;
+  companyName?: string;
+
   address: string;
   city: string;
   state: string;
   country: string;
   postalCode: string;
-  propertyType: 'apartment' | 'house' | 'commercial' | 'mixed';
+
+  propertyType: PropertyType;
+
   totalUnits: number;
   occupiedUnits: number;
+
   amenities: string[];
   photos: string[];
- landlordIds: string[]; 
+
+  landlordIds: number[];
+
   createdAt: string;
   updatedAt: string;
 }
@@ -52,6 +62,8 @@ export interface Unit {
 export interface PropertyFormData {
   name: string;
   address: string;
+  companyName:string;
+  companyId: number;
   city: string;
   state: string;
   country: string;

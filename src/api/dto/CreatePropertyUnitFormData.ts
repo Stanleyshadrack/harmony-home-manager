@@ -1,29 +1,30 @@
-export interface CreatePropertyUnitFormData {
-  propertyId: string
+export interface CreateUnitFormData {
+  propertyId: number;
 
-  unitNumber: string
+  unitNumber: string;
 
-  type:
+  unitType:
     | "STUDIO"
     | "ONE_BEDROOM"
     | "TWO_BEDROOM"
     | "THREE_BEDROOM"
-    | "PENTHOUSE"
+    | "PENTHOUSE";
 
-  status: "VACANT" | "OCCUPIED" | "MAINTENANCE" | "RESERVED" | null
+  status?: "VACANT" | "OCCUPIED" | "MAINTENANCE";
 
-  bedrooms: number
-  bathrooms: number
+  bedrooms: number;
+  bathrooms: number;
 
-  squareFeet: number
+  squareFeet: number;
 
-   lastReading: string,
-    lastReadingDate: string,
+  monthlyRent: number;
+  deposit: number;
 
-  monthlyRent: number
-  deposit: number
+  meterId?: number | null;
 
-  meterId?: number | null
+  // UI-only fields
+  lastReading?: number;
+  lastReadingDate?: string;
 }
 
 

@@ -25,11 +25,12 @@ import { UserPlus, Loader2, Mail, User, Building2, Wrench } from 'lucide-react';
 import { UserRole } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { inviteUserService } from '@/api/service/invite.user.service.api';
+import { useGetCompanies } from '@/hooks/useCompanies';
 
 const inviteSchema = z.object({
   email: z.string().email('Invalid email address'),
   role: z.enum(['tenant', 'employee', 'landlord']),
-
+  companyId: z.coerce.number().optional(),
   apartmentIds: z.array(z.string()).optional(),
   unitId: z.string().optional(),
 }).superRefine((data, ctx) => {
@@ -96,6 +97,7 @@ export function InviteUserDialog({
   const { properties } = useProperties();
 
 const selectedApartmentForTenant = selectedApartments[0];
+const { data: companies = [], isLoading: isLoadingCompanies } = useGetCompanies();
 
 const { units } = useUnits(selectedApartmentForTenant);
 
@@ -128,6 +130,19 @@ const { units } = useUnits(selectedApartmentForTenant);
       role: roleMap[data.role],
     };
 
+    if (inviterRole === 'super_admin' && data.role === 'landlord') {
+      if (!data.companyId) {
+        toast.error('Please select a company for the new landlord.');
+        setIsSubmitting(false);
+        return; // Stop submission
+      }
+      payload.companyId = data.companyId;
+    }
+
+    if (inviterRole === 'super_admin') {
+        payload.companyId = data.companyId;
+      }
+
     // ✅ LANDLORD → REQUIRED apartments
     if (data.role === "landlord") {
       payload.apartmentIds = (data.apartmentIds || []).map(Number);
@@ -151,7 +166,7 @@ const { units } = useUnits(selectedApartmentForTenant);
     await inviteUserService(payload);
 
     toast.success("Invitation sent!");
-    reset();
+    reset({ role: 'tenant', companyId: undefined, email: '' });
     setSelectedApartments([]);
     onOpenChange(false);
 
@@ -227,6 +242,29 @@ const { units } = useUnits(selectedApartmentForTenant);
             </p>
           </div>
 
+         {/* Company Selection (ONLY FOR SUPER ADMIN INVITING A LANDLORD) */}
+          {inviterRole === 'super_admin' && selectedRole === 'landlord' && (
+            <div className="space-y-2">
+              <Label>Company *</Label>
+              <Select
+                value={watch('companyId') ? String(watch('companyId')) : undefined}
+                onValueChange={(value) => setValue('companyId', Number(value))}
+                disabled={isLoadingCompanies}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={isLoadingCompanies ? "Loading..." : "Select company"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {companies.map((company) => (
+                    <SelectItem key={company.id} value={String(company.id)}>
+                      {company.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="space-y-2">
   <Label>
   {selectedRole === "landlord" && "Apartments *"}
@@ -240,29 +278,28 @@ const { units } = useUnits(selectedApartmentForTenant);
 
   <div className="flex flex-wrap gap-2 border rounded-md p-2">
     {properties?.map((property) => {
-      const isSelected = selectedApartments.includes(property.id);
+      const isSelected = selectedApartments.includes(property.id.toString());
 
       return (
         <button
           type="button"
           key={property.id}
           onClick={() => {
-            let updated;
+  let updated: string[];
+  const propertyIdStr = String(property.id);
+  if (selectedRole === 'tenant') {
+    updated = [propertyIdStr];
+  } else {
+    if (isSelected) {
+      updated = selectedApartments.filter(id => id !== propertyIdStr);
+    } else {
+      updated = [...selectedApartments, propertyIdStr];
+    }
+  }
 
-            // 🔥 Tenant → ONLY ONE
-            if (selectedRole === 'tenant') {
-              updated = [property.id];
-            } else {
-              if (isSelected) {
-                updated = selectedApartments.filter(id => id !== property.id);
-              } else {
-                updated = [...selectedApartments, property.id];
-              }
-            }
-
-            setSelectedApartments(updated);
-            setValue('apartmentIds', updated);
-          }}
+  setSelectedApartments(updated);
+  setValue('apartmentIds', updated);
+}}
           className={`px-3 py-1 rounded-full text-sm border ${
             isSelected
               ? 'bg-primary text-white'

@@ -1,9 +1,7 @@
-import { CreatePropertyUnitFormData } from "./CreatePropertyUnitFormData";
+import { CreateUnitFormData } from "./CreatePropertyUnitFormData";
 
-// Matches PropertyDTO (backend)
 export interface PropertyApiResponse {
   id: number;
-
   name: string;
   address: string;
   city: string;
@@ -11,7 +9,9 @@ export interface PropertyApiResponse {
   postalCode: string;
   country: string;
 
-  /** apartment | house | commercial | mixed */
+  companyId: number;
+  companyName?: string;
+
   propertyType: PropertyType;
 
   amenities: string[];
@@ -19,13 +19,15 @@ export interface PropertyApiResponse {
   totalUnits: number;
   occupiedUnits: number;
 
-  landlordId: number;
+  
+  landlordIds: number[];
+  landlordNames: string[];
 
   createdAt: string;
   updatedAt: string;
 }
 
-// Matches PropertyStatsDTO
+
 export interface PropertyStatsResponse {
   propertyId: number;
   totalUnits: number;
@@ -38,13 +40,16 @@ export interface PropertyStatsResponse {
 export interface CreatePropertyFormData {
   name: string;
   address: string;
+  companyId: number;
   city: string;
   state: string;
   country: string;
   postalCode: string;
-  propertyType: string;
+  propertyType: PropertyType;
+
   amenities?: string[];
-  units?: CreatePropertyUnitFormData[]; // ✅ OPTIONAL
+  units?: UnitCreateFormData[];
+  landlordIds?: number[];
 }
 
 

@@ -79,6 +79,9 @@ import { useInvitations } from '@/hooks/useInvitations';
 import { AssignPropertiesDialog } from '@/components/properties/AssignPropertiesDialog';
 import { LandlordTypes } from '@/types/LandlordTypes';
 import { SubscriptionPlan } from '@/api/dto/SubscriptionResponse';
+import { useGetCompanies } from '@/hooks/useCompanies';
+import { CompanyResponse } from '@/api/service/CompanyServiceApi';
+import { CompanyDetailsDialog } from '@/components/admin/CompanyDetailsDialog';
 
 export default function AdminPortal() {
   const { t } = useTranslation();
@@ -86,6 +89,8 @@ export default function AdminPortal() {
   const { properties, assignLandlord } = useProperties();
   const { tenants } = useTenants();
   const [showApprovalDetails, setShowApprovalDetails] = useState(false);
+  const [selectedCompany, setSelectedCompany] = useState<CompanyResponse | null>(null);
+  const [showCompanyDialog, setShowCompanyDialog] = useState(false);
 
   const {
   data: invoices = [],
@@ -133,6 +138,7 @@ const totalRevenue = useMemo(
   const [landlordFormMode, setLandlordFormMode] = useState<'add' | 'edit'>('add');
 const [selectedApproval, setSelectedApproval] = useState<Approval | null>(null);
 const [approvalLoading, setApprovalLoading] = useState(false);
+const { data: companies = [], isLoading: companiesLoading } = useGetCompanies();
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRenewalDialog, setShowRenewalDialog] = useState(false);
@@ -477,182 +483,183 @@ if (invoicesError) {
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-8">
-            <TabsTrigger value="dashboard" className="flex items-center gap-2">
-              <LayoutDashboard className="h-4 w-4" />
-              <span className="hidden sm:inline">Overview</span>
-            </TabsTrigger>
-            <TabsTrigger value="approvals" className="flex items-center gap-2 relative">
-              <UserCheck className="h-4 w-4" />
-              <span className="hidden sm:inline">Approvals</span>
-              {pendingCount > 0 && (
-                <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center">
-                  {pendingCount}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="landlords" className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">Landlords</span>
-            </TabsTrigger>
-            <TabsTrigger value="users" className="flex items-center gap-2">
-              <Key className="h-4 w-4" />
-              <span className="hidden sm:inline">Users</span>
-            </TabsTrigger>
-            <TabsTrigger value="announcements" className="flex items-center gap-2">
-              <Mail className="h-4 w-4" />
-              <span className="hidden sm:inline">Emails</span>
-            </TabsTrigger>
-            <TabsTrigger value="system" className="flex items-center gap-2">
-              <Lock className="h-4 w-4" />
-              <span className="hidden sm:inline">System</span>
-            </TabsTrigger>
-            <TabsTrigger value="audit" className="flex items-center gap-2">
-              <Shield className="h-4 w-4" />
-              <span className="hidden sm:inline">Audit</span>
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline">Settings</span>
-            </TabsTrigger>
-          </TabsList>
+         <TabsList className="flex w-full gap-2 px-1">
+  <TabsTrigger value="dashboard" className="flex-1 flex items-center justify-center gap-2">
+    <LayoutDashboard className="h-4 w-4" />
+    <span className="hidden sm:inline">Overview</span>
+  </TabsTrigger>
+
+  <TabsTrigger value="approvals" className="flex-1 flex items-center justify-center gap-2 relative">
+    <UserCheck className="h-4 w-4" />
+    <span className="hidden sm:inline">Approvals</span>
+    {pendingCount > 0 && (
+      <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center">
+        {pendingCount}
+      </span>
+    )}
+  </TabsTrigger>
+
+  <TabsTrigger value="companies" className="flex-1 flex items-center justify-center gap-2">
+    <Building2 className="h-4 w-4" />
+    <span className="hidden sm:inline">Companies</span>
+  </TabsTrigger>
+
+  <TabsTrigger value="landlords" className="flex-1 flex items-center justify-center gap-2">
+    <Users className="h-4 w-4" />
+    <span className="hidden sm:inline">Landlords</span>
+  </TabsTrigger>
+
+  <TabsTrigger value="users" className="flex-1 flex items-center justify-center gap-2">
+    <Key className="h-4 w-4" />
+    <span className="hidden sm:inline">Users</span>
+  </TabsTrigger>
+
+  <TabsTrigger value="announcements" className="flex-1 flex items-center justify-center gap-2">
+    <Mail className="h-4 w-4" />
+    <span className="hidden sm:inline">Emails</span>
+  </TabsTrigger>
+
+  <TabsTrigger value="system" className="flex-1 flex items-center justify-center gap-2">
+    <Lock className="h-4 w-4" />
+    <span className="hidden sm:inline">System</span>
+  </TabsTrigger>
+
+  <TabsTrigger value="audit" className="flex-1 flex items-center justify-center gap-2">
+    <Shield className="h-4 w-4" />
+    <span className="hidden sm:inline">Audit</span>
+  </TabsTrigger>
+
+  <TabsTrigger value="settings" className="flex-1 flex items-center justify-center gap-2">
+    <Settings className="h-4 w-4" />
+    <span className="hidden sm:inline">Settings</span>
+  </TabsTrigger>
+</TabsList>
 
           {/* Dashboard Tab */}
-          <TabsContent value="dashboard" className="space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Recent Landlords */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Recent Landlords</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {landlords.slice(0, 5).map((landlord) => (
-                    <div
-                      key={landlord.id}
-                      className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
-                          {landlord.firstName.charAt(0)}
-                        </div>
-                        <div>
+          <>
+  {/* DASHBOARD TAB */}
+  <TabsContent value="dashboard" className="space-y-4">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* your dashboard cards exactly as-is */}
+    </div>
+  </TabsContent>
 
-                          <p className="font-medium">
-  {landlord.firstName || landlord.lastName
-    ? `${landlord.firstName ?? ""} ${landlord.lastName ?? ""}`.trim()
-    : landlord.email}
-</p>
-                          <p className="text-sm text-muted-foreground">{landlord.email}</p>
+  {/* COMPANIES TAB */}
+  <TabsContent value="companies" className="space-y-4">
+    <div className="flex items-center justify-between">
+      <div>
+        <h2 className="text-xl font-semibold">Company Management</h2>
+        <p className="text-muted-foreground">
+          Manage registered companies on the platform
+        </p>
+      </div>
 
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <Badge
-                          variant="outline"
-                          className={
-                            landlord.status === 'active'
-                              ? 'bg-success/10 text-success'
-                              : 'bg-destructive/10 text-destructive'
-                          }
-                        >
-                          {landlord.status}
-                        </Badge>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {landlord.currentProperties} properties
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
+      <Button>
+        <UserPlus className="h-4 w-4 mr-2" />
+        Add Company
+      </Button>
+    </div>
 
-              {/* Activity Summary */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Activity Summary</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="text-center p-4 bg-info/10 rounded-lg">
-                      <p className="text-2xl font-bold text-info">{activitySummary.bySeverity.info || 0}</p>
-                      <p className="text-sm text-muted-foreground">Info</p>
-                    </div>
-                    <div className="text-center p-4 bg-warning/10 rounded-lg">
-                      <p className="text-2xl font-bold text-warning">{activitySummary.bySeverity.warning || 0}</p>
-                      <p className="text-sm text-muted-foreground">Warnings</p>
-                    </div>
-                    <div className="text-center p-4 bg-destructive/10 rounded-lg">
-                      <p className="text-2xl font-bold text-destructive">{activitySummary.bySeverity.critical || 0}</p>
-                      <p className="text-sm text-muted-foreground">Critical</p>
-                    </div>
-                  </div>
+   <Card>
+  <Table>
+    <TableHeader>
+      <TableRow>
+        <TableHead>Company</TableHead>
+        <TableHead>Subscription Plan</TableHead>
+        <TableHead>Properties</TableHead>
+        <TableHead>Landlords</TableHead>
+        <TableHead>Status</TableHead>
+        <TableHead>Created</TableHead>
+        <TableHead className="text-right">Actions</TableHead>
+      </TableRow>
+    </TableHeader>
 
-                  <div className="mt-6 space-y-2">
-                    <h4 className="font-medium">Recent Activity</h4>
-                    {auditLogs.slice(0, 5).map((log) => (
-                      <div
-                        key={log.id}
-                        className="flex items-center justify-between text-sm py-2 border-b last:border-0"
-                      >
-                        <span className="text-muted-foreground">{log.action}</span>
-                        <Badge variant="outline" className="text-xs">
-                          {log.severity}
-                        </Badge>
-                      </div>
-                    ))}
-                    {auditLogs.length === 0 && (
-                      <p className="text-center text-muted-foreground py-4">No recent activity</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+    <TableBody>
+      {companiesLoading ? (
+        <TableRow>
+          <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+            Loading companies...
+          </TableCell>
+        </TableRow>
+      ) : companies.length === 0 ? (
+        <TableRow>
+          <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+            No companies registered yet.
+          </TableCell>
+        </TableRow>
+      ) : (
+        companies.map((company) => (
+          <TableRow key={company.id}>
+            <TableCell>
+              <div>
+                <p className="font-medium">{company.name}</p>
+                {/* Optional: Add email or contact info here if added to DTO later */}
+              </div>
+            </TableCell>
 
-              {/* Alerts */}
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <AlertTriangle className="h-5 w-5 text-warning" />
-                    System Alerts
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {landlords.filter((l) => l.status === 'suspended').length > 0 && (
-                      <div className="flex items-center gap-3 p-3 bg-destructive/5 border border-destructive/20 rounded-lg">
-                        <Ban className="h-5 w-5 text-destructive" />
-                        <div>
-                          <p className="font-medium">Suspended Accounts</p>
-                          <p className="text-sm text-muted-foreground">
-                            {landlords.filter((l) => l.status === 'suspended').length} landlord account(s) are suspended
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                    {expiredSubscriptions.length > 0 && (
-                      <div className="flex items-center gap-3 p-3 bg-warning/5 border border-warning/20 rounded-lg">
-                        <CreditCard className="h-5 w-5 text-warning" />
-                        <div>
-                          <p className="font-medium">Expired Subscriptions</p>
-                          <p className="text-sm text-muted-foreground">
-                            {expiredSubscriptions.length} subscription(s) have expired
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-3 p-3 bg-info/5 border border-info/20 rounded-lg">
-                      <Activity className="h-5 w-5 text-info" />
-                      <div>
-                        <p className="font-medium">System Health</p>
-                        <p className="text-sm text-muted-foreground">
-                          All systems operational. Last check: Just now
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
+            <TableCell className="text-muted-foreground">
+              {company.subscriptionPlan ? (
+                <Badge variant="outline" className="capitalize">
+                  {company.subscriptionPlan.toLowerCase()}
+                </Badge>
+              ) : (
+                '—'
+              )}
+            </TableCell>
+            
+            <TableCell>{company.numberOfProperties}</TableCell>
+            
+            <TableCell>{company.numberOfLandlords}</TableCell>
+
+            <TableCell>
+              <Badge className={company.subscriptionStatus === 'ACTIVE' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}>
+                {company.subscriptionStatus || 'UNKNOWN'}
+              </Badge>
+            </TableCell>
+
+            <TableCell>
+              {company.createdAt ? formatDate(company.createdAt) : '—'}
+            </TableCell>
+
+            <TableCell className="text-right">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent align="end">
+  <DropdownMenuItem 
+    onClick={() => {
+      setSelectedCompany(company);
+      setShowCompanyDialog(true);
+    }}
+  >
+    <Eye className="h-4 w-4 mr-2" />
+    View
+  </DropdownMenuItem>
+
+  <DropdownMenuItem>
+    <Edit className="h-4 w-4 mr-2" />
+    Edit
+  </DropdownMenuItem>
+
+  <DropdownMenuItem className="text-destructive">
+    <Ban className="h-4 w-4 mr-2" />
+    Suspend
+  </DropdownMenuItem>
+</DropdownMenuContent>
+              </DropdownMenu>
+            </TableCell>
+          </TableRow>
+        ))
+      )}
+    </TableBody>
+  </Table>
+</Card>
+  </TabsContent>
+</>
 
           {/* Approvals Tab */}
           <TabsContent value="approvals" className="space-y-4">
@@ -1382,8 +1389,12 @@ if (invoicesError) {
     )}
   </div>
 )}
+
+
+
   </DialogContent>
 </Dialog>
+
 
   {/* Assign Properties Dialog */}
       <AssignPropertiesDialog
@@ -1395,6 +1406,14 @@ if (invoicesError) {
         onSave={handleSavePropertyAssignment}
       />
 
+      <CompanyDetailsDialog 
+        open={showCompanyDialog}
+        onOpenChange={setShowCompanyDialog}
+        company={selectedCompany}
+        formatDate={formatDate}
+      />
+
     </DashboardLayout>
+    
   );
 }

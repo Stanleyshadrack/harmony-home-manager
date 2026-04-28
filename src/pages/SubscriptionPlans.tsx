@@ -13,21 +13,29 @@ import { useToast } from '@/hooks/use-toast';
 import { Check, Crown, Zap, Building2, ArrowRight, Star, ArrowLeft, CreditCard, ShieldCheck, Loader2, CheckCircle } from 'lucide-react';
 import { useMyLandlord } from '@/hooks/useMyLandlord';
 import { SUBSCRIPTION_PLANS as subscriptionPlans } from '@/components/Plans';
+import { useQuery } from '@tanstack/react-query';
 
 type UpgradeStep = 'plans' | 'payment' | 'success';
 
 
 
+
 export default function SubscriptionPlans() {
-     const { upgrade, renew } = useSubscriptionPayments();
   const { user } = useAuth();
   const { toast } = useToast();
+const { refetch, landlord: currentLandlord, isLoading } = useMyLandlord();
+const {
+  subscription,
+  upgrade,
+  renew,
+} = useSubscriptionPayments(refetch);
 
-  const { landlord: currentLandlord, isLoading } = useMyLandlord();
   const [step, setStep] = useState<UpgradeStep>('plans');
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlanDetails | null>(null);
   const [billingCycle, setBillingCycle] = useState<"MONTHLY" | "ANNUAL">("MONTHLY");
   const [isProcessing, setIsProcessing] = useState(false);
+  const isValidPlan = (plan: any): plan is SubscriptionPlan =>
+  ['BASIC', 'PREMIUM', 'ENTERPRISE'].includes(plan);
   const [paymentData, setPaymentData] = useState({
     cardholderName: '',
     cardNumber: '',
@@ -47,8 +55,11 @@ export default function SubscriptionPlans() {
 }
 
 
+
+
+
 const currentPlan: SubscriptionPlan =
-  currentLandlord?.subscription ?? 'BASIC';
+  subscription?.plan ?? currentLandlord?.subscription ?? 'BASIC';
 
   const getPlanIcon = (id: SubscriptionPlan) => {
    switch (id) {
@@ -63,6 +74,8 @@ const currentPlan: SubscriptionPlan =
 
   return 'border-primary ring-2 ring-primary shadow-lg';
 };
+
+
 
   const formatCardNumber = (value: string) => {
     const cleaned = value.replace(/\D/g, '').slice(0, 16);
@@ -86,6 +99,7 @@ const currentPlan: SubscriptionPlan =
   }
 };
 
+
 const handleFreeUpgrade = async (plan: SubscriptionPlanDetails) => {
   try {
     await upgrade(plan.id, billingCycle);
@@ -105,6 +119,8 @@ const handleFreeUpgrade = async (plan: SubscriptionPlanDetails) => {
     });
   }
 };
+
+
 
 const handleProcessPayment = async () => {
   if (
@@ -128,6 +144,7 @@ const handleProcessPayment = async () => {
   try {
     // 🔐 REAL BACKEND CALL
    await upgrade(selectedPlan.id, billingCycle);
+   await refetch();
 
     setStep('success');
 
@@ -199,7 +216,9 @@ const handleProcessPayment = async () => {
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Valid Until</span>
                 <span className="font-medium">
-                  {new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                  {currentLandlord?.subscriptionEndDate
+  ? new Date(currentLandlord.subscriptionEndDate).toLocaleDateString()
+  : 'Not set'}
                 </span>
               </div>
             </CardContent>

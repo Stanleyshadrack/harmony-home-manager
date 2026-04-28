@@ -176,22 +176,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Supabase Setup Notice */}
-      <Card className="mt-6 border-warning/50 bg-warning/5">
-        <CardContent className="flex items-start gap-4 pt-6">
-          <div className="p-2 rounded-full bg-warning/10">
-            <AlertCircle className="h-5 w-5 text-warning" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-warning">Backend Not Connected</h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              This is a demo with mock data. To enable real authentication, database, and all features,
-              please enable Lovable Cloud from the Cloud tab in the left panel.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
     </DashboardLayout>
   );
 }

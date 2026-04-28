@@ -55,8 +55,6 @@ LANDLORDS: "/api/landlords",
 LANDLORD_BY_ID: (id: number) =>
   `/api/landlords/${id}`,
 
-MY_LANDLORD_PROFILE: "/api/landlords/me",
-
 APPROVE_LANDLORD: (landlordId: number) =>
   `/api/landlords/${landlordId}/approve`,
 
@@ -83,12 +81,15 @@ ACTIVATE_EMPLOYEE: (id: number) =>
 
 DEACTIVATE_EMPLOYEE: (id: number) =>
   `/api/employees/${id}/deactivate`,
-
-// ✅ Profile
-EMPLOYEE_PROFILE: "/api/employees/me",
-
 EMPLOYEES: "/api/employees",
 EMPLOYEE_BY_ID: (id: number) => `/api/employees/${id}`,
+
+
+// -------------------- My Profile (All Roles) --------------------
+MY_USER_PROFILE: "/api/users/me",
+MY_LANDLORD_PROFILE: "/api/landlords/me",
+EMPLOYEE_PROFILE: "/api/employees/me",
+MY_TENANT_PROFILE: "/api/tenants/me",
 
 
 
@@ -105,10 +106,18 @@ ASSIGN_MAINTENANCE: "/api/maintenance/assign",
 UPDATE_MAINTENANCE_STATUS: (id: number) =>
   `/api/maintenance/${id}/status`,
 
-
    //--------------📝 Add Note-----------------------
 
 ADD_MAINTENANCE_NOTE: "/api/maintenance/notes",
+
+//---------------------company------------------------------
+COMPANIES: "/v1/api/companies",
+
+CREATE_COMPANY: "/v1/api/companies",
+GET_COMPANY_BY_ID: (id: number) => `/v1/api/companies/${id}`,
+GET_ALL_COMPANIES: "/v1/api/companies",
+UPDATE_COMPANY: (id: number) => `/v1/api/companies/${id}`,
+DELETE_COMPANY: (id: number) => `/v1/api/companies/${id}`,
 
 
 // ----------------------- Approvals -------------------------
