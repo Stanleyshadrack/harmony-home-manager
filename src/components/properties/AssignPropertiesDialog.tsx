@@ -15,14 +15,20 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Building2, Search, MapPin, Home } from 'lucide-react';
 import { Property } from '@/types/property';
 import { LandlordTypes } from '@/types/LandlordTypes';
+
 interface AssignPropertiesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   landlord: LandlordTypes | null;
   properties: Property[];
-  assignedPropertyIds: string[];
-  onSave: (landlordId: string, propertyIds: string[]) => void;
+  
+  // 🔥 FIX 1: Change to number[]
+  assignedPropertyIds: number[]; 
+  
+  // 🔥 FIX 2: Change to number and number[]
+  onSave: (landlordId: number, propertyIds: number[]) => void;
 }
+
 export function AssignPropertiesDialog({
   open,
   onOpenChange,
@@ -31,12 +37,16 @@ export function AssignPropertiesDialog({
   assignedPropertyIds,
   onSave,
 }: AssignPropertiesDialogProps) {
-  const [selected, setSelected] = useState<string[]>(assignedPropertyIds);
+  
+  // 🔥 FIX 3: Change state to number[]
+  const [selected, setSelected] = useState<number[]>(assignedPropertyIds);
   const [search, setSearch] = useState('');
+
   // Reset selection when dialog opens with new landlord
   useEffect(() => {
-  setSelected(assignedPropertyIds);
-}, [assignedPropertyIds, landlord]);
+    setSelected(assignedPropertyIds);
+  }, [assignedPropertyIds, landlord]);
+
   const filteredProperties = useMemo(() => {
     if (!search) return properties;
     const q = search.toLowerCase();
@@ -47,20 +57,26 @@ export function AssignPropertiesDialog({
         p.city.toLowerCase().includes(q)
     );
   }, [properties, search]);
-  const toggleProperty = (id: string) => {
+
+  // 🔥 FIX 4: Change param to number
+  const toggleProperty = (id: number) => {
     setSelected((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   };
+
   const handleSave = () => {
     if (landlord) {
-      onSave(landlord.id.toString(), selected);
+      // 🔥 FIX 5: Pass the ID as a number, not a string
+      onSave(landlord.id, selected);
       onOpenChange(false);
     }
   };
+
   if (!landlord) return null;
   const maxProperties = landlord.maxProperties;
   const overLimit = selected.length > maxProperties;
+
   return (
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) setSearch(''); }}>
       <DialogContent className="max-w-lg">
@@ -106,13 +122,15 @@ export function AssignPropertiesDialog({
                 </div>
               ) : (
                 filteredProperties.map((property) => {
-  const isSelected = selected.includes(property.id);
-  const isOwnedByCurrent =
-  property.landlordIds?.includes(landlord.id.toString());
+                  const isSelected = selected.includes(property.id);
+                  
+                  // 🔥 FIX 6: Assuming property.landlordIds is a number[], check against landlord.id (number)
+                  const isOwnedByCurrent =
+                    property.landlordIds?.includes(landlord.id);
 
-  const assignedToOther =
-    property.landlordIds?.length > 0 &&
-    !property.landlordIds.includes(landlord.id.toString());
+                  const assignedToOther =
+                    property.landlordIds?.length > 0 &&
+                    !property.landlordIds.includes(landlord.id);
                   
                   return (
                     <label
@@ -124,30 +142,30 @@ export function AssignPropertiesDialog({
                       }`}
                     >
                       <Checkbox
-  checked={isSelected}
-  disabled={isOwnedByCurrent}
-  onCheckedChange={() => toggleProperty(property.id)}
-/>
+                        checked={isSelected}
+                        disabled={isOwnedByCurrent}
+                        onCheckedChange={() => toggleProperty(property.id)}
+                      />
                       <div className="flex-1 min-w-0">
                        <div className="flex items-center gap-2">
-  <p className="font-medium text-sm truncate">{property.name}</p>
+                         <p className="font-medium text-sm truncate">{property.name}</p>
 
-  <Badge variant="outline" className="text-xs capitalize shrink-0">
-    {property.propertyType}
-  </Badge>
+                         <Badge variant="outline" className="text-xs capitalize shrink-0">
+                           {property.propertyType}
+                         </Badge>
 
-  {isOwnedByCurrent && (
-    <Badge className="text-xs bg-green-500/10 text-green-600 border-green-500/20">
-      Owned
-    </Badge>
-  )}
+                         {isOwnedByCurrent && (
+                           <Badge className="text-xs bg-green-500/10 text-green-600 border-green-500/20">
+                             Owned
+                           </Badge>
+                         )}
 
-  {assignedToOther && (
-    <Badge className="text-xs bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
-      Shared
-    </Badge>
-  )}
-</div>
+                         {assignedToOther && (
+                           <Badge className="text-xs bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
+                             Shared
+                           </Badge>
+                         )}
+                       </div>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
                           <span className="flex items-center gap-1">
                             <MapPin className="h-3 w-3" />

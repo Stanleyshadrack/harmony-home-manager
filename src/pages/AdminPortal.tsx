@@ -274,15 +274,15 @@ const filteredLandlords = useMemo(
     setAssignPropertiesLandlord(landlord);
     setShowAssignPropertiesDialog(true);
   };
-  const handleSavePropertyAssignment = async (
-  landlordId: string,
-  propertyIds: string[]
+const handleSavePropertyAssignment = async (
+  landlordId: number, // 🔥 Changed to number
+  propertyIds: number[] // 🔥 Changed to number[]
 ) => {
   try {
     // 🔥 CALL BACKEND FOR EACH PROPERTY
     await Promise.all(
       propertyIds.map((propertyId) =>
-        assignLandlord(Number(propertyId), Number(landlordId))
+        assignLandlord(propertyId, landlordId) // 🔥 Removed Number() casting
       )
     );
 
@@ -299,7 +299,8 @@ const filteredLandlords = useMemo(
     });
   }
 };
-  const getAssignedPropertyIds = (landlordId: string): string[] => {
+
+const getAssignedPropertyIds = (landlordId: number): number[] => {
   return properties
     .filter(p => p.landlordIds.includes(landlordId))
     .map(p => p.id);
@@ -1088,7 +1089,7 @@ if (invoicesError) {
 
               {/* Assigned Properties */}
               {(() => {
-                const assignedIds = getAssignedPropertyIds(selectedLandlord.id.toString());
+                const assignedIds = getAssignedPropertyIds(selectedLandlord.id);
                 const assignedProps = properties.filter(p => assignedIds.includes(p.id));
                 return assignedProps.length > 0 ? (
                   <div className="space-y-2">
@@ -1402,7 +1403,7 @@ if (invoicesError) {
         onOpenChange={setShowAssignPropertiesDialog}
         landlord={assignPropertiesLandlord}
         properties={properties}
-        assignedPropertyIds={assignPropertiesLandlord ? getAssignedPropertyIds(assignPropertiesLandlord.id.toString()) : []}
+        assignedPropertyIds={assignPropertiesLandlord ? getAssignedPropertyIds(assignPropertiesLandlord.id) : []}
         onSave={handleSavePropertyAssignment}
       />
 
