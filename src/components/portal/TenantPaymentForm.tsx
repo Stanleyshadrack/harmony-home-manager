@@ -148,7 +148,7 @@ export function TenantPaymentForm({ invoices, onSubmit, isLoading }: TenantPayme
           name="amount"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Payment Amount (USD)</FormLabel>
+              <FormLabel>Payment Amount (KES)</FormLabel>
               <FormControl>
                 <Input
                   type="number"

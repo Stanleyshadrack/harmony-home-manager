@@ -1,15 +1,20 @@
-import { useState } from 'react';
-import { useProperties } from '@/hooks/useProperties';
-import { useMaintenance } from '@/hooks/useMaintenance';
-import { useInAppNotifications } from '@/hooks/useInAppNotifications';
-import { useNotifications } from '@/hooks/useNotifications';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { useAuth } from '@/contexts/AuthContext';
+import { useState } from "react";
+import { useProperties } from "@/hooks/useProperties";
+import { useMaintenance } from "@/hooks/useMaintenance";
+import { useNotifications } from "@/hooks/useNotifications";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Dialog,
   DialogContent,
@@ -17,14 +22,14 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -32,16 +37,16 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from "@/components/ui/table";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { toast } from 'sonner';
+} from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
 import {
   Users,
   UserPlus,
@@ -58,190 +63,175 @@ import {
   Wrench,
   AlertTriangle,
   Home,
-  ClipboardList,
-  CreditCard,
-} from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+  ClipboardList
+} from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import {
   useActivateEmployee,
   useAllEmployeesData,
   useAssignEmployeeProperties,
   useDeactivateEmployee,
   useDeleteEmployee,
-} from '@/hooks/use.employees.hook';
-import { useQuery } from '@tanstack/react-query';
-import { Employee } from '@/hooks/useEmployees';
-import { InviteUserDialog } from '../admin/InviteUserDialog';
+} from "@/hooks/use.employees.hook";
+import { useQuery } from "@tanstack/react-query";
+import { Employee } from "@/hooks/useEmployees";
+import { InviteUserDialog } from "../admin/InviteUserDialog";
 
 export function EmployeeManagement() {
   const { properties } = useProperties();
   const { requests, assignRequest } = useMaintenance();
-  const { sendQuickNotification } = useNotifications();
-  
+  const { sendSingle } = useNotifications();
+
   const [isProcessing, setIsProcessing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showTaskAssignDialog, setShowTaskAssignDialog] = useState(false);
-  const [selectedPropertyId, setSelectedPropertyId] = useState('');
+  const [selectedPropertyId, setSelectedPropertyId] = useState("");
   const activateEmployeeMutation = useActivateEmployee();
-const deactivateEmployeeMutation = useDeactivateEmployee();
-const deleteEmployeeMutation = useDeleteEmployee();
-const assignPropertiesMutation = useAssignEmployeeProperties();
-const { user } = useAuth();
-  
+  const deactivateEmployeeMutation = useDeactivateEmployee();
+  const deleteEmployeeMutation = useDeleteEmployee();
+  const assignPropertiesMutation = useAssignEmployeeProperties();
+  const { user } = useAuth();
+
   // Rejection dialog for pending registrations
   const [selectedRegistration, setSelectedRegistration] = useState<Employee | null>(null);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState('');
-  const [selectedTaskId, setSelectedTaskId] = useState('');
-  const [taskScheduledDate, setTaskScheduledDate] = useState('');
-  const [taskEstimatedCost, setTaskEstimatedCost] = useState('');
-  const [taskNotes, setTaskNotes] = useState('');
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [selectedTaskId, setSelectedTaskId] = useState("");
+  const [taskScheduledDate, setTaskScheduledDate] = useState("");
+  const [taskEstimatedCost, setTaskEstimatedCost] = useState("");
+  const [taskNotes, setTaskNotes] = useState("");
 
-
- const { data: employeeData, isLoading } = useQuery(
-     useAllEmployeesData()
-  );
+  const { data: employeeData, isLoading } = useQuery(useAllEmployeesData());
   const allEmployees = employeeData?.employees || [];
   const totalActiveEmployees = employeeData?.totalActiveEmployees || 0;
   const totalPendingEmployees = employeeData?.totalPendingEmployees || 0;
   const totalEmployees = employeeData?.totalEmployees || 0;
   const pendingRegistration = employeeData?.pendingRegistration || [];
   const [showInviteDialog, setShowInviteDialog] = useState(false);
-  // Filter employee registrations only (tenant approvals moved to Tenants module)
-  
+
   // Get pending/unassigned maintenance tasks
-  const pendingTasks = requests.filter(r => r.status === 'pending');
+  const pendingTasks = requests.filter((r) => r.status === "pending");
 
- const filteredEmployees = allEmployees.filter((emp) => {
-  const query = searchQuery.toLowerCase();
-
-  return (
-    emp.name?.toLowerCase().includes(query) ||
-    emp.email?.toLowerCase().includes(query)
-  );
-});
-
-const handleActivate = (employee: Employee) => {
-  activateEmployeeMutation.mutate(employee.id, {
-    onSuccess: () => {
-      toast.success(`${employee.firstName} ${employee.lastName} has been activated`);
-    },
-    onError: () => {
-      toast.error("Failed to activate employee");
-    },
+  const filteredEmployees = allEmployees.filter((emp) => {
+    const query = searchQuery.toLowerCase();
+    return (
+      emp.name?.toLowerCase().includes(query) ||
+      emp.email?.toLowerCase().includes(query)
+    );
   });
-};
 
-const handleDeactivate = (employee: Employee) => {
-  deactivateEmployeeMutation.mutate(employee.id, {
-    onSuccess: () => {
-      toast.success(`${employee.firstName} ${employee.lastName} has been deactivated`);
-    },
-    onError: () => {
-      toast.error("Failed to deactivate employee");
-    },
-  });
-};
-
-
-const handleRemove = (employee: Employee) => {
-  deleteEmployeeMutation.mutate(employee.id, {
-    onSuccess: () => {
-      toast.success(`${employee.firstName} ${employee.lastName} has been removed`);
-    },
-    onError: () => {
-      toast.error("Failed to remove employee");
-    },
-  });
-};
-
- const handleAssignProperty = () => {
-  if (!selectedEmployee || !selectedPropertyId) return;
-
-  assignPropertiesMutation.mutate(
-    {
-      id: selectedEmployee.id,
-      propertyIds: [Number(selectedPropertyId)],
-    },
-    {
+  const handleActivate = (employee: Employee) => {
+    activateEmployeeMutation.mutate(employee.id, {
       onSuccess: () => {
-        const property = properties.find(p => p.id === selectedPropertyId);
-
-        toast.success(
-          `${selectedEmployee.firstName} assigned to ${property?.name}`
-        );
-
-        setShowAssignDialog(false);
-        setSelectedEmployee(null);
-        setSelectedPropertyId('');
+        toast.success(`${employee.firstName} ${employee.lastName} has been activated`);
       },
       onError: () => {
-        toast.error("Failed to assign property");
+        toast.error("Failed to activate employee");
       },
-    }
-  );
-};
+    });
+  };
 
+  const handleDeactivate = (employee: Employee) => {
+    deactivateEmployeeMutation.mutate(employee.id, {
+      onSuccess: () => {
+        toast.success(`${employee.firstName} ${employee.lastName} has been deactivated`);
+      },
+      onError: () => {
+        toast.error("Failed to deactivate employee");
+      },
+    });
+  };
+
+  const handleRemove = (employee: Employee) => {
+    deleteEmployeeMutation.mutate(employee.id, {
+      onSuccess: () => {
+        toast.success(`${employee.firstName} ${employee.lastName} has been removed`);
+      },
+      onError: () => {
+        toast.error("Failed to remove employee");
+      },
+    });
+  };
+
+  const handleAssignProperty = () => {
+    if (!selectedEmployee || !selectedPropertyId) return;
+
+    assignPropertiesMutation.mutate(
+      {
+        id: selectedEmployee.id,
+        propertyIds: [Number(selectedPropertyId)],
+      },
+      {
+        onSuccess: () => {
+          const property = properties.find((p) => p.id === Number(selectedPropertyId));
+          toast.success(`${selectedEmployee.firstName} assigned to ${property?.name}`);
+          setShowAssignDialog(false);
+          setSelectedEmployee(null);
+          setSelectedPropertyId("");
+        },
+        onError: () => {
+          toast.error("Failed to assign property");
+        },
+      },
+    );
+  };
 
   const handleAssignTask = async () => {
     if (!selectedEmployee || !selectedTaskId) return;
-    
-    assignRequest({
-      requestId: selectedTaskId,
-      assignedTo: selectedEmployee.id.toString(),
-      scheduledDate: taskScheduledDate || undefined,
-      estimatedCost: taskEstimatedCost ? parseFloat(taskEstimatedCost) : undefined,
-      notes: taskNotes || undefined,
-    });
 
-    // Send notification to employee
-    if (selectedEmployee.phone) {
-      await sendQuickNotification(
-        selectedEmployee.phone,
-        `${selectedEmployee.firstName} ${selectedEmployee.lastName}`,
-        'maintenance_update',
-        'sms',
-        {
-          tenantName: selectedEmployee.firstName,
-          requestId: selectedTaskId,
-          title: 'New task assigned',
-          status: 'assigned',
-          notes: taskNotes || 'Please check your dashboard for details.',
-        }
-      );
+    setIsProcessing(true);
+    try {
+      await assignRequest({
+        requestId: selectedTaskId,
+        assignedTo: selectedEmployee.id.toString(),
+        scheduledDate: taskScheduledDate || undefined,
+        estimatedCost: taskEstimatedCost ? parseFloat(taskEstimatedCost) : undefined,
+        notes: taskNotes || undefined,
+      });
+
+      if (selectedEmployee.phone) {
+  await sendSingle({
+    tenantId: Number(selectedEmployee.id), // Ensures it's a number for your API
+    channel: "sms",
+    title: "New Task Assigned",
+    message: `Hello ${selectedEmployee.firstName}, a new maintenance task (ID: ${selectedTaskId}) has been assigned to you. Notes: ${taskNotes || "Please check your dashboard for details."}`,
+  });
+}
+
+      toast.success(`Task assigned to ${selectedEmployee.firstName} ${selectedEmployee.lastName}`);
+      setShowTaskAssignDialog(false);
+      setSelectedEmployee(null);
+      setSelectedTaskId("");
+      setTaskScheduledDate("");
+      setTaskEstimatedCost("");
+      setTaskNotes("");
+    } catch {
+      toast.error("Failed to assign task");
+    } finally {
+      setIsProcessing(false);
     }
-
-    toast.success(`Task assigned to ${selectedEmployee.firstName} ${selectedEmployee.lastName}`);
-    setShowTaskAssignDialog(false);
-    setSelectedEmployee(null);
-    setSelectedTaskId('');
-    setTaskScheduledDate('');
-    setTaskEstimatedCost('');
-    setTaskNotes('');
   };
 
   const handleApproveRegistration = async (registration: Employee) => {
     setIsProcessing(true);
     try {
+      await activateEmployeeMutation.mutateAsync(registration.id);
 
-      // Send SMS notification
-      if (registration.phone) {
-        await sendQuickNotification(
-          registration.phone,
-          `${registration.firstName} ${registration.lastName}`,
-          'registration_approved',
-          'sms',
-          {
-            name: registration.firstName,
-            role: 'employee'
-          }
-        );
-      }
+     if (registration.phone) {
+  await sendSingle({
+    tenantId: Number(registration.id),
+    channel: "sms",
+    title: "Registration Approved",
+    message: `Hello ${registration.firstName}, your registration as an employee has been successfully approved. Welcome aboard!`,
+  });
+}
 
-      toast.success(`${registration.firstName} ${registration.lastName}'s employee account approved. Notification sent.`);
+      toast.success(`${registration.firstName} ${registration.lastName} approved successfully`);
+    } catch {
+      toast.error("Failed to approve employee");
     } finally {
       setIsProcessing(false);
     }
@@ -249,31 +239,29 @@ const handleRemove = (employee: Employee) => {
 
   const handleRejectRegistration = async () => {
     if (!selectedRegistration || !rejectionReason.trim()) {
-      toast.error('Please provide a rejection reason');
+      toast.error("Please provide a rejection reason");
       return;
     }
 
     setIsProcessing(true);
     try {
-    
-      if (selectedRegistration.phone) {
-        await sendQuickNotification(
-          selectedRegistration.phone,
-          `${selectedRegistration.firstName} ${selectedRegistration.lastName}`,
-          'registration_rejected',
-          'sms',
-          {
-            name: selectedRegistration.firstName,
-            role: 'employee',
-            reason: rejectionReason
-          }
-        );
-      }
+      await deleteEmployeeMutation.mutateAsync(selectedRegistration.id);
 
-      toast.success('Registration rejected. Notification sent.');
+      if (selectedRegistration.phone) {
+  await sendSingle({
+    tenantId: Number(selectedRegistration.id),
+    channel: "sms",
+    title: "Registration Update",
+    message: `Hello ${selectedRegistration.firstName}, your registration request could not be approved at this time. Reason: ${rejectionReason}`,
+  });
+}
+
+      toast.success("Registration rejected. Notification sent.");
       setShowRejectDialog(false);
       setSelectedRegistration(null);
-      setRejectionReason('');
+      setRejectionReason("");
+    } catch (error) {
+      toast.error("Failed to reject registration or send notification");
     } finally {
       setIsProcessing(false);
     }
@@ -281,20 +269,31 @@ const handleRemove = (employee: Employee) => {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'active':
-        return <Badge className="bg-success/10 text-success border-success/20">Active</Badge>;
-      case 'inactive':
+      case "active":
+        return (
+          <Badge className="bg-success/10 text-success border-success/20">
+            Active
+          </Badge>
+        );
+      case "inactive":
         return <Badge variant="secondary">Inactive</Badge>;
-      case 'pending':
-        return <Badge className="bg-warning/10 text-warning border-warning/20">Pending</Badge>;
+      case "pending":
+        return (
+          <Badge className="bg-warning/10 text-warning border-warning/20">
+            Pending
+          </Badge>
+        );
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
   };
 
+  if (isLoading) {
+    return <div className="text-center py-12 text-muted-foreground">Loading employee files...</div>;
+  }
+
   return (
     <div className="space-y-6">
-
       {/* Header Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
@@ -310,7 +309,7 @@ const handleRemove = (employee: Employee) => {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -324,7 +323,7 @@ const handleRemove = (employee: Employee) => {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -364,49 +363,45 @@ const handleRemove = (employee: Employee) => {
               </span>
             )}
           </TabsTrigger>
-        </TabsList>         
+        </TabsList>
 
         {/* Employees Tab */}
         <TabsContent value="employees" className="space-y-4">
           <Card>
             <CardHeader>
-  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-    {/* LEFT SIDE */}
-    <div>
-      <CardTitle>Employee Directory</CardTitle>
-      <CardDescription>
-        Manage your property employees and assignments
-      </CardDescription>
-    </div>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <CardTitle>Employee Directory</CardTitle>
+                  <CardDescription>
+                    Manage your property employees and assignments
+                  </CardDescription>
+                </div>
 
-    {/* RIGHT SIDE */}
-    <div className="flex items-center gap-2 w-full sm:w-auto">
-      {/* Search */}
-      <div className="relative w-full sm:w-64">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search employees..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
-        />
-      </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search employees..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
 
-      {/* Invite Button */}
-      <Button onClick={() => setShowInviteDialog(true)}>
-        <UserPlus className="h-4 w-4 mr-2" />
-        Invite User
-      </Button>
-    </div>
-  </div>
-</CardHeader>
+                  <Button onClick={() => setShowInviteDialog(true)}>
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Invite User
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
             <CardContent>
               {filteredEmployees.length === 0 ? (
                 <div className="text-center py-12">
                   <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                   <h3 className="font-semibold mb-2">No employees found</h3>
                   <p className="text-sm text-muted-foreground">
-                    {searchQuery ? 'Try a different search term' : 'Employees will appear here once approved'}
+                    {searchQuery ? "Try a different search term" : "Employees will appear here once approved"}
                   </p>
                 </div>
               ) : (
@@ -426,14 +421,10 @@ const handleRemove = (employee: Employee) => {
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
-                              {employee.name
-  ?.split(" ")
-  .map((n) => n[0])
-  .join("")
-  .slice(0, 2)}
+                              {employee.name?.split(" ").map((n) => n[0]).join("").slice(0, 2)}
                             </div>
                             <div>
-                              <p className="font-medium">{employee.name}</p> 
+                              <p className="font-medium">{employee.name}</p>
                               <p className="text-sm text-muted-foreground">{employee.email}</p>
                             </div>
                           </div>
@@ -447,23 +438,18 @@ const handleRemove = (employee: Employee) => {
                           )}
                         </TableCell>
                         <TableCell>
-                        {employee.propertyNames && employee.propertyNames.length > 0 ? (
-  <div className="flex flex-wrap gap-1 items-center">
-    <Building2 className="h-4 w-4 text-muted-foreground" />
-    {employee.propertyNames.map((name, index) => (
-      <span
-        key={index}
-        className="px-2 py-1 text-xs rounded-full bg-primary/10 text-primary"
-      >
-        {name}
-      </span>
-    ))}
-  </div>
-) : (
-  <span className="text-muted-foreground text-sm">
-    Not assigned
-  </span>
-)}
+                          {employee.propertyNames && employee.propertyNames.length > 0 ? (
+                            <div className="flex flex-wrap gap-1 items-center">
+                              <Building2 className="h-4 w-4 text-muted-foreground" />
+                              {employee.propertyNames.map((name, index) => (
+                                <span key={index} className="px-2 py-1 text-xs rounded-full bg-primary/10 text-primary">
+                                  {name}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">Not assigned</span>
+                          )}
                         </TableCell>
                         <TableCell>{getStatusBadge(employee.status)}</TableCell>
                         <TableCell className="text-right">
@@ -474,22 +460,26 @@ const handleRemove = (employee: Employee) => {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => {
-                                setSelectedEmployee(employee);
-                                setShowDetailDialog(true);
-                              }}>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSelectedEmployee(employee);
+                                  setShowDetailDialog(true);
+                                }}
+                              >
                                 <Users className="h-4 w-4 mr-2" />
                                 View Details
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => {
-                                setSelectedEmployee(employee);
-                                setShowAssignDialog(true);
-                              }}>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSelectedEmployee(employee);
+                                  setShowAssignDialog(true);
+                                }}
+                              >
                                 <Building2 className="h-4 w-4 mr-2" />
                                 Assign Property
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              {employee.status === 'active' ? (
+                              {employee.status === "active" ? (
                                 <DropdownMenuItem onClick={() => handleDeactivate(employee)}>
                                   <UserX className="h-4 w-4 mr-2" />
                                   Deactivate
@@ -500,7 +490,7 @@ const handleRemove = (employee: Employee) => {
                                   Activate
                                 </DropdownMenuItem>
                               )}
-                              <DropdownMenuItem 
+                              <DropdownMenuItem
                                 className="text-destructive"
                                 onClick={() => handleRemove(employee)}
                               >
@@ -536,17 +526,12 @@ const handleRemove = (employee: Employee) => {
                 <div className="text-center py-12">
                   <CheckCircle className="h-12 w-12 mx-auto text-success mb-4" />
                   <h3 className="font-semibold mb-2">No pending tasks</h3>
-                  <p className="text-sm text-muted-foreground">
-                    All maintenance requests have been assigned
-                  </p>
+                  <p className="text-sm text-muted-foreground">All maintenance requests have been assigned</p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {pendingTasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border bg-card gap-4"
-                    >
+                    <div key={task.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border bg-card gap-4">
                       <div className="flex items-start gap-4">
                         <div className="p-2 rounded-full bg-warning/10">
                           <Wrench className="h-5 w-5 text-warning" />
@@ -566,12 +551,14 @@ const handleRemove = (employee: Employee) => {
                             <Badge variant="outline" className="capitalize text-xs">
                               {task.category}
                             </Badge>
-                            <Badge 
-                              variant="outline" 
+                            <Badge
+                              variant="outline"
                               className={`capitalize text-xs ${
-                                task.priority === 'urgent' ? 'border-destructive text-destructive' :
-                                task.priority === 'high' ? 'border-warning text-warning' :
-                                ''
+                                task.priority === "urgent"
+                                  ? "border-destructive text-destructive"
+                                  : task.priority === "high"
+                                    ? "border-warning text-warning"
+                                    : ""
                               }`}
                             >
                               {task.priority}
@@ -582,7 +569,7 @@ const handleRemove = (employee: Employee) => {
                       <div className="flex gap-2 sm:flex-shrink-0">
                         <Select
                           onValueChange={(employeeId) => {
-                            const emp = allEmployees.find(e => e.id === Number(employeeId));
+                            const emp = allEmployees.find((e) => e.id === Number(employeeId));
                             if (emp) {
                               setSelectedEmployee(emp);
                               setSelectedTaskId(task.id);
@@ -594,11 +581,13 @@ const handleRemove = (employee: Employee) => {
                             <SelectValue placeholder="Assign to employee" />
                           </SelectTrigger>
                           <SelectContent>
-                            {allEmployees.filter(e => e.status === 'active').map((emp) => (
-                              <SelectItem key={emp.id} value={String(emp.id)}>
-                                {emp.name}
-                              </SelectItem>
-                            ))}
+                            {allEmployees
+                              .filter((e) => e.status === "active")
+                              .map((emp) => (
+                                <SelectItem key={emp.id} value={String(emp.id)}>
+                                  {emp.name}
+                                </SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                       </div>
@@ -610,11 +599,11 @@ const handleRemove = (employee: Employee) => {
           </Card>
         </TabsContent>
 
-              {/* Invite User Dialog */}
-              <InviteUserDialog
+        {/* Invite User Dialog */}
+        <InviteUserDialog
           open={showInviteDialog}
           onOpenChange={setShowInviteDialog}
-          inviterRole={user?.role || 'landlord'}
+          inviterRole={user?.role || "landlord"}
         />
 
         {/* Approvals Tab */}
@@ -634,25 +623,18 @@ const handleRemove = (employee: Employee) => {
                 <div className="text-center py-12">
                   <CheckCircle className="h-12 w-12 mx-auto text-success mb-4" />
                   <h3 className="font-semibold mb-2">All caught up!</h3>
-                  <p className="text-sm text-muted-foreground">
-                    No pending employee registrations to review
-                  </p>
+                  <p className="text-sm text-muted-foreground">No pending employee registrations to review</p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {pendingRegistration.map((registration) => (
-                    <div
-                      key={registration.id}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border bg-card gap-4"
-                    >
+                    <div key={registration.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border bg-card gap-4">
                       <div className="flex items-start gap-4">
                         <div className="p-2 rounded-full bg-warning/10">
                           <Wrench className="h-5 w-5 text-warning" />
                         </div>
                         <div>
-                          <p className="font-medium">
-                            {registration.firstName} {registration.lastName}
-                          </p>
+                          <p className="font-medium">{registration.firstName} {registration.lastName}</p>
                           <div className="flex flex-col gap-1 mt-1 text-sm text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <Phone className="h-3 w-3" />
@@ -673,10 +655,12 @@ const handleRemove = (employee: Employee) => {
                         <Button
                           size="sm"
                           onClick={() => handleApproveRegistration(registration)}
+                          disabled={isProcessing}
                         >
                           <CheckCircle className="h-4 w-4 mr-1" />
                           Approve
                         </Button>
+
                         <Button
                           size="sm"
                           variant="outline"
@@ -684,6 +668,7 @@ const handleRemove = (employee: Employee) => {
                             setSelectedRegistration(registration);
                             setShowRejectDialog(true);
                           }}
+                          disabled={isProcessing}
                         >
                           <XCircle className="h-4 w-4 mr-1" />
                           Reject
@@ -696,7 +681,6 @@ const handleRemove = (employee: Employee) => {
             </CardContent>
           </Card>
         </TabsContent>
-
       </Tabs>
 
       {/* Assign Property Dialog */}
@@ -717,7 +701,7 @@ const handleRemove = (employee: Employee) => {
                 </SelectTrigger>
                 <SelectContent>
                   {properties.map((property) => (
-                    <SelectItem key={property.id} value={property.id}>
+                    <SelectItem key={property.id} value={String(property.id)}>
                       {property.name}
                     </SelectItem>
                   ))}
@@ -746,7 +730,8 @@ const handleRemove = (employee: Employee) => {
             <div className="space-y-4">
               <div className="flex items-center gap-4">
                 <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xl font-semibold">
-                  {selectedEmployee.firstName[0]}{selectedEmployee.lastName[0]}
+                  {selectedEmployee.firstName[0]}
+                  {selectedEmployee.lastName[0]}
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold">
@@ -755,7 +740,7 @@ const handleRemove = (employee: Employee) => {
                   {getStatusBadge(selectedEmployee.status)}
                 </div>
               </div>
-              
+
               <div className="grid gap-3">
                 <div className="flex items-center gap-2 text-sm">
                   <Mail className="h-4 w-4 text-muted-foreground" />
@@ -769,14 +754,13 @@ const handleRemove = (employee: Employee) => {
                 )}
                 <div className="flex items-center gap-2 text-sm">
                   <Building2 className="h-4 w-4 text-muted-foreground" />
-               {selectedEmployee.propertyNames &&
-selectedEmployee.propertyNames.length > 0
-  ? selectedEmployee.propertyNames.join(", ")
-  : "No property assigned"}
+                  {selectedEmployee.propertyNames && selectedEmployee.propertyNames.length > 0
+                    ? selectedEmployee.propertyNames.join(", ")
+                    : "No property assigned"}
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Clock className="h-4 w-4 text-muted-foreground" />
-                  Joined {(new Date(selectedEmployee.hiredAt)).toLocaleDateString()}
+                  Joined {new Date(selectedEmployee.hiredAt).toLocaleDateString()}
                 </div>
               </div>
             </div>
@@ -813,14 +797,17 @@ selectedEmployee.propertyNames.length > 0
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              setShowRejectDialog(false);
-              setSelectedRegistration(null);
-              setRejectionReason('');
-            }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowRejectDialog(false);
+                setSelectedRegistration(null);
+                setRejectionReason("");
+              }}
+            >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleRejectRegistration}>
+            <Button variant="destructive" onClick={handleRejectRegistration} disabled={isProcessing}>
               Reject Registration
             </Button>
           </DialogFooter>
@@ -868,18 +855,21 @@ selectedEmployee.propertyNames.length > 0
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              setShowTaskAssignDialog(false);
-              setSelectedEmployee(null);
-              setSelectedTaskId('');
-              setTaskScheduledDate('');
-              setTaskEstimatedCost('');
-              setTaskNotes('');
-            }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowTaskAssignDialog(false);
+                setSelectedEmployee(null);
+                setSelectedTaskId("");
+                setTaskScheduledDate("");
+                setTaskEstimatedCost("");
+                setTaskNotes("");
+              }}
+            >
               Cancel
             </Button>
             <Button onClick={handleAssignTask} disabled={isProcessing}>
-              {isProcessing ? 'Assigning...' : 'Assign Task'}
+              {isProcessing ? "Assigning..." : "Assign Task"}
             </Button>
           </DialogFooter>
         </DialogContent>

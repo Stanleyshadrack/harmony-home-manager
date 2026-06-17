@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -10,13 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Loader2, LogIn, UserCheck, Lock } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Eye, EyeOff, Loader2, LogIn, Lock } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   isAccountLocked,
@@ -26,13 +21,6 @@ import {
   getMaxAttempts,
 } from '@/services/loginSecurityService';
 import { loginService } from '@/api/service/login.service';
-
-const demoAccounts = [
-  { label: 'Super Admin', email: 'admin@demo.com', password: 'admin123' },
-  { label: 'Landlord', email: 'landlord@demo.com', password: 'landlord123' },
-  { label: 'Employee', email: 'employee@demo.com', password: 'employee123' },
-  { label: 'Tenant', email: 'tenant@demo.com', password: 'tenant123' },
-];
 
 const loginSchema = z.object({
   email: z.string().email('auth.emailInvalid'),
@@ -45,11 +33,9 @@ type LoginFormData = z.infer<typeof loginSchema>;
 interface LoginFormProps {
   onSwitchToRegister: () => void;
   onForgotPassword: () => void;
- onRequireOTP?: (email: string, redirect: string | null) => void;
+  onRequireOTP?: (email: string, redirect: string | null) => void;
   onAwaitingApproval?: (email: string, role: string) => void;
 }
-
-
 
 export function LoginForm({ onSwitchToRegister, onForgotPassword, onRequireOTP, onAwaitingApproval }: LoginFormProps) {
   const { t } = useTranslation();
@@ -98,85 +84,72 @@ export function LoginForm({ onSwitchToRegister, onForgotPassword, onRequireOTP, 
     }
   }, [lockoutInfo.locked, emailValue]);
 
-  const fillDemoCredentials = (email: string, password: string) => {
-    setValue('email', email);
-    setValue('password', password);
-    setAttemptsWarning(null);
-    toast.success('Demo credentials filled');
-  };
-
   const onSubmit = async (data: LoginFormData) => {
-  const lockStatus = isAccountLocked(data.email);
-  if (lockStatus.locked) {
-    setLockoutInfo(lockStatus);
-    toast.error(
-      `Account locked. Try again in ${formatRemainingTime(lockStatus.remainingMs)}`
-    );
-    return;
-  }
-
-  
-
-  try {
-    const res = await loginService({
-  email: data.email,
-  password: data.password,
-});
-
-console.log(res)
-
-// 🔐 MFA REQUIRED → STOP here
-if (res.mfaRequired) {
-  toast.info("Verification required", {
-    description: "A verification code has been sent to your email.",
-  });
-
-  onRequireOTP?.(data.email, null);
-  return; // DO NOT continue
-}
-
-// 🚀 Normal login (TypeScript knows tokens exist here)
-localStorage.setItem("access_token", res.accessToken);
-localStorage.setItem("refresh_token", res.refreshToken);
-
-toast.success(t("auth.loginSuccess"));
-navigate("/dashboard");
-
-
-  } catch (err: any) {
-    const result = recordFailedAttempt(data.email);
-
-    if (result.locked) {
-      setLockoutInfo({ locked: true, remainingMs: 1 * 60 * 1000 });
-toast.error("Too many failed attempts. Account locked for 1 minute.");
-    } else {
-      setAttemptsWarning(
-        `${result.attemptsRemaining} attempt${
-          result.attemptsRemaining !== 1 ? "s" : ""
-        } remaining before lockout`
+    const lockStatus = isAccountLocked(data.email);
+    if (lockStatus.locked) {
+      setLockoutInfo(lockStatus);
+      toast.error(
+        `Account locked. Try again in ${formatRemainingTime(lockStatus.remainingMs)}`
       );
-      toast.error(err.message || "Invalid credentials");
+      return;
     }
-  }
-};
 
+    try {
+      const res = await loginService({
+        email: data.email,
+        password: data.password,
+      });
+
+      console.log(res)
+
+      // 🔐 MFA REQUIRED → STOP here
+      if (res.mfaRequired) {
+        toast.info("Verification required", {
+          description: "A verification code has been sent to your email.",
+        });
+
+        onRequireOTP?.(data.email, null);
+        return; // DO NOT continue
+      }
+
+      // 🚀 Normal login (TypeScript knows tokens exist here)
+      localStorage.setItem("access_token", res.accessToken);
+      localStorage.setItem("refresh_token", res.refreshToken);
+
+      toast.success(t("auth.loginSuccess"));
+      navigate("/dashboard");
+
+    } catch (err: any) {
+      const result = recordFailedAttempt(data.email);
+
+      if (result.locked) {
+        setLockoutInfo({ locked: true, remainingMs: 1 * 60 * 1000 });
+        toast.error("Too many failed attempts. Account locked for 1 minute.");
+      } else {
+        setAttemptsWarning(
+          `${result.attemptsRemaining} attempt${
+            result.attemptsRemaining !== 1 ? "s" : ""
+          } remaining before lockout`
+        );
+        toast.error(err.message || "Invalid credentials");
+      }
+    }
+  };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-
       {/* Lockout Alert */}
       {lockoutInfo.locked && (
-  <Alert variant="destructive">
-    <Lock className="h-4 w-4" />
-    <AlertDescription>
-      Account temporarily locked due to too many failed attempts.
-      {lockoutInfo.remainingMs > 0 && (
-        <> Try again in {formatRemainingTime(lockoutInfo.remainingMs)}.</>
+        <Alert variant="destructive">
+          <Lock className="h-4 w-4" />
+          <AlertDescription>
+            Account temporarily locked due to too many failed attempts.
+            {lockoutInfo.remainingMs > 0 && (
+              <> Try again in {formatRemainingTime(lockoutInfo.remainingMs)}.</>
+            )}
+          </AlertDescription>
+        </Alert>
       )}
-    </AlertDescription>
-  </Alert>
-)}
-
 
       {/* Attempts Warning */}
       {attemptsWarning && !lockoutInfo.locked && (
@@ -186,6 +159,7 @@ toast.error("Too many failed attempts. Account locked for 1 minute.");
           </AlertDescription>
         </Alert>
       )}
+      
       <div className="space-y-2">
         <Label htmlFor="email">{t('auth.email')}</Label>
         <Input
@@ -247,7 +221,7 @@ toast.error("Too many failed attempts. Account locked for 1 minute.");
       </div>
 
       <div className="flex gap-2">
-        <Button type="submit" className="flex-1" disabled={isLoading || lockoutInfo.locked}>
+        <Button type="submit" className="w-full" disabled={isLoading || lockoutInfo.locked}>
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -260,23 +234,6 @@ toast.error("Too many failed attempts. Account locked for 1 minute.");
             </>
           )}
         </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button type="button" variant="outline" size="icon" title="Demo Login">
-              <UserCheck className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {demoAccounts.map((account) => (
-              <DropdownMenuItem
-                key={account.email}
-                onClick={() => fillDemoCredentials(account.email, account.password)}
-              >
-                {account.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
 
       <p className="text-center text-sm text-muted-foreground">

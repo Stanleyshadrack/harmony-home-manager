@@ -16,7 +16,6 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Landlord, SubscriptionPlanDetails } from '@/hooks/useLandlords';
 import { useSubscriptionPayments } from '@/hooks/useSubscriptionPayments';
 import { SubscriptionPaymentHistory } from '@/components/landlords/SubscriptionPaymentHistory';
 import {
@@ -29,13 +28,18 @@ import {
   Sparkles,
   History,
 } from 'lucide-react';
+// 🔥 Import CompanyResponse
+import { CompanyResponse } from '@/api/service/CompanyServiceApi';
+import { SubscriptionPlanDetails } from '../Plans';
 
 interface SubscriptionRenewalDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  landlord: Landlord;
+  // 🔥 Changed landlord to company
+  company: CompanyResponse; 
   subscriptionPlans: SubscriptionPlanDetails[];
-  onRenew: (landlordId: string, plan: string, paymentData: PaymentData) => Promise<void>;
+  // 🔥 Updated onRenew to match AdminPortal signature
+  onRenew: (plan: string, paymentData: PaymentData) => Promise<void>;
 }
 
 export interface PaymentData {
@@ -48,14 +52,16 @@ export interface PaymentData {
 export function SubscriptionRenewalDialog({
   open,
   onOpenChange,
-  landlord,
+  company, // 🔥 Destructure company
   subscriptionPlans,
   onRenew,
 }: SubscriptionRenewalDialogProps) {
   const { renew, upgrade } = useSubscriptionPayments();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'renew' | 'history'>('renew');
-  const [selectedPlan, setSelectedPlan] = useState(landlord.subscription);
+  
+  // 🔥 Default to the company's current subscription plan, fallback to 'BASIC'
+  const [selectedPlan, setSelectedPlan] = useState(company.subscriptionPlan || 'BASIC');
   const [step, setStep] = useState<'plan' | 'payment' | 'success'>('plan');
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentData, setPaymentData] = useState<PaymentData>({
@@ -65,8 +71,9 @@ export function SubscriptionRenewalDialog({
     cardholderName: '',
   });
 
-  const currentPlan = subscriptionPlans.find(p => p.id === landlord.subscription);
-  const newPlan = subscriptionPlans.find(p => p.id === selectedPlan);
+  // 🔥 Map against company subscription
+  const currentPlan = subscriptionPlans.find(p => p.id.toUpperCase() === (company.subscriptionPlan || '').toUpperCase());
+  const newPlan = subscriptionPlans.find(p => p.id.toUpperCase() === selectedPlan.toUpperCase());
 
   const handleProceedToPayment = () => {
     setStep('payment');
@@ -98,54 +105,11 @@ export function SubscriptionRenewalDialog({
     setIsProcessing(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      const newExpiryDate = new Date();
-      newExpiryDate.setFullYear(newExpiryDate.getFullYear() + 1);
-
-      const handleProcessPayment = async () => {
-  if (!paymentData.cardNumber || !paymentData.expiryDate || !paymentData.cvv) {
-    toast({
-      title: "Missing Information",
-      description: "Please fill in all payment details.",
-      variant: "destructive",
-    });
-    return;
-  }
-
-  setIsProcessing(true);
-
-  try {
-    // 🔐 Call backend
-    if (selectedPlan !== landlord.subscription) {
-      await upgrade(selectedPlan.toUpperCase() as any);
-    } else {
-      await renew();
-    }
-
-    setStep("success");
-
-    toast({
-      title: "Subscription Renewed",
-      description: `Successfully renewed to ${newPlan?.name} plan.`,
-    });
-  } catch {
-    toast({
-      title: "Payment Failed",
-      description: "Unable to process payment.",
-      variant: "destructive",
-    });
-  } finally {
-    setIsProcessing(false);
-  }
-};
+      // 🔐 Call backend (Trigger the prop function passed from AdminPortal)
+      await onRenew(selectedPlan, paymentData);
 
       setStep('success');
       
-      toast({
-        title: 'Subscription Renewed',
-        description: `Successfully renewed to ${newPlan?.name} plan.`,
-      });
     } catch (error) {
       toast({
         title: 'Payment Failed',
@@ -165,7 +129,8 @@ export function SubscriptionRenewalDialog({
   };
 
   const getDaysUntilExpiration = () => {
-    const end = new Date(landlord.subscriptionEndDate);
+    if (!company.subscriptionEndDate) return 0;
+    const end = new Date(company.subscriptionEndDate);
     const now = new Date();
     const diff = end.getTime() - now.getTime();
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
@@ -183,7 +148,8 @@ export function SubscriptionRenewalDialog({
             {step === 'success' ? 'Renewal Complete' : 'Subscription Management'}
           </DialogTitle>
           <DialogDescription>
-            {step === 'plan' && `Manage subscription for ${landlord.firstName} ${landlord.lastName}`}
+            {/* 🔥 Updated to show company name */}
+            {step === 'plan' && `Manage subscription for ${company.name}`}
             {step === 'payment' && 'Enter your payment details to complete the renewal'}
             {step === 'success' && 'Your subscription has been successfully renewed'}
           </DialogDescription>
@@ -209,12 +175,12 @@ export function SubscriptionRenewalDialog({
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Current Plan</p>
-                      <p className="font-semibold capitalize">{currentPlan?.name}</p>
+                      <p className="font-semibold capitalize">{currentPlan?.name || company.subscriptionPlan || 'None'}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm text-muted-foreground">Expires</p>
                       <Badge variant={isExpired ? 'destructive' : daysLeft <= 7 ? 'outline' : 'secondary'}>
-                        {isExpired ? 'Expired' : `${daysLeft} days left`}
+                        {!company.subscriptionEndDate ? 'Not Set' : isExpired ? 'Expired' : `${daysLeft} days left`}
                       </Badge>
                     </div>
                   </div>
@@ -229,7 +195,7 @@ export function SubscriptionRenewalDialog({
                     <div
                       key={plan.id}
                       className={`flex items-start gap-4 p-4 rounded-lg border cursor-pointer transition-colors ${
-                        selectedPlan === plan.id
+                        selectedPlan.toUpperCase() === plan.id.toUpperCase()
                           ? 'bg-primary/10 border-primary'
                           : 'hover:bg-muted/50'
                       }`}
@@ -240,7 +206,7 @@ export function SubscriptionRenewalDialog({
                         <div className="flex items-center justify-between">
                           <Label htmlFor={plan.id} className="font-semibold cursor-pointer">
                             {plan.name}
-                            {plan.id === 'enterprise' && (
+                            {plan.id === 'ENTERPRISE' && (
                               <Badge variant="secondary" className="ml-2">
                                 <Sparkles className="h-3 w-3 mr-1" />
                                 Popular
@@ -363,7 +329,8 @@ export function SubscriptionRenewalDialog({
             </div>
             <h3 className="text-xl font-semibold mb-2">Payment Successful!</h3>
             <p className="text-muted-foreground text-center mb-4">
-              {landlord.firstName}'s subscription has been renewed to {newPlan?.name} for 1 year.
+              {/* 🔥 Updated to show company name */}
+              {company.name}'s subscription has been renewed to {newPlan?.name} for 1 year.
             </p>
             <div className="bg-muted/50 rounded-lg p-4 w-full max-w-sm">
               <div className="flex justify-between text-sm mb-2">

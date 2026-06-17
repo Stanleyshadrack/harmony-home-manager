@@ -1,57 +1,52 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 
+// Updated to match the backend categories (billing, maintenance, lease, general)
 export interface NotificationPreferences {
   inApp: {
     enabled: boolean;
-    waterReadings: boolean;
-    payments: boolean;
+    billing: boolean;
     maintenance: boolean;
-    messages: boolean;
-    tenantApplications: boolean;
+    lease: boolean;
+    general: boolean;
   };
   email: {
     enabled: boolean;
-    waterReadings: boolean;
-    payments: boolean;
+    billing: boolean;
     maintenance: boolean;
-    messages: boolean;
-    tenantApplications: boolean;
+    lease: boolean;
+    general: boolean;
   };
   sms: {
     enabled: boolean;
-    waterReadings: boolean;
-    payments: boolean;
+    billing: boolean;
     maintenance: boolean;
-    messages: boolean;
-    tenantApplications: boolean;
+    lease: boolean;
+    general: boolean;
   };
 }
 
 const defaultPreferences: NotificationPreferences = {
   inApp: {
     enabled: true,
-    waterReadings: true,
-    payments: true,
+    billing: true,
     maintenance: true,
-    messages: true,
-    tenantApplications: true,
+    lease: true,
+    general: true,
   },
   email: {
     enabled: true,
-    waterReadings: true,
-    payments: true,
+    billing: true,
     maintenance: true,
-    messages: false,
-    tenantApplications: true,
+    lease: true,
+    general: false,
   },
   sms: {
     enabled: false,
-    waterReadings: false,
-    payments: true,
-    maintenance: true,
-    messages: false,
-    tenantApplications: false,
+    billing: true,
+    maintenance: false,
+    lease: false,
+    general: false,
   },
 };
 
@@ -64,7 +59,7 @@ const getStoredPreferences = (userId: string): NotificationPreferences => {
       return JSON.parse(stored);
     }
   } catch {
-    // Ignore
+    // Ignore parse errors
   }
   return defaultPreferences;
 };
@@ -80,7 +75,7 @@ export function useNotificationPreferences() {
 
   useEffect(() => {
     if (user?.id) {
-      setPreferences(getStoredPreferences(user.id));
+      setPreferences(getStoredPreferences(user.id.toString()));
     }
     setIsLoading(false);
   }, [user?.id]);
@@ -93,7 +88,7 @@ export function useNotificationPreferences() {
       ...newPrefs,
     };
     setPreferences(updated);
-    savePreferences(user.id, updated);
+    savePreferences(user.id.toString(), updated);
   }, [user?.id, preferences]);
 
   const updateChannelPreference = useCallback((
@@ -111,13 +106,13 @@ export function useNotificationPreferences() {
       },
     };
     setPreferences(updated);
-    savePreferences(user.id, updated);
+    savePreferences(user.id.toString(), updated);
   }, [user?.id, preferences]);
 
   const resetToDefaults = useCallback(() => {
     if (!user?.id) return;
     setPreferences(defaultPreferences);
-    savePreferences(user.id, defaultPreferences);
+    savePreferences(user.id.toString(), defaultPreferences);
   }, [user?.id]);
 
   const shouldNotify = useCallback((

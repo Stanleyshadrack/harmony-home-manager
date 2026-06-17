@@ -28,7 +28,7 @@ const {
   subscription,
   upgrade,
   renew,
-} = useSubscriptionPayments(refetch);
+} = useSubscriptionPayments(undefined,refetch);
 
   const [step, setStep] = useState<UpgradeStep>('plans');
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlanDetails | null>(null);

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 import { 
   Bell, 
@@ -8,17 +9,22 @@ import {
   Phone,
   Mail,
   CheckCircle,
-  XCircle,
   Clock,
   Users,
   RefreshCw,
   FileText,
   Megaphone,
-  AlertTriangle,
   CalendarClock,
   Droplets,
   Wrench,
   Check,
+  DollarSign,
+  Building2,
+  Plus,
+  Pencil,
+  Trash2,
+  MoreVertical,
+  AlertTriangle
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,282 +39,236 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useNotifications } from '@/hooks/useNotifications';
-import { NotificationType, NotificationChannel, sendBulkNotifications, NotificationPayload } from '@/services/notificationService';
+import { useTenants } from '@/hooks/useTenants';
 import { useToast } from '@/hooks/use-toast';
+import { useTemplates } from '@/hooks/useTemplates';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-// Mock tenants for demo
-const mockTenants = [
-  { id: '1', name: 'John Mwangi', phone: '+254712345678', email: 'john.mwangi@email.com', unit: 'Unit A1', property: 'Sunrise Apartments', rentAmount: 25000, dueDate: '2024-02-05', balance: 25000 },
-  { id: '2', name: 'Grace Wanjiku', phone: '+254723456789', email: 'grace.wanjiku@email.com', unit: 'Unit B2', property: 'Sunrise Apartments', rentAmount: 30000, dueDate: '2024-02-05', balance: 15000 },
-  { id: '3', name: 'Peter Ochieng', phone: '+254734567890', email: 'peter.ochieng@email.com', unit: 'Unit C3', property: 'Ocean View Towers', rentAmount: 22000, dueDate: '2024-02-05', balance: 0 },
-  { id: '4', name: 'Mary Akinyi', phone: '+254745678901', email: 'mary.akinyi@email.com', unit: 'Unit D4', property: 'Ocean View Towers', rentAmount: 28000, dueDate: '2024-02-05', balance: 28000 },
-  { id: '5', name: 'David Kamau', phone: '+254756789012', email: 'david.kamau@email.com', unit: 'Unit E5', property: 'Sunrise Apartments', rentAmount: 35000, dueDate: '2024-02-05', balance: 35000 },
-];
-
-// Notification templates
-const notificationTemplates = [
-  {
-    id: 'rent_reminder',
-    name: 'Rent Reminder',
-    icon: Bell,
-    description: 'Remind tenants about upcoming rent payments',
-    category: 'billing',
-    preview: 'Hi {name}, this is a reminder that your rent of KES {amount} for {unit} is due on {dueDate}.',
-  },
-  {
-    id: 'overdue_notice',
-    name: 'Overdue Payment Notice',
-    icon: AlertTriangle,
-    description: 'Notify tenants with overdue payments',
-    category: 'billing',
-    preview: 'Hi {name}, your rent payment of KES {balance} for {unit} is overdue. Please make payment immediately to avoid penalties.',
-  },
-  {
-    id: 'lease_expiry',
-    name: 'Lease Expiry Reminder',
-    icon: CalendarClock,
-    description: 'Remind tenants about expiring leases',
-    category: 'lease',
-    preview: 'Hi {name}, your lease for {unit} expires on {expiryDate}. Please contact management to discuss renewal.',
-  },
-  {
-    id: 'water_bill',
-    name: 'Water Bill Notification',
-    icon: Droplets,
-    description: 'Notify tenants about new water bills',
-    category: 'billing',
-    preview: 'Hi {name}, your water bill of KES {amount} for {billingPeriod} is now available. Due date: {dueDate}.',
-  },
-  {
-    id: 'maintenance_scheduled',
-    name: 'Maintenance Scheduled',
-    icon: Wrench,
-    description: 'Notify tenants about scheduled maintenance',
-    category: 'maintenance',
-    preview: 'Hi {name}, maintenance has been scheduled for {unit} on {scheduledDate}. A technician will visit between {timeSlot}.',
-  },
-  {
-    id: 'announcement',
-    name: 'General Announcement',
-    icon: Megaphone,
-    description: 'Send custom announcements to all tenants',
-    category: 'general',
-    preview: '{customMessage}',
-  },
-];
-
-const statusConfig = {
-  sent: { icon: CheckCircle, color: 'text-green-500', bg: 'bg-green-500/10' },
-  failed: { icon: XCircle, color: 'text-red-500', bg: 'bg-red-500/10' },
-  pending: { icon: Clock, color: 'text-yellow-500', bg: 'bg-yellow-500/10' },
+const getTemplateIcon = (category: string) => {
+  const cat = category?.toLowerCase() || '';
+  if (cat.includes('billing')) return DollarSign;
+  if (cat.includes('lease')) return CalendarClock;
+  if (cat.includes('maintenance')) return Wrench;
+  if (cat.includes('general')) return Megaphone;
+  if (cat.includes('water')) return Droplets;
+  return Bell;
 };
 
 const Notifications = () => {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const { toast } = useToast();
-  const { logs, isLoading, sendQuickNotification, sendBulkReminders, refreshLogs } = useNotifications();
   
-  // Single notification state
+  const { tenants, isLoading: loadingTenants } = useTenants();
+  const { createTemplate, updateTemplate, deleteTemplate } = useTemplates();
+  const { 
+    logs, 
+    templates, 
+    isLoading: loadingNotifications, 
+    sendSingle, 
+    sendBulk, 
+    refreshLogs 
+  } = useNotifications();
+  
   const [selectedTenant, setSelectedTenant] = useState<string>('');
-  const [notificationType, setNotificationType] = useState<NotificationType>('general');
-  const [channel, setChannel] = useState<NotificationChannel>('sms');
+  const [notificationType, setNotificationType] = useState('General Notice');
+  const [channel, setChannel] = useState('sms');
   const [customMessage, setCustomMessage] = useState('');
 
-  // Bulk notification state
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
-  const [selectedTenants, setSelectedTenants] = useState<string[]>([]);
-  const [bulkChannel, setBulkChannel] = useState<NotificationChannel>('sms');
+  const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null);
+  const [selectedTenants, setSelectedTenants] = useState<number[]>([]);
+  const [bulkChannel, setBulkChannel] = useState('sms');
   const [bulkCustomMessage, setBulkCustomMessage] = useState('');
   const [isSendingBulk, setIsSendingBulk] = useState(false);
 
+  // Template Management State
+  const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
+  const [editingTemplateId, setEditingTemplateId] = useState<number | null>(null);
+  const [templateForm, setTemplateForm] = useState({
+    name: '',
+    description: '',
+    category: 'General',
+    messageFormat: ''
+  });
+
+  // 🔥 DELETION CONFIRMATION STATE
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [templateToDelete, setTemplateToDelete] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const canManageTemplates = user?.role === 'super_admin' || user?.role === 'landlord';
+
+  const mappedTenants = tenants.map((t: any) => ({
+    id: Number(t.id),
+    name: `${t.firstName || ''} ${t.lastName || ''}`.trim() || 'Unknown Tenant',
+    phone: t.phone || 'No phone',
+    unit: t.unitNumber || 'No unit assigned',
+    property: t.propertyName || 'No property assigned',
+    balance: t.balance || 0,
+  }));
+
   const handleSendSingle = async () => {
-    const tenant = mockTenants.find(t => t.id === selectedTenant);
-    if (!tenant) {
+    if (!selectedTenant) {
       toast({ title: 'Please select a tenant', variant: 'destructive' });
       return;
     }
-
-    await sendQuickNotification(
-      tenant.phone,
-      tenant.name,
-      notificationType,
-      channel,
-      {
-        tenantName: tenant.name,
-        amount: tenant.rentAmount,
-        unit: tenant.unit,
-        dueDate: tenant.dueDate,
-        message: customMessage,
-      }
-    );
+    try {
+      await sendSingle({
+        tenantId: Number(selectedTenant),
+        channel,
+        title: notificationType,
+        message: customMessage
+      });
+      toast({ title: 'Notification sent successfully' });
+      setCustomMessage('');
+    } catch (error: any) {}
   };
 
   const handleSelectAllTenants = (checked: boolean) => {
-    if (checked) {
-      setSelectedTenants(mockTenants.map(t => t.id));
-    } else {
-      setSelectedTenants([]);
-    }
+    if (checked) setSelectedTenants(mappedTenants.map(t => t.id));
+    else setSelectedTenants([]);
   };
 
-  const handleToggleTenant = (tenantId: string) => {
+  const handleToggleTenant = (tenantId: number) => {
     setSelectedTenants(prev => 
-      prev.includes(tenantId) 
-        ? prev.filter(id => id !== tenantId)
-        : [...prev, tenantId]
+      prev.includes(tenantId) ? prev.filter(id => id !== tenantId) : [...prev, tenantId]
     );
   };
 
   const handleSendBulkNotifications = async () => {
-    if (selectedTenants.length === 0) {
-      toast({ title: 'Please select at least one tenant', variant: 'destructive' });
+    if (selectedTenants.length === 0 || !selectedTemplate) {
+      toast({ title: 'Selection required', variant: 'destructive' });
       return;
     }
-
-    if (!selectedTemplate) {
-      toast({ title: 'Please select a template', variant: 'destructive' });
-      return;
-    }
-
-    if (selectedTemplate === 'announcement' && !bulkCustomMessage.trim()) {
-      toast({ title: 'Please enter a message for the announcement', variant: 'destructive' });
-      return;
-    }
-
     setIsSendingBulk(true);
-
     try {
-      const tenantsToNotify = mockTenants.filter(t => selectedTenants.includes(t.id));
-      
-      const payloads: NotificationPayload[] = tenantsToNotify.map(tenant => {
-        let messageData: Record<string, string | number> = {
-          tenantName: tenant.name,
-          name: tenant.name,
-          amount: tenant.rentAmount,
-          balance: tenant.balance,
-          unit: tenant.unit,
-          property: tenant.property,
-          dueDate: tenant.dueDate,
-        };
-
-        if (selectedTemplate === 'announcement') {
-          messageData.message = bulkCustomMessage;
-        }
-
-        // Map template to notification type
-        let type: NotificationType = 'general';
-        if (selectedTemplate === 'rent_reminder') type = 'rent_reminder';
-        else if (selectedTemplate === 'overdue_notice') type = 'rent_reminder';
-        else if (selectedTemplate === 'lease_expiry') type = 'lease_expiry';
-        else if (selectedTemplate === 'maintenance_scheduled') type = 'maintenance_update';
-        else if (selectedTemplate === 'announcement') type = 'general';
-
-        return {
-          recipientPhone: tenant.phone,
-          recipientName: tenant.name,
-          type,
-          channel: bulkChannel,
-          data: messageData,
-        };
+      await sendBulk({
+        templateId: selectedTemplate,
+        tenantIds: selectedTenants,
+        channel: bulkChannel,
+        meta: { customMessage: bulkCustomMessage }
       });
-
-      const results = await sendBulkNotifications(payloads);
-      const successCount = results.filter(r => r.status === 'sent').length;
-      const failCount = results.filter(r => r.status === 'failed').length;
-
-      toast({
-        title: 'Bulk Notification Complete',
-        description: `Sent: ${successCount}, Failed: ${failCount}`,
-      });
-
-      // Reset form
       setSelectedTenants([]);
-      setSelectedTemplate('');
+      setSelectedTemplate(null);
       setBulkCustomMessage('');
-      refreshLogs();
     } catch (error) {
-      toast({
-        title: 'Failed to send notifications',
-        description: 'Please try again',
-        variant: 'destructive',
-      });
     } finally {
       setIsSendingBulk(false);
     }
   };
 
-  const currentTemplate = notificationTemplates.find(t => t.id === selectedTemplate);
+  // Template CRUD Actions
+  const handleOpenCreate = () => {
+    setEditingTemplateId(null);
+    setTemplateForm({ name: '', description: '', category: 'General', messageFormat: '' });
+    setIsTemplateDialogOpen(true);
+  };
 
-  const breadcrumbs = [
-    { label: t('nav.dashboard'), href: '/dashboard' },
-    { label: 'Notifications' },
-  ];
+  const handleOpenEdit = (template: any) => {
+    setEditingTemplateId(template.id);
+    setTemplateForm({
+      name: template.name,
+      description: template.description || '',
+      category: template.category,
+      messageFormat: template.messageFormat
+    });
+    setIsTemplateDialogOpen(true);
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!templateForm.name || !templateForm.messageFormat) {
+      toast({ title: "Required fields missing", variant: "destructive" });
+      return;
+    }
+    try {
+      if (editingTemplateId) {
+        await updateTemplate({ id: editingTemplateId, data: templateForm });
+        toast({ title: "Template updated" });
+      } else {
+        await createTemplate(templateForm);
+        toast({ title: "Template created" });
+      }
+      setIsTemplateDialogOpen(false);
+    } catch (error) {
+      toast({ title: "Operation failed", variant: "destructive" });
+    }
+  };
+
+  // 🔥 TRIGGER DELETE DIALOG (Instead of window.confirm)
+  const triggerDeleteDialog = (template: any) => {
+    setTemplateToDelete(template);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!templateToDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteTemplate(templateToDelete.id);
+      toast({ title: "Template deleted successfully" });
+      setIsDeleteDialogOpen(false);
+      setTemplateToDelete(null);
+    } catch (error) {
+      toast({ title: "Delete failed", variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const currentTemplate = templates.find((t: any) => t.id === selectedTemplate);
+  const isPageLoading = loadingTenants || loadingNotifications;
+
+  const breadcrumbs = [{ label: t('nav.dashboard'), href: '/dashboard' }, { label: 'Notifications' }];
 
   return (
     <DashboardLayout breadcrumbs={breadcrumbs}>
-      <div className="space-y-6">
+      <div className="space-y-6 max-w-7xl mx-auto">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">SMS & WhatsApp Notifications</h1>
-            <p className="text-muted-foreground">Send notifications to tenants via SMS, WhatsApp, or Email</p>
+            <h1 className="text-3xl font-bold tracking-tight">Messaging & Alerts</h1>
+            <p className="text-muted-foreground">Communicate with your tenants via SMS, WhatsApp, or Email</p>
           </div>
         </div>
 
         <Tabs defaultValue="bulk" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="bulk" className="gap-2">
-              <Users className="h-4 w-4" />
-              Bulk Send
-            </TabsTrigger>
-            <TabsTrigger value="templates" className="gap-2">
-              <FileText className="h-4 w-4" />
-              Templates
-            </TabsTrigger>
-            <TabsTrigger value="single" className="gap-2">
-              <Send className="h-4 w-4" />
-              Single Send
-            </TabsTrigger>
-            <TabsTrigger value="history" className="gap-2">
-              <Clock className="h-4 w-4" />
-              History
-            </TabsTrigger>
+          <TabsList className="grid grid-cols-2 md:grid-cols-4 lg:w-[600px]">
+            <TabsTrigger value="bulk" className="gap-2"><Users className="h-4 w-4" /> Bulk Send</TabsTrigger>
+            <TabsTrigger value="templates" className="gap-2"><FileText className="h-4 w-4" /> Templates</TabsTrigger>
+            <TabsTrigger value="single" className="gap-2"><Send className="h-4 w-4" /> Single Send</TabsTrigger>
+            <TabsTrigger value="history" className="gap-2"><Clock className="h-4 w-4" /> History</TabsTrigger>
           </TabsList>
 
-          {/* Bulk Send Tab */}
+          {/* BULK SEND TAB */}
           <TabsContent value="bulk" className="space-y-4">
             <div className="grid gap-6 lg:grid-cols-3">
-              {/* Template Selection */}
-              <Card className="lg:col-span-1">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    Select Template
-                  </CardTitle>
-                </CardHeader>
+              <Card className="lg:col-span-1 h-fit">
+                <CardHeader><CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" /> 1. Select Template</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
-                  {notificationTemplates.map((template) => {
-                    const Icon = template.icon;
+                  {templates.length === 0 && !isPageLoading && <p className="text-sm text-muted-foreground bg-muted p-4 rounded-lg text-center">No templates available.</p>}
+                  {templates.map((template: any) => {
+                    const Icon = getTemplateIcon(template.category);
                     return (
-                      <div
-                        key={template.id}
-                        onClick={() => setSelectedTemplate(template.id)}
-                        className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                          selectedTemplate === template.id
-                            ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                            : 'hover:border-primary/50 hover:bg-muted/50'
-                        }`}
-                      >
+                      <div key={template.id} onClick={() => setSelectedTemplate(template.id)} className={`p-3 rounded-lg border cursor-pointer transition-all ${selectedTemplate === template.id ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:border-primary/50 hover:bg-muted/50'}`}>
                         <div className="flex items-start gap-3">
-                          <div className={`p-2 rounded-lg ${selectedTemplate === template.id ? 'bg-primary/10' : 'bg-muted'}`}>
-                            <Icon className={`h-4 w-4 ${selectedTemplate === template.id ? 'text-primary' : 'text-muted-foreground'}`} />
-                          </div>
+                          <div className={`p-2 rounded-lg ${selectedTemplate === template.id ? 'bg-primary/10' : 'bg-muted'}`}><Icon className={`h-4 w-4 ${selectedTemplate === template.id ? 'text-primary' : 'text-muted-foreground'}`} /></div>
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-sm">{template.name}</p>
-                            <p className="text-xs text-muted-foreground line-clamp-2">{template.description}</p>
+                            <Badge variant="secondary" className="mt-1 text-[10px] capitalize">{template.category}</Badge>
                           </div>
-                          {selectedTemplate === template.id && (
-                            <Check className="h-4 w-4 text-primary shrink-0" />
-                          )}
+                          {selectedTemplate === template.id && <Check className="h-4 w-4 text-primary shrink-0 mt-1" />}
                         </div>
                       </div>
                     );
@@ -316,42 +276,19 @@ const Notifications = () => {
                 </CardContent>
               </Card>
 
-              {/* Tenant Selection */}
               <Card className="lg:col-span-2">
                 <CardHeader>
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                      <CardTitle className="flex items-center gap-2">
-                        <Users className="h-5 w-5" />
-                        Select Recipients
-                      </CardTitle>
-                      <CardDescription>
-                        {selectedTenants.length} of {mockTenants.length} tenants selected
-                      </CardDescription>
+                      <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" /> 2. Select Recipients</CardTitle>
+                      <CardDescription className="mt-1">{selectedTenants.length} of {mappedTenants.length} tenants selected</CardDescription>
                     </div>
-                    <Select value={bulkChannel} onValueChange={(v) => setBulkChannel(v as NotificationChannel)}>
-                      <SelectTrigger className="w-40">
-                        <SelectValue />
-                      </SelectTrigger>
+                    <Select value={bulkChannel} onValueChange={setBulkChannel}>
+                      <SelectTrigger className="w-full sm:w-[160px]"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="sms">
-                          <div className="flex items-center gap-2">
-                            <Phone className="h-4 w-4" />
-                            SMS
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="whatsapp">
-                          <div className="flex items-center gap-2">
-                            <MessageSquare className="h-4 w-4" />
-                            WhatsApp
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="email">
-                          <div className="flex items-center gap-2">
-                            <Mail className="h-4 w-4" />
-                            Email
-                          </div>
-                        </SelectItem>
+                        <SelectItem value="sms"><div className="flex items-center gap-2"><Phone className="h-4 w-4" /> SMS</div></SelectItem>
+                        <SelectItem value="whatsapp"><div className="flex items-center gap-2"><MessageSquare className="h-4 w-4" /> WhatsApp</div></SelectItem>
+                        <SelectItem value="email"><div className="flex items-center gap-2"><Mail className="h-4 w-4" /> Email</div></SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -359,93 +296,43 @@ const Notifications = () => {
                 <CardContent>
                   <div className="border rounded-lg overflow-hidden">
                     <Table>
-                      <TableHeader>
+                      <TableHeader className="bg-muted/50">
                         <TableRow>
-                          <TableHead className="w-12">
-                            <Checkbox
-                              checked={selectedTenants.length === mockTenants.length}
-                              onCheckedChange={handleSelectAllTenants}
-                            />
-                          </TableHead>
+                          <TableHead className="w-12"><Checkbox checked={selectedTenants.length === mappedTenants.length && mappedTenants.length > 0} onCheckedChange={handleSelectAllTenants}/></TableHead>
                           <TableHead>Tenant</TableHead>
-                          <TableHead>Unit</TableHead>
+                          <TableHead>Unit / Property</TableHead>
                           <TableHead>Contact</TableHead>
                           <TableHead className="text-right">Balance</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {mockTenants.map((tenant) => (
-                          <TableRow 
-                            key={tenant.id}
-                            className={selectedTenants.includes(tenant.id) ? 'bg-primary/5' : ''}
-                          >
-                            <TableCell>
-                              <Checkbox
-                                checked={selectedTenants.includes(tenant.id)}
-                                onCheckedChange={() => handleToggleTenant(tenant.id)}
-                              />
-                            </TableCell>
+                        {mappedTenants.map((tenant) => (
+                          <TableRow key={tenant.id} className={selectedTenants.includes(tenant.id) ? 'bg-primary/5' : ''}>
+                            <TableCell><Checkbox checked={selectedTenants.includes(tenant.id)} onCheckedChange={() => handleToggleTenant(tenant.id)}/></TableCell>
                             <TableCell className="font-medium">{tenant.name}</TableCell>
-                            <TableCell>
-                              <div className="text-sm">
-                                <p>{tenant.unit}</p>
-                                <p className="text-muted-foreground text-xs">{tenant.property}</p>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <p className="text-sm font-mono">{tenant.phone}</p>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <span className={tenant.balance > 0 ? 'text-destructive font-medium' : 'text-success'}>
-                                KES {tenant.balance.toLocaleString()}
-                              </span>
-                            </TableCell>
+                            <TableCell><div className="text-sm"><p className="font-medium">{tenant.unit}</p><p className="text-muted-foreground text-xs">{tenant.property}</p></div></TableCell>
+                            <TableCell><p className="text-xs font-mono bg-muted px-2 py-1 rounded inline-block">{tenant.phone}</p></TableCell>
+                            <TableCell className="text-right"><span className={tenant.balance ? 'text-destructive font-medium' : 'text-success'}>KES {tenant.balance.toLocaleString()}</span></TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
                   </div>
-
-                  {/* Custom Message for Announcement */}
-                  {selectedTemplate === 'announcement' && (
-                    <div className="mt-4 space-y-2">
-                      <Label>Announcement Message</Label>
-                      <Textarea
-                        placeholder="Enter your announcement message..."
-                        value={bulkCustomMessage}
-                        onChange={(e) => setBulkCustomMessage(e.target.value)}
-                        rows={3}
-                      />
+                  {currentTemplate?.category?.toLowerCase() === 'general' && (
+                    <div className="mt-6 space-y-2">
+                      <Label>Announcement Message Body</Label>
+                      <Textarea placeholder="Enter announcement details..." value={bulkCustomMessage} onChange={(e) => setBulkCustomMessage(e.target.value)} rows={3} />
                     </div>
                   )}
-
-                  {/* Preview */}
                   {currentTemplate && selectedTenants.length > 0 && (
-                    <div className="mt-4 p-4 bg-muted/50 rounded-lg">
-                      <p className="text-xs font-medium text-muted-foreground mb-2">Message Preview:</p>
-                      <p className="text-sm">
-                        {selectedTemplate === 'announcement' 
-                          ? bulkCustomMessage || 'Enter your message above...'
-                          : currentTemplate.preview
-                              .replace('{name}', mockTenants[0]?.name || 'Tenant')
-                              .replace('{amount}', 'XX,XXX')
-                              .replace('{balance}', 'XX,XXX')
-                              .replace('{unit}', mockTenants[0]?.unit || 'Unit')
-                              .replace('{dueDate}', 'DD/MM/YYYY')
-                        }
-                      </p>
+                    <div className="mt-6 p-4 bg-muted/50 rounded-lg border border-dashed">
+                      <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">Message Preview:</p>
+                      <p className="text-sm font-mono whitespace-pre-wrap">{currentTemplate.messageFormat}</p>
                     </div>
                   )}
-
-                  {/* Send Button */}
-                  <div className="mt-4 flex justify-end">
-                    <Button 
-                      onClick={handleSendBulkNotifications}
-                      disabled={isSendingBulk || selectedTenants.length === 0 || !selectedTemplate}
-                      size="lg"
-                    >
-                      <Send className="h-4 w-4 mr-2" />
-                      {isSendingBulk ? 'Sending...' : `Send to ${selectedTenants.length} Tenant${selectedTenants.length !== 1 ? 's' : ''}`}
+                  <div className="mt-6 flex justify-end">
+                    <Button onClick={handleSendBulkNotifications} disabled={isSendingBulk || selectedTenants.length === 0 || !selectedTemplate} size="lg">
+                      <Send className="h-4 w-4 mr-2" /> {isSendingBulk ? 'Sending...' : `Dispatch to ${selectedTenants.length} Tenants`}
                     </Button>
                   </div>
                 </CardContent>
@@ -453,31 +340,60 @@ const Notifications = () => {
             </div>
           </TabsContent>
 
-          {/* Templates Tab */}
+          {/* TEMPLATES TAB */}
           <TabsContent value="templates" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">Message Templates</h2>
+                <p className="text-sm text-muted-foreground">Manage pre-defined messages with dynamic variables.</p>
+              </div>
+
+              {canManageTemplates && (
+                <Button onClick={handleOpenCreate} className="gap-2">
+                  <Plus className="h-4 w-4" /> Add Template
+                </Button>
+              )}
+            </div>
+
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {notificationTemplates.map((template) => {
-                const Icon = template.icon;
+              {templates.map((template: any) => {
+                const Icon = getTemplateIcon(template.category);
                 return (
-                  <Card key={template.id} className="relative overflow-hidden">
-                    <CardHeader>
-                      <div className="flex items-start gap-3">
-                        <div className="p-2 bg-primary/10 rounded-lg">
-                          <Icon className="h-5 w-5 text-primary" />
+                  <Card key={template.id} className="relative overflow-hidden hover:shadow-md transition-shadow group">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 bg-primary/10 rounded-lg"><Icon className="h-5 w-5 text-primary" /></div>
+                          <div className="flex-1">
+                            <CardTitle className="text-base">{template.name}</CardTitle>
+                            <div className="flex gap-2 items-center mt-1">
+                              <Badge variant="outline" className="text-[10px] capitalize">{template.category}</Badge>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <CardTitle className="text-base">{template.name}</CardTitle>
-                          <Badge variant="outline" className="mt-1 text-xs capitalize">
-                            {template.category}
-                          </Badge>
-                        </div>
+
+                        {canManageTemplates && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleOpenEdit(template)} className="gap-2">
+                                <Pencil className="h-3.5 w-3.5" /> Edit Template
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => triggerDeleteDialog(template)} className="gap-2 text-destructive focus:text-destructive">
+                                <Trash2 className="h-3.5 w-3.5" /> Delete Template
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </div>
+                      {template.description && <p className="text-[11px] text-muted-foreground mt-2 line-clamp-1">{template.description}</p>}
                     </CardHeader>
                     <CardContent>
-                      <p className="text-sm text-muted-foreground mb-4">{template.description}</p>
-                      <div className="p-3 bg-muted/50 rounded-lg">
-                        <p className="text-xs font-medium text-muted-foreground mb-1">Preview:</p>
-                        <p className="text-xs">{template.preview}</p>
+                      <div className="p-3 bg-muted/50 rounded-lg border border-dashed border-muted-foreground/20">
+                        <p className="text-[9px] uppercase font-bold text-muted-foreground mb-1 tracking-wider">Raw Format:</p>
+                        <p className="text-xs font-mono whitespace-pre-wrap line-clamp-4">{template.messageFormat}</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -486,165 +402,44 @@ const Notifications = () => {
             </div>
           </TabsContent>
 
-          {/* Single Send Tab */}
+          {/* SINGLE SEND TAB */}
           <TabsContent value="single" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Send className="h-5 w-5" />
-                  Send Single Notification
-                </CardTitle>
-                <CardDescription>
-                  Send a notification to a specific tenant
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <Card className="max-w-2xl">
+              <CardHeader><CardTitle className="flex items-center gap-2"><Send className="h-5 w-5 text-primary" /> Send Custom Notification</CardTitle><CardDescription>Send a one-off message to a specific tenant.</CardDescription></CardHeader>
+              <CardContent className="space-y-5">
                 <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Select Tenant</Label>
-                    <Select value={selectedTenant} onValueChange={setSelectedTenant}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose a tenant" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {mockTenants.map(tenant => (
-                          <SelectItem key={tenant.id} value={tenant.id}>
-                            {tenant.name} - {tenant.unit}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Channel</Label>
-                    <Select value={channel} onValueChange={(v) => setChannel(v as NotificationChannel)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="sms">
-                          <div className="flex items-center gap-2">
-                            <Phone className="h-4 w-4" />
-                            SMS
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="whatsapp">
-                          <div className="flex items-center gap-2">
-                            <MessageSquare className="h-4 w-4" />
-                            WhatsApp
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="email">
-                          <div className="flex items-center gap-2">
-                            <Mail className="h-4 w-4" />
-                            Email
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Notification Type</Label>
-                    <Select value={notificationType} onValueChange={(v) => setNotificationType(v as NotificationType)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="rent_reminder">Rent Reminder</SelectItem>
-                        <SelectItem value="payment_confirmation">Payment Confirmation</SelectItem>
-                        <SelectItem value="maintenance_update">Maintenance Update</SelectItem>
-                        <SelectItem value="lease_expiry">Lease Expiry</SelectItem>
-                        <SelectItem value="general">General Message</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <div className="space-y-2"><Label>Select Tenant</Label><Select value={selectedTenant} onValueChange={setSelectedTenant}><SelectTrigger><SelectValue placeholder="Search or choose a tenant" /></SelectTrigger><SelectContent>{mappedTenants.map(tenant => (<SelectItem key={tenant.id} value={tenant.id.toString()}>{tenant.name} ({tenant.unit})</SelectItem>))}</SelectContent></Select></div>
+                  <div className="space-y-2"><Label>Delivery Channel</Label><Select value={channel} onValueChange={setChannel}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="sms"><div className="flex items-center gap-2"><Phone className="h-4 w-4" /> SMS</div></SelectItem><SelectItem value="whatsapp"><div className="flex items-center gap-2"><MessageSquare className="h-4 w-4" /> WhatsApp</div></SelectItem><SelectItem value="email"><div className="flex items-center gap-2"><Mail className="h-4 w-4" /> Email</div></SelectItem></SelectContent></Select></div>
                 </div>
-
-                {notificationType === 'general' && (
-                  <div className="space-y-2">
-                    <Label>Custom Message</Label>
-                    <Textarea
-                      placeholder="Enter your message..."
-                      value={customMessage}
-                      onChange={(e) => setCustomMessage(e.target.value)}
-                      rows={3}
-                    />
-                  </div>
-                )}
-
-                <Button onClick={handleSendSingle} disabled={isLoading || !selectedTenant}>
-                  <Send className="h-4 w-4 mr-2" />
-                  {isLoading ? 'Sending...' : 'Send Notification'}
-                </Button>
+                <div className="space-y-2"><Label>Message Subject / Title</Label><Input value={notificationType} onChange={(e) => setNotificationType(e.target.value)} /></div>
+                <div className="space-y-2"><Label>Message Body</Label><Textarea placeholder="Type your complete message here..." value={customMessage} onChange={(e) => setCustomMessage(e.target.value)} rows={6} /></div>
+                <Button onClick={handleSendSingle} disabled={isPageLoading || !selectedTenant || !customMessage} className="w-full sm:w-auto"><Send className="h-4 w-4 mr-2" /> Dispatch Notification</Button>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* History Tab */}
+          {/* HISTORY TAB */}
           <TabsContent value="history" className="space-y-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Notification History</CardTitle>
-                  <CardDescription>Recent notifications sent from the system</CardDescription>
-                </div>
-                <Button variant="outline" size="sm" onClick={refreshLogs}>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh
-                </Button>
+            <Card className="border-muted shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between bg-muted/20 border-b pb-4">
+                <div><CardTitle className="text-lg flex items-center gap-2"><Clock className="h-5 w-5 text-primary" /> Sent Logs</CardTitle><CardDescription>View the delivery status of broadcasts.</CardDescription></div>
+                <Button variant="outline" size="sm" onClick={() => refreshLogs()} className="bg-background"><RefreshCw className="h-4 w-4 mr-2" /> Refresh</Button>
               </CardHeader>
               <CardContent className="p-0">
-                <ScrollArea className="h-[400px]">
+                <ScrollArea className="h-[550px]">
                   <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Time</TableHead>
-                        <TableHead>Channel</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Recipient</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="max-w-[200px]">Message</TableHead>
-                      </TableRow>
-                    </TableHeader>
+                    <TableHeader className="bg-muted/30 sticky top-0 backdrop-blur-sm z-10"><TableRow><TableHead className="w-[140px]">Dispatched</TableHead><TableHead className="w-[200px]">Recipient</TableHead><TableHead className="w-[100px] text-center">Channel</TableHead><TableHead className="min-w-[250px]">Message</TableHead><TableHead className="w-[100px] text-center">Status</TableHead></TableRow></TableHeader>
                     <TableBody>
-                      {logs.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                            No notifications sent yet
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        logs.map((log) => {
-                          const status = statusConfig[log.status];
-                          const StatusIcon = status.icon;
-                          
+                      {logs.length === 0 && !isPageLoading ? (<TableRow><TableCell colSpan={5} className="h-64 text-center">No logs found.</TableCell></TableRow>) : (
+                        logs.map((log: any) => {
+                          const tenant = mappedTenants.find((t) => t.name === log.recipient);
                           return (
-                            <TableRow key={log.id}>
-                              <TableCell className="text-sm text-muted-foreground">
-                                {format(new Date(log.timestamp), 'MMM d, HH:mm')}
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className="uppercase">
-                                  {log.channel}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="capitalize">
-                                {log.type.replace(/_/g, ' ')}
-                              </TableCell>
-                              <TableCell className="font-mono text-sm">
-                                {log.recipient}
-                              </TableCell>
-                              <TableCell>
-                                <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full ${status.bg}`}>
-                                  <StatusIcon className={`h-3 w-3 ${status.color}`} />
-                                  <span className={`text-xs capitalize ${status.color}`}>{log.status}</span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="max-w-[200px] truncate text-sm">
-                                {log.message}
-                              </TableCell>
+                            <TableRow key={log.id} className="hover:bg-muted/30 transition-colors group">
+                              <TableCell className="align-top pt-4">{log.createdAt ? (<div className="flex flex-col"><span className="font-medium text-sm">{format(new Date(log.createdAt), 'MMM d, yyyy')}</span><span className="text-xs text-muted-foreground">{format(new Date(log.createdAt), 'HH:mm a')}</span></div>) : '—'}</TableCell>
+                              <TableCell className="align-top pt-4"><div className="flex flex-col"><span className="font-medium text-sm">{log.recipient || 'Unknown'}</span>{tenant && <span className="text-xs text-muted-foreground flex items-center gap-1"><Building2 className="h-3 w-3" /> {tenant.unit}, {tenant.property}</span>}</div></TableCell>
+                              <TableCell className="align-top pt-4 text-center"><Badge variant="secondary" className="uppercase text-[10px] tracking-wider font-semibold">{log.channel}</Badge></TableCell>
+                              <TableCell className="align-top pt-4 max-w-[300px]"><div className="flex flex-col"><span className="font-semibold text-sm mb-1">{log.title}</span><div className="text-xs text-muted-foreground whitespace-normal break-words line-clamp-2 group-hover:line-clamp-none transition-all duration-200">{log.message}</div></div></TableCell>
+                              <TableCell className="align-top pt-4 text-center">{log.read ? <Badge className="bg-success/15 text-success border-0">Read</Badge> : <Badge variant="outline" className="text-warning bg-warning/5">Delivered</Badge>}</TableCell>
                             </TableRow>
                           );
                         })
@@ -657,17 +452,71 @@ const Notifications = () => {
           </TabsContent>
         </Tabs>
 
-        {/* Setup Notice */}
+        {/* =====================================================
+            MODALS & DIALOGS
+        ===================================================== */}
+
+        {/* Upsert Template Modal */}
+        <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>{editingTemplateId ? 'Edit Template' : 'Create New Template'}</DialogTitle>
+              <DialogDescription>Define dynamic variables using {"{{name}}"}, {"{{unit}}"}, and {"{{balance}}"}.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2"><Label>Template Name *</Label><Input placeholder="e.g. Rent Reminder" value={templateForm.name} onChange={(e) => setTemplateForm({...templateForm, name: e.target.value})} /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Category</Label><Select value={templateForm.category} onValueChange={(val) => setTemplateForm({...templateForm, category: val})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="General">General</SelectItem><SelectItem value="Billing">Billing</SelectItem><SelectItem value="Lease">Lease</SelectItem><SelectItem value="Maintenance">Maintenance</SelectItem></SelectContent></Select></div>
+                <div className="space-y-2"><Label>Description</Label><Input placeholder="Short summary..." value={templateForm.description} onChange={(e) => setTemplateForm({...templateForm, description: e.target.value})} /></div>
+              </div>
+              <div className="space-y-2">
+                <Label>Message Format *</Label>
+                <Textarea rows={6} placeholder="Hi {{name}}, your balance for {{unit}} is {{balance}}..." value={templateForm.messageFormat} onChange={(e) => setTemplateForm({...templateForm, messageFormat: e.target.value})} />
+                <p className="text-[10px] text-muted-foreground bg-muted p-2 rounded">
+                  Available: <span className="font-mono text-primary">{"{{name}}, {{unit}}, {{property}}, {{balance}}, {{dueDate}}"}</span>
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsTemplateDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleSaveTemplate}>Save Template</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* 🔥 NEW: Confirm Delete Dialog */}
+        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <DialogContent className="sm:max-w-[400px]">
+            <DialogHeader>
+              <div className="flex items-center gap-3 text-destructive mb-2">
+                <div className="p-2 bg-destructive/10 rounded-full">
+                  <AlertTriangle className="h-6 w-6" />
+                </div>
+                <DialogTitle>Confirm Deletion</DialogTitle>
+              </div>
+              <DialogDescription>
+                Are you sure you want to delete the template <strong>"{templateToDelete?.name}"</strong>? 
+                This action cannot be undone and this template will no longer be available for use.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="mt-4 gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} disabled={isDeleting}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleConfirmDelete} disabled={isDeleting}>
+                {isDeleting ? 'Deleting...' : 'Permanently Delete'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <Card className="border-amber-500/50 bg-amber-500/5">
           <CardContent className="pt-6">
             <div className="flex items-start gap-4">
               <Bell className="h-6 w-6 text-amber-500 mt-0.5" />
               <div>
-                <h3 className="font-semibold text-amber-600">Twilio Integration Required</h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  To send real SMS and WhatsApp messages, you'll need to enable Lovable Cloud and configure your Twilio credentials. 
-                  Currently, notifications are simulated for demonstration purposes.
-                </p>
+                <h3 className="font-semibold text-amber-600">Twilio / Email Integration Notice</h3>
+                <p className="text-sm text-amber-600/80 mt-1 leading-relaxed">Notifications are dispatched to in-app portals. Configure Twilio keys for SMS/WhatsApp.</p>
               </div>
             </div>
           </CardContent>

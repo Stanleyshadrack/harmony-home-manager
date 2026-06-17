@@ -16,6 +16,14 @@ export const fetchMySubscription = () =>
     method: "GET",
   });
 
+  // NEW: Admin Upgrade Endpoint
+export const upgradeSubscriptionAdmin = (targetId: number, data: UpdateSubscriptionRequest) =>
+  apiRequest<UpdateSubscriptionRequest, SubscriptionResponse>({
+    path: `/api/subscriptions/${targetId}/upgrade`, // Update this path to match your actual backend URL
+    method: "POST",
+    body: data,
+  });
+
 /** POST /api/subscriptions/me/upgrade */
 export const upgradeMySubscription = (data: UpdateSubscriptionRequest) =>
   apiRequest<UpdateSubscriptionRequest, SubscriptionResponse>({

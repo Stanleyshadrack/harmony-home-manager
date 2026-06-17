@@ -63,10 +63,6 @@ const inviteSchema = z.object({
   }
 });
 
-
-
-
-
 type InviteFormData = z.infer<typeof inviteSchema>;
 
 interface InviteUserDialogProps {
@@ -78,7 +74,7 @@ interface InviteUserDialogProps {
 const roleOptions = [
   { value: 'tenant', label: 'Tenant', icon: User, description: 'Renter of property units' },
   { value: 'employee', label: 'Employee', icon: Wrench, description: 'Staff member for maintenance' },
-  { value: 'landlord', label: 'Landlord', icon: Building2, description: 'Property owner (Admin only)' },
+  { value: 'landlord', label: 'Landlord', icon: Building2, description: 'Property manager or co-owner' },
 ];
 
 const roleMap = {
@@ -94,12 +90,12 @@ export function InviteUserDialog({
 }: InviteUserDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedApartments, setSelectedApartments] = useState<string[]>([]);
+  
   const { properties } = useProperties();
+  const { data: companies = [], isLoading: isLoadingCompanies } = useGetCompanies();
 
-const selectedApartmentForTenant = selectedApartments[0];
-const { data: companies = [], isLoading: isLoadingCompanies } = useGetCompanies();
-
-const { units } = useUnits(selectedApartmentForTenant);
+  const selectedApartmentForTenant = selectedApartments[0];
+  const { units } = useUnits(selectedApartmentForTenant);
 
   const {
     register,
@@ -114,78 +110,91 @@ const { units } = useUnits(selectedApartmentForTenant);
   });
 
   const selectedRole = watch('role');
+  const selectedCompanyId = watch('companyId');
 
+  // 🔥 Allow landlords to invite other landlords (co-managers)
   const availableRoles = roleOptions.filter(role => {
     if (inviterRole === 'super_admin') return true;
-    if (inviterRole === 'landlord') return role.value !== 'landlord';
+    if (inviterRole === 'landlord') return true; 
     return false;
   });
 
- const onSubmit = async (data: InviteFormData) => {
-  setIsSubmitting(true);
-
-  try {
-    let payload: any = {
-      email: data.email,
-      role: roleMap[data.role],
-    };
-
-    if (inviterRole === 'super_admin' && data.role === 'landlord') {
-      if (!data.companyId) {
-        toast.error('Please select a company for the new landlord.');
-        setIsSubmitting(false);
-        return; // Stop submission
-      }
-      payload.companyId = data.companyId;
+// 🔥 Filter properties dynamically
+  const filteredProperties = properties?.filter(property => {
+    if (inviterRole === 'super_admin' && selectedRole === 'landlord') {
+      // 🔥 Cast both to String to prevent number/string === mismatch bugs
+      return selectedCompanyId 
+        ? String(property.companyId) === String(selectedCompanyId) 
+        : false;
     }
+    // Landlords (or Super Admins inviting tenants/employees) see all properties available to them
+    return true;
+  }) || [];
 
-    if (inviterRole === 'super_admin') {
+  const onSubmit = async (data: InviteFormData) => {
+    setIsSubmitting(true);
+
+    try {
+      let payload: any = {
+        email: data.email,
+        role: roleMap[data.role],
+      };
+
+      if (inviterRole === 'super_admin' && data.role === 'landlord') {
+        if (!data.companyId) {
+          toast.error('Please select a company for the new landlord.');
+          setIsSubmitting(false);
+          return; // Stop submission
+        }
         payload.companyId = data.companyId;
       }
 
-    // ✅ LANDLORD → REQUIRED apartments
-    if (data.role === "landlord") {
-      payload.apartmentIds = (data.apartmentIds || []).map(Number);
-    }
-
-    // ✅ TENANT → REQUIRED apartment + unit
-    if (data.role === "tenant") {
-      payload.apartmentIds = (data.apartmentIds || []).map(Number);
-      payload.unitId = Number(data.unitId);
-    }
-
-    // ✅ EMPLOYEE → OPTIONAL apartments
-    if (data.role === "employee") {
-      if (data.apartmentIds && data.apartmentIds.length > 0) {
-        payload.apartmentIds = data.apartmentIds.map(Number);
+      if (inviterRole === 'super_admin') {
+        payload.companyId = data.companyId;
       }
+
+      // ✅ LANDLORD → REQUIRED apartments
+      if (data.role === "landlord") {
+        payload.apartmentIds = (data.apartmentIds || []).map(Number);
+      }
+
+      // ✅ TENANT → REQUIRED apartment + unit
+      if (data.role === "tenant") {
+        payload.apartmentIds = (data.apartmentIds || []).map(Number);
+        payload.unitId = Number(data.unitId);
+      }
+
+      // ✅ EMPLOYEE → OPTIONAL apartments
+      if (data.role === "employee") {
+        if (data.apartmentIds && data.apartmentIds.length > 0) {
+          payload.apartmentIds = data.apartmentIds.map(Number);
+        }
+      }
+
+      console.log("INVITE PAYLOAD 🚀", payload);
+
+      await inviteUserService(payload);
+
+      toast.success("Invitation sent!");
+      reset({ role: 'tenant', companyId: undefined, email: '' });
+      setSelectedApartments([]);
+      onOpenChange(false);
+
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to send invite");
+    } finally {
+      setIsSubmitting(false);
     }
+  };
 
-    console.log("INVITE PAYLOAD 🚀", payload);
-
-    await inviteUserService(payload);
-
-    toast.success("Invitation sent!");
-    reset({ role: 'tenant', companyId: undefined, email: '' });
+  // Reset selections if Role or Company changes
+  useEffect(() => {
     setSelectedApartments([]);
-    onOpenChange(false);
-
-  } catch (err: any) {
-    toast.error(err?.message || "Failed to send invite");
-  } finally {
-    setIsSubmitting(false);
-  }
-};
-
- useEffect(() => {
-  setSelectedApartments([]);
-  setValue("apartmentIds", []);
-  setValue("unitId", undefined);
-}, [selectedRole]);
-
+    setValue("apartmentIds", []);
+    setValue("unitId", undefined);
+  }, [selectedRole, selectedCompanyId, setValue]);
 
   return (
-
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -242,12 +251,12 @@ const { units } = useUnits(selectedApartmentForTenant);
             </p>
           </div>
 
-         {/* Company Selection (ONLY FOR SUPER ADMIN INVITING A LANDLORD) */}
+          {/* Company Selection (ONLY FOR SUPER ADMIN INVITING A LANDLORD) */}
           {inviterRole === 'super_admin' && selectedRole === 'landlord' && (
             <div className="space-y-2">
               <Label>Company *</Label>
               <Select
-                value={watch('companyId') ? String(watch('companyId')) : undefined}
+                value={selectedCompanyId ? String(selectedCompanyId) : undefined}
                 onValueChange={(value) => setValue('companyId', Number(value))}
                 disabled={isLoadingCompanies}
               >
@@ -266,86 +275,97 @@ const { units } = useUnits(selectedApartmentForTenant);
           )}
 
           <div className="space-y-2">
-  <Label>
-  {selectedRole === "landlord" && "Apartments *"}
-  {selectedRole === "tenant" && "Apartment *"}
-  {selectedRole === "employee" && (
-  <p className="text-xs text-muted-foreground">
-    You can assign properties now or later
-  </p>
-)}
-</Label>
+            <Label>
+              {selectedRole === "landlord" && "Apartments *"}
+              {selectedRole === "tenant" && "Apartment *"}
+              {selectedRole === "employee" && (
+                <p className="text-xs text-muted-foreground">
+                  You can assign properties now or later
+                </p>
+              )}
+            </Label>
 
-  <div className="flex flex-wrap gap-2 border rounded-md p-2">
-    {properties?.map((property) => {
-      const isSelected = selectedApartments.includes(property.id.toString());
+            <div className="flex flex-wrap gap-2 border rounded-md p-2 min-h-[50px]">
+              {inviterRole === 'super_admin' && selectedRole === 'landlord' && !selectedCompanyId ? (
+                <p className="text-sm text-muted-foreground w-full text-center py-2">
+                  Please select a company first to view its properties.
+                </p>
+              ) : filteredProperties.length === 0 ? (
+                <p className="text-sm text-muted-foreground w-full text-center py-2">
+                  No properties found.
+                </p>
+              ) : (
+                filteredProperties.map((property) => {
+                  const isSelected = selectedApartments.includes(property.id.toString());
 
-      return (
-        <button
-          type="button"
-          key={property.id}
-          onClick={() => {
-  let updated: string[];
-  const propertyIdStr = String(property.id);
-  if (selectedRole === 'tenant') {
-    updated = [propertyIdStr];
-  } else {
-    if (isSelected) {
-      updated = selectedApartments.filter(id => id !== propertyIdStr);
-    } else {
-      updated = [...selectedApartments, propertyIdStr];
-    }
-  }
+                  return (
+                    <button
+                      type="button"
+                      key={property.id}
+                      onClick={() => {
+                        let updated: string[];
+                        const propertyIdStr = String(property.id);
+                        if (selectedRole === 'tenant') {
+                          updated = [propertyIdStr];
+                        } else {
+                          if (isSelected) {
+                            updated = selectedApartments.filter(id => id !== propertyIdStr);
+                          } else {
+                            updated = [...selectedApartments, propertyIdStr];
+                          }
+                        }
 
-  setSelectedApartments(updated);
-  setValue('apartmentIds', updated);
-}}
-          className={`px-3 py-1 rounded-full text-sm border ${
-            isSelected
-              ? 'bg-primary text-white'
-              : 'bg-muted hover:bg-muted/70'
-          }`}
-        >
-          {property.name}
-        </button>
-      );
-    })}
-  </div>
+                        setSelectedApartments(updated);
+                        setValue('apartmentIds', updated);
+                      }}
+                      className={`px-3 py-1 rounded-full text-sm border ${
+                        isSelected
+                          ? 'bg-primary text-white'
+                          : 'bg-muted hover:bg-muted/70'
+                      }`}
+                    >
+                      {property.name}
+                    </button>
+                  );
+                })
+              )}
+            </div>
 
-  {errors.apartmentIds && (
-    <p className="text-sm text-destructive">
-      {errors.apartmentIds.message}
-    </p>
-  )}
-</div>
-{selectedRole === 'tenant' && (
-  <div className="space-y-2">
-    <Label>Unit *</Label>
+            {errors.apartmentIds && (
+              <p className="text-sm text-destructive">
+                {errors.apartmentIds.message}
+              </p>
+            )}
+          </div>
 
-    <Select
-      onValueChange={(value) => setValue('unitId', value)}
-      disabled={!selectedApartmentForTenant}
-    >
-      <SelectTrigger>
-        <SelectValue placeholder="Select unit" />
-      </SelectTrigger>
+          {selectedRole === 'tenant' && (
+            <div className="space-y-2">
+              <Label>Unit *</Label>
 
-      <SelectContent>
-        {units?.map((unit) => (
-          <SelectItem key={unit.id} value={String(unit.id)}>
-  {unit.unitNumber}
-</SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+              <Select
+                onValueChange={(value) => setValue('unitId', value)}
+                disabled={!selectedApartmentForTenant}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select unit" />
+                </SelectTrigger>
 
-    {errors.unitId && (
-      <p className="text-sm text-destructive">
-        {errors.unitId.message}
-      </p>
-    )}
-  </div>
-)}
+                <SelectContent>
+                  {units?.map((unit) => (
+                    <SelectItem key={unit.id} value={String(unit.id)}>
+                      {unit.unitNumber}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {errors.unitId && (
+                <p className="text-sm text-destructive">
+                  {errors.unitId.message}
+                </p>
+              )}
+            </div>
+          )}
 
           <DialogFooter>
             <Button variant="outline" onClick={() => onOpenChange(false)}>

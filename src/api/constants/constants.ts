@@ -47,6 +47,32 @@ export const API_PATHS = {
   MPESA_CALLBACK: "/api/mpesa/callback",
 
 
+  // ===============================
+  // Notification Templates
+  // ===============================
+  NOTIFICATION_TEMPLATES: "/api/notification-templates",
+  NOTIFICATION_TEMPLATE_BY_ID: (id: number) => `/api/notification-templates/${id}`,
+
+  
+
+// ===============================
+  // Notifications
+  // ===============================
+
+  NOTIFICATIONS: "/api/notifications",
+
+  
+  NOTIFICATION_HISTORY: "/api/notifications/history",
+  
+  SEND_NOTIFICATION: "/api/notifications/send",
+  
+  SEND_BULK_NOTIFICATIONS: "/api/notifications/bulk-send",
+  
+  MARK_NOTIFICATION_READ: (id: number | string) =>
+    `/api/notifications/${id}/read`,
+    
+  NOTIFICATIONS_BY_PROPERTY: (propertyId: number | string) =>
+    `/api/notifications/property/${propertyId}`,
 
 
  // ---------- Landlords ----------
@@ -118,6 +144,8 @@ GET_COMPANY_BY_ID: (id: number) => `/v1/api/companies/${id}`,
 GET_ALL_COMPANIES: "/v1/api/companies",
 UPDATE_COMPANY: (id: number) => `/v1/api/companies/${id}`,
 DELETE_COMPANY: (id: number) => `/v1/api/companies/${id}`,
+SUSPEND_COMPANY: (id: number) => `/v1/api/companies/${id}/suspend`,
+ACTIVATE_COMPANY: (id: number) => `/v1/api/companies/${id}/activate`,
 
 
 // ----------------------- Approvals -------------------------

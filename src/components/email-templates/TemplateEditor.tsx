@@ -1,7 +1,7 @@
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { EmailTemplate, EmailTemplateCategory, EmailTemplateFormData } from '@/types/emailTemplate';
 import {
   Dialog,
   DialogContent,
@@ -16,7 +16,6 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -31,73 +30,76 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Info, Variable } from 'lucide-react';
+import { Variable, Mail, Eye, Code } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Label } from '@/components/ui/label';
+import { MessageTemplate } from '@/hooks/useTemplates';
 
-const categories: { value: EmailTemplateCategory; label: string }[] = [
-  { value: 'authentication', label: 'Authentication' },
-  { value: 'billing', label: 'Billing' },
+/* ========================================================
+   TEMPLATE EDITOR DIALOG
+======================================================== */
+
+const categories = [
+  { value: 'general', label: 'General' },
+  { value: 'billing', label: 'Billing & Invoices' },
   { value: 'maintenance', label: 'Maintenance' },
-  { value: 'system', label: 'System' },
-  { value: 'subscription', label: 'Subscription' },
-  { value: 'invitation', label: 'Invitation' },
+  { value: 'lease', label: 'Lease & Compliance' },
 ];
 
 const templateSchema = z.object({
   name: z.string().min(1, 'Template name is required'),
-  category: z.enum(['authentication', 'billing', 'maintenance', 'system', 'subscription', 'invitation']),
-  subject: z.string().min(1, 'Subject is required'),
-  body: z.string().min(10, 'Body must be at least 10 characters'),
+  category: z.string().min(1, 'Category is required'),
   description: z.string().optional(),
+  messageFormat: z.string().min(10, 'Message format must be at least 10 characters'),
 });
+
+type TemplateFormData = z.infer<typeof templateSchema>;
 
 interface TemplateEditorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  template?: EmailTemplate | null;
-  onSave: (data: EmailTemplateFormData) => void;
+  template?: MessageTemplate | null;
+  onSave: (data: TemplateFormData) => void;
 }
 
 export function TemplateEditor({ open, onOpenChange, template, onSave }: TemplateEditorProps) {
-  const form = useForm<EmailTemplateFormData>({
+  const form = useForm<TemplateFormData>({
     resolver: zodResolver(templateSchema),
     defaultValues: template ? {
       name: template.name,
       category: template.category,
-      subject: template.subject,
-      body: template.body,
       description: template.description || '',
+      messageFormat: template.messageFormat,
     } : {
       name: '',
-      category: 'system',
-      subject: '',
-      body: '',
+      category: 'general',
       description: '',
+      messageFormat: '',
     },
   });
 
-  const watchBody = form.watch('body');
-  const watchSubject = form.watch('subject');
+  const watchMessage = form.watch('messageFormat');
   
   const extractedVariables = (() => {
-    const text = (watchBody || '') + (watchSubject || '');
+    const text = watchMessage || '';
     const matches = text.match(/\{\{(\w+)\}\}/g);
     if (!matches) return [];
     const vars = matches.map(m => m.replace(/\{\{|\}\}/g, ''));
     return [...new Set(vars)];
   })();
 
-  const handleSubmit = (data: EmailTemplateFormData) => {
+  const handleSubmit = (data: TemplateFormData) => {
     onSave(data);
     onOpenChange(false);
     form.reset();
   };
 
   const insertVariable = (variable: string) => {
-    const currentBody = form.getValues('body');
-    form.setValue('body', currentBody + `{{${variable}}}`);
+    const currentBody = form.getValues('messageFormat');
+    form.setValue('messageFormat', currentBody + `{{${variable}}}`);
   };
 
-  const commonVariables = ['userName', 'appName', 'timestamp', 'propertyName', 'unitNumber', 'tenantName'];
+  const commonVariables = ['name', 'unit', 'property', 'amount', 'balance', 'dueDate', 'customMessage'];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -119,7 +121,7 @@ export function TemplateEditor({ open, onOpenChange, template, onSave }: Templat
                     <FormItem>
                       <FormLabel>Template Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., Welcome Email" {...field} />
+                        <Input placeholder="e.g., Rent Reminder" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -166,43 +168,7 @@ export function TemplateEditor({ open, onOpenChange, template, onSave }: Templat
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="subject"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email Subject</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., Welcome to {{appName}}!" {...field} />
-                    </FormControl>
-                    <FormDescription className="flex items-center gap-1 text-xs">
-                      <Info className="h-3 w-3" />
-                      Use {"{{variableName}}"} for dynamic content
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="body"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email Body</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="Write your email template here..."
-                        className="min-h-[200px] font-mono text-sm"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="space-y-3">
+              <div className="space-y-3 pt-2">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <Variable className="h-4 w-4" />
                   Quick Insert Variables
@@ -220,6 +186,24 @@ export function TemplateEditor({ open, onOpenChange, template, onSave }: Templat
                   ))}
                 </div>
               </div>
+
+              <FormField
+                control={form.control}
+                name="messageFormat"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Message Format</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Hi {{name}}, your rent of KES {{amount}} is due..."
+                        className="min-h-[200px] font-mono text-sm"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               {extractedVariables.length > 0 && (
                 <>
@@ -250,6 +234,123 @@ export function TemplateEditor({ open, onOpenChange, template, onSave }: Templat
             </form>
           </Form>
         </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ========================================================
+   TEMPLATE PREVIEW DIALOG
+======================================================== */
+
+interface TemplatePreviewProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  template: MessageTemplate | null;
+}
+
+export function TemplatePreview({ open, onOpenChange, template }: TemplatePreviewProps) {
+  const [variableValues, setVariableValues] = useState<Record<string, string>>({});
+
+  if (!template) return null;
+
+  const variables = template.messageFormat.match(/\{\{(\w+)\}\}/g)?.map(v => v.replace(/\{\{|\}\}/g, '')) || [];
+  const uniqueVariables = [...new Set(variables)];
+
+  const replaceVariables = (text: string) => {
+    let result = text;
+    uniqueVariables.forEach((v) => {
+      const value = variableValues[v] || `{{${v}}}`;
+      result = result.replace(new RegExp(`\\{\\{${v}\\}\\}`, 'g'), value);
+    });
+    return result;
+  };
+
+  const previewBody = replaceVariables(template.messageFormat);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-xl">
+            <Mail className="h-5 w-5 text-primary" />
+            Template Preview: {template.name}
+          </DialogTitle>
+        </DialogHeader>
+
+        <Tabs defaultValue="preview" className="mt-2">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="preview" className="flex items-center gap-2">
+              <Eye className="h-4 w-4" />
+              Preview
+            </TabsTrigger>
+            <TabsTrigger value="source" className="flex items-center gap-2">
+              <Code className="h-4 w-4" />
+              Source
+            </TabsTrigger>
+          </TabsList>
+
+          <ScrollArea className="max-h-[calc(90vh-200px)] mt-4">
+            <TabsContent value="preview" className="space-y-4 mt-0">
+              {uniqueVariables.length > 0 && (
+                <div className="p-4 rounded-lg bg-muted/50 border">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Variable className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Test Variables</span>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {uniqueVariables.map((v) => (
+                      <div key={v} className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">{v}</Label>
+                        <Input
+                          placeholder={`Enter ${v}`}
+                          className="h-8 text-sm"
+                          value={variableValues[v] || ''}
+                          onChange={(e) => 
+                            setVariableValues((prev) => ({ ...prev, [v]: e.target.value }))
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="border rounded-lg overflow-hidden bg-background shadow-sm p-6">
+                <pre className="whitespace-pre-wrap font-sans text-sm text-foreground leading-relaxed">
+                  {previewBody}
+                </pre>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="source" className="space-y-4 mt-0">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Raw Message Format</Label>
+                  <div className="p-4 rounded-lg bg-muted/50 border font-mono text-sm whitespace-pre-wrap">
+                    {template.messageFormat}
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Variables Used</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {uniqueVariables.map((v) => (
+                      <Badge key={v} variant="outline" className="font-mono">
+                        {`{{${v}}}`}
+                      </Badge>
+                    ))}
+                    {uniqueVariables.length === 0 && (
+                      <p className="text-sm text-muted-foreground">No variables used.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+          </ScrollArea>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

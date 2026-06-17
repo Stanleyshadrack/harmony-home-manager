@@ -71,7 +71,7 @@ const filteredProperties = properties.filter((property) => {
   const handleDeleteProperty = async () => {
     if (!deletingProperty) return;
     try {
-      await deleteProperty(deletingProperty.id);
+      await deleteProperty(deletingProperty.id.toString());
       toast.success('Property deleted successfully');
       setDeletingProperty(null);
     } catch (error) {
@@ -131,7 +131,7 @@ const filteredProperties = properties.filter((property) => {
       {filteredProperties.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredProperties.map((property) => {
-  const landlord = getLandlordById(Number(property.landlordId));
+  const landlord = getLandlordById(Number(property.companyId));
 
   return (
     <PropertyCard

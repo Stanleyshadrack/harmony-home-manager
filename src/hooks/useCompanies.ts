@@ -22,6 +22,36 @@ export function useGetCompanies() {
   });
 }
 
+// ----------------------------------------------------------------------
+// Add these to the bottom of your hooks file
+// ----------------------------------------------------------------------
+
+export function useSuspendCompany() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: number) => CompanyServiceApi.suspend(id),
+    onSuccess: (_, id) => {
+      // Refresh the specific company and the main list to update the UI instantly
+      queryClient.invalidateQueries({ queryKey: companyKeys.detail(id) });
+      queryClient.invalidateQueries({ queryKey: companyKeys.all });
+    },
+  });
+}
+
+export function useActivateCompany() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: number) => CompanyServiceApi.activate(id),
+    onSuccess: (_, id) => {
+      // Refresh the specific company and the main list to update the UI instantly
+      queryClient.invalidateQueries({ queryKey: companyKeys.detail(id) });
+      queryClient.invalidateQueries({ queryKey: companyKeys.all });
+    },
+  });
+}
+
 export function useGetCompany(id: number, enabled = true) {
   return useQuery({
     queryKey: companyKeys.detail(id),

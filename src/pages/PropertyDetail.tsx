@@ -202,8 +202,17 @@ const landlords = useMemo(() => {
 
       <div className="flex justify-between flex-wrap gap-4 mb-6">
 
+
+
   {/* Property Info */}
   <div className="space-y-1">
+
+             {/* Company Name */}
+    {property.country && (
+      <p className="text-sm text-muted-foreground">
+        Company Name: {property.companyName}
+      </p>
+    )}
 
     {/* Property Code */}
     {property.country && (
@@ -418,7 +427,7 @@ const landlords = useMemo(() => {
         <TabsContent value="photos">
 
           <PropertyPhotoGallery
-            propertyId={property.id}
+            propertyId={property.id.toString()}
             photos={propertyPhotos}
             featuredPhotoIndex={featuredPhotoIndex}
             onPhotosChange={(photos, index) => {
@@ -435,7 +444,7 @@ const landlords = useMemo(() => {
         <TabsContent value="units">
 
           {propertyUnits.length === 0 ? (
-            <EmptyUnits propertyId={property.id} />
+            <EmptyUnits propertyId={property.id.toString()} />
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {propertyUnits.map((unit) => (

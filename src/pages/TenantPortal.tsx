@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useMpesaPayment, usePaymentStatus } from '@/hooks/useBilling';
@@ -14,6 +15,8 @@ import {
 } from '@/components/ui/dialog';
 import {
   Building2,
+  ShieldCheck,
+   Lock,
   FileText,
   CreditCard,
   Wrench,
@@ -162,7 +165,8 @@ useEffect(() => {
       description: `Paid ${paymentStatus.amount}`,
     });
 
-    setCheckoutId(null); // stop polling
+    setCheckoutId(null);
+    setActiveTab('invoices');
   }
 
   if (paymentStatus.status === 'failed') {
@@ -219,10 +223,11 @@ const handlePayment = async (data: PaymentFormData) => {
         title: "Payment Recorded",
         description: "Payment successful",
       });
+      setActiveTab('invoices');
     }
 
   } catch (err: any) {
-    console.error("PAYMENT ERROR:", err); // 🔥 ADD THIS
+    console.error("PAYMENT ERROR:", err);
 
     toast({
       title: "Payment Failed",
@@ -566,28 +571,72 @@ const handlePayment = async (data: PaymentFormData) => {
             </div>
           </TabsContent>
 
-          {/* Payments Tab */}
-          <TabsContent value="payments" className="space-y-4">
-            <div>
-              <h2 className="text-xl font-semibold">Make a Payment</h2>
+        {/* Payments Tab */}
+          <TabsContent value="payments" className="space-y-6">
+            <div className="flex flex-col gap-1.5">
+              <h2 className="text-2xl font-bold tracking-tight">Make a Payment</h2>
               <p className="text-muted-foreground">
-                Pay your invoices securely online
+                Select an invoice and complete your transaction securely online.
               </p>
             </div>
 
-            <div className="max-w-xl">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Payment Details</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <TenantPaymentForm
-                    invoices={tenantInvoices}
-                    onSubmit={handlePayment}
-                    isLoading={isLoading}
-                  />
-                </CardContent>
-              </Card>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Left Column: The Payment Form */}
+              <div className="lg:col-span-2">
+                <Card className="border-muted/60 shadow-sm overflow-hidden">
+                  <CardHeader className="bg-muted/30 border-b px-6 py-4">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <CreditCard className="h-5 w-5 text-primary" />
+                      Payment Details
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    <TenantPaymentForm
+                      invoices={tenantInvoices}
+                      onSubmit={handlePayment}
+                      isLoading={isLoading}
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Right Column: Order Summary & Trust Badges */}
+              <div className="space-y-6">
+                {/* Optional: Summary Card (if they owe money) */}
+                <Card className="shadow-sm">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-base">Balance Summary</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex justify-between items-center pb-4 border-b">
+                      <span className="text-muted-foreground">Total Outstanding</span>
+                      <span className={`font-semibold ${totalOutstanding > 0 ? 'text-destructive' : 'text-success'}`}>
+                        {formatCurrency(totalOutstanding)}
+                      </span>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Select an invoice from the form to view its specific breakdown.
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Trust/Security Card */}
+                <Card className="bg-primary/5 border-primary/10 shadow-none">
+                  <CardContent className="p-6 space-y-4">
+                    <div className="flex items-center gap-3 text-primary">
+                      <ShieldCheck className="h-6 w-6" />
+                      <h3 className="font-semibold">Secure Checkout</h3>
+                    </div>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      Your payment information is encrypted and processed securely. We never store your sensitive card or banking details.
+                    </p>
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground pt-4 border-t border-primary/10">
+                      <Lock className="h-4 w-4" /> 
+                      256-bit SSL Encryption
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </TabsContent>
 

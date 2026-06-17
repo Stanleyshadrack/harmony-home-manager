@@ -1,9 +1,6 @@
-import { useState } from 'react';
-import { EmailTemplate } from '@/types/emailTemplate';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,7 +11,6 @@ import {
 import { 
   MoreHorizontal, 
   Edit, 
-  Copy, 
   Trash2, 
   Eye,
   Mail,
@@ -22,69 +18,54 @@ import {
   CreditCard,
   Wrench,
   Bell,
-  Crown,
-  UserPlus
+  Megaphone
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { MessageTemplate } from '@/hooks/useTemplates';
 
-const categoryIcons = {
-  authentication: Shield,
+const categoryIcons: Record<string, any> = {
+  general: Megaphone,
   billing: CreditCard,
   maintenance: Wrench,
+  lease: Shield,
   system: Bell,
-  subscription: Crown,
-  invitation: UserPlus,
 };
 
-const categoryColors = {
-  authentication: 'bg-info/10 text-info border-info/20',
+const categoryColors: Record<string, string> = {
+  general: 'bg-info/10 text-info border-info/20',
   billing: 'bg-success/10 text-success border-success/20',
   maintenance: 'bg-warning/10 text-warning border-warning/20',
+  lease: 'bg-primary/10 text-primary border-primary/20',
   system: 'bg-destructive/10 text-destructive border-destructive/20',
-  subscription: 'bg-primary/10 text-primary border-primary/20',
-  invitation: 'bg-accent/10 text-accent-foreground border-accent/20',
 };
 
 interface TemplateCardProps {
-  template: EmailTemplate;
-  onEdit: (template: EmailTemplate) => void;
-  onPreview: (template: EmailTemplate) => void;
-  onDuplicate: (id: string) => void;
-  onDelete: (id: string) => void;
-  onToggleActive: (id: string) => void;
+  template: MessageTemplate;
+  onEdit: (template: MessageTemplate) => void;
+  onPreview: (template: MessageTemplate) => void;
+  onDelete: (id: number) => void;
 }
 
-export function TemplateCard({
-  template,
-  onEdit,
-  onPreview,
-  onDuplicate,
-  onDelete,
-  onToggleActive,
-}: TemplateCardProps) {
-  const CategoryIcon = categoryIcons[template.category];
+export function TemplateCard({ template, onEdit, onPreview, onDelete }: TemplateCardProps) {
+  const CategoryIcon = categoryIcons[template.category?.toLowerCase()] || Bell;
+  const colorClass = categoryColors[template.category?.toLowerCase()] || categoryColors.general;
+
+  // Dynamically count variables
+  const variables = template.messageFormat.match(/\{\{(\w+)\}\}/g) || [];
+  const uniqueVariables = new Set(variables).size;
 
   return (
-    <Card className={`group transition-all duration-200 hover:shadow-md hover:border-primary/30 ${!template.isActive ? 'opacity-60' : ''}`}>
+    <Card className="group transition-all duration-200 hover:shadow-md hover:border-primary/30">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className={`p-2 rounded-lg ${categoryColors[template.category]}`}>
+            <div className={`p-2 rounded-lg ${colorClass}`}>
               <CategoryIcon className="h-4 w-4" />
             </div>
             <div className="min-w-0">
               <h3 className="font-semibold text-foreground truncate">{template.name}</h3>
-              <p className="text-xs text-muted-foreground truncate">
-                {template.subject}
-              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Switch
-              checked={template.isActive}
-              onCheckedChange={() => onToggleActive(template.id)}
-              className="data-[state=checked]:bg-success"
-            />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -100,10 +81,6 @@ export function TemplateCard({
                   <Edit className="h-4 w-4 mr-2" />
                   Edit
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onDuplicate(template.id)}>
-                  <Copy className="h-4 w-4 mr-2" />
-                  Duplicate
-                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
                   onClick={() => onDelete(template.id)}
@@ -118,23 +95,22 @@ export function TemplateCard({
         </div>
       </CardHeader>
       <CardContent className="pt-0">
-        {template.description && (
-          <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+        {template.description ? (
+          <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
             {template.description}
           </p>
+        ) : (
+          <p className="text-sm text-muted-foreground mb-4 italic">No description provided.</p>
         )}
         <div className="flex items-center justify-between">
-          <Badge variant="outline" className={`text-xs ${categoryColors[template.category]}`}>
+          <Badge variant="outline" className={`text-xs capitalize ${colorClass}`}>
             {template.category}
           </Badge>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Mail className="h-3 w-3" />
-            <span>{template.variables.length} variables</span>
+            <span>{uniqueVariables} variables</span>
           </div>
         </div>
-        <p className="text-xs text-muted-foreground mt-2">
-          Modified {format(new Date(template.lastModified), 'MMM d, yyyy')}
-        </p>
       </CardContent>
     </Card>
   );

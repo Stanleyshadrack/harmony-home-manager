@@ -1,98 +1,49 @@
-import { useState, useCallback } from 'react';
-import { 
-  sendNotification, 
-  sendRentReminders, 
-  getNotificationLogs,
-  NotificationPayload,
-  NotificationLog,
-  NotificationType,
-  NotificationChannel
-} from '@/services/notificationService';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
+import { 
+  getNotificationHistory, 
+  getNotificationTemplates, 
+  sendSingleNotification, 
+  sendBulkNotifications 
+} from '@/api/service/notificationService'; // 👈 Import the new service
 
 export const useNotifications = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [logs, setLogs] = useState<NotificationLog[]>(() => getNotificationLogs());
+  const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const refreshLogs = useCallback(() => {
-    setLogs(getNotificationLogs());
-  }, []);
+  const { data: logs = [], isLoading: loadingLogs, refetch: refreshLogs } = useQuery({
+    queryKey: ['notification-history'],
+    queryFn: getNotificationHistory,
+  });
 
-  const send = useCallback(async (payload: NotificationPayload) => {
-    setIsLoading(true);
-    try {
-      const result = await sendNotification(payload);
-      refreshLogs();
-      
-      if (result.status === 'sent') {
-        toast({
-          title: 'Notification sent',
-          description: `${payload.channel.toUpperCase()} sent to ${payload.recipientName}`,
-        });
-      } else {
-        toast({
-          title: 'Notification failed',
-          description: result.error || 'Unknown error',
-          variant: 'destructive',
-        });
-      }
-      
-      return result;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [toast, refreshLogs]);
+  const { data: templates = [], isLoading: loadingTemplates } = useQuery({
+    queryKey: ['notification-templates'],
+    queryFn: getNotificationTemplates,
+  });
 
-  const sendBulkReminders = useCallback(async (tenants: Array<{
-    name: string;
-    phone: string;
-    unit: string;
-    rentAmount: number;
-    dueDate: string;
-  }>) => {
-    setIsLoading(true);
-    try {
-      const results = await sendRentReminders(tenants);
-      refreshLogs();
-      
-      const successful = results.filter(r => r.status === 'sent').length;
-      const failed = results.length - successful;
-      
-      toast({
-        title: 'Rent reminders sent',
-        description: `${successful} sent, ${failed} failed`,
-        variant: failed > 0 ? 'destructive' : 'default',
-      });
-      
-      return results;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [toast, refreshLogs]);
+  const sendSingleMutation = useMutation({
+    mutationFn: sendSingleNotification,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notification-history'] });
+    },
+    // ... error handling
+  });
 
-  const sendQuickNotification = useCallback(async (
-    phone: string,
-    name: string,
-    type: NotificationType,
-    channel: NotificationChannel,
-    data: Record<string, string | number>
-  ) => {
-    return send({
-      recipientPhone: phone,
-      recipientName: name,
-      type,
-      channel,
-      data,
-    });
-  }, [send]);
+  const sendBulkMutation = useMutation({
+    mutationFn: sendBulkNotifications,
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: ['notification-history'] });
+      // ... success toast
+    },
+    // ... error handling
+  });
 
   return {
-    isLoading,
     logs,
+    templates,
+    isLoading: loadingLogs || loadingTemplates || sendSingleMutation.isPending || sendBulkMutation.isPending,
     refreshLogs,
-    send,
-    sendBulkReminders,
-    sendQuickNotification,
+    sendSingle: sendSingleMutation.mutateAsync,
+    sendBulk: sendBulkMutation.mutateAsync,
   };
 };

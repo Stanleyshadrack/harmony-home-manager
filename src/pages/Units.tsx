@@ -54,9 +54,9 @@ export default function Units() {
     return matchesSearch && matchesProperty && matchesStatus;
   });
 
-  const getPropertyName = (propertyId: string) => {
-    return properties.find((p) => p.id === propertyId)?.name || 'Unknown Property';
-  };
+const getPropertyName = (propertyId: string) => {
+  return properties.find((p) => p.id === Number(propertyId))?.name || 'Unknown Property';
+};
 
   const handleAddUnit = async (data: UnitFormData) => {
     try {
@@ -155,9 +155,9 @@ export default function Units() {
           <SelectContent>
             <SelectItem value="all">{t('common.all')} Properties</SelectItem>
             {properties.map((property) => (
-              <SelectItem key={property.id} value={property.id}>
-                {property.name}
-              </SelectItem>
+             <SelectItem key={property.id} value={String(property.id)}>
+  {property.name}
+</SelectItem>
             ))}
           </SelectContent>
         </Select>

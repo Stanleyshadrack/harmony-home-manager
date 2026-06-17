@@ -16,10 +16,10 @@ import { useAuth } from '@/contexts/AuthContext';
 const safe = (v?: string | null) => v ?? '';
 
 const mapApiProperty = (p: any): Property => ({
-  id: String(p.id),
+  id: Number(p.id),
   name: safe(p.name),
   address: safe(p.address),
-   companyId: String(p.companyId ?? ''),
+   companyId: Number(p.companyId ?? ''),
   companyName: safe(p.companyName),
   city: safe(p.city),
   state: safe(p.state),

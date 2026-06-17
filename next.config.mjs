@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export', // Build as static SPA
-  distDir: './dist', // Where to output build files
+  // output: 'export', // Build as static SPA
+  // distDir: './dist', // Where to output build files
 
   async rewrites() {
     return [

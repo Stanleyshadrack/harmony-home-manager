@@ -1,6 +1,7 @@
 // api/mapper/mapPropertyFormToApi.ts
 
 import { PropertyFormData } from "@/types/property";
+import { PropertyType } from "../dto/apartmentApiDTO";
 
 export function mapPropertyFormToApi(
   form: PropertyFormData
@@ -13,7 +14,8 @@ export function mapPropertyFormToApi(
     state: form.state,
     country: form.country,
     postalCode: form.postalCode,
-    propertyType: form.propertyType.toUpperCase(),
+    // propertyType: form.propertyType.toUpperCase(),
+    propertyType: form.propertyType.toUpperCase() as PropertyType,
     amenities: form.amenities,
   };
 }

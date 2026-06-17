@@ -1,4 +1,8 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getNotificationHistory, markNotificationAsRead } from '@/api/service/notificationService';
+import { apiRequest } from '@/api/https';
+
 
 export type NotificationPriority = 'low' | 'medium' | 'high';
 export type NotificationCategory = 
@@ -16,8 +20,8 @@ export type NotificationCategory =
   | 'general';
 
 export interface InAppNotification {
-  id: string;
-  userId: string;
+  id: number; // 🔥 Changed to number to match backend Long ID
+  userId?: string | number;
   title: string;
   message: string;
   category: NotificationCategory;
@@ -25,91 +29,79 @@ export interface InAppNotification {
   read: boolean;
   createdAt: string;
   link?: string;
+  type?: string;
+  channel?: string;
 }
 
-const STORAGE_KEY = 'in_app_notifications';
+export function useInAppNotifications(userId?: string | number) {
+  const queryClient = useQueryClient();
 
-const getStoredNotifications = (): InAppNotification[] => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-};
+  // 1. Fetch from Spring Boot Backend
+  const { data: notifications = [], isLoading } = useQuery({
+    queryKey: ['in-app-notifications', userId],
+    queryFn: async () => {
+      const data = await getNotificationHistory();
+      
+      // Map the backend data to match your frontend's exact interface
+      return data.map((n: any) => ({
+        ...n,
+        // Map backend 'type' to frontend 'category'
+        category: (n.type?.toLowerCase() || 'general') as NotificationCategory,
+        priority: 'medium' as NotificationPriority, // Default priority
+      })) as InAppNotification[];
+    },
+    enabled: !!userId, // Only fetch if user is logged in
+    refetchInterval: 30000, // 🔥 Auto-poll every 30 seconds for new messages
+  });
 
-const saveNotifications = (notifications: InAppNotification[]) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(notifications));
-};
-
-export function useInAppNotifications(userId?: string) {
-  const [notifications, setNotifications] = useState<InAppNotification[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const allNotifications = getStoredNotifications();
-    const userNotifications = userId 
-      ? allNotifications.filter(n => n.userId === userId || n.userId === 'all')
-      : allNotifications;
-    setNotifications(userNotifications.sort((a, b) => 
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    ));
-    setIsLoading(false);
-  }, [userId]);
-
-  const addNotification = useCallback((
-    data: Omit<InAppNotification, 'id' | 'read' | 'createdAt'>
-  ) => {
-    const newNotification: InAppNotification = {
-      id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      ...data,
-      read: false,
-      createdAt: new Date().toISOString(),
-    };
-
-    const allNotifications = getStoredNotifications();
-    const updated = [newNotification, ...allNotifications].slice(0, 100);
-    saveNotifications(updated);
-    
-    if (!userId || newNotification.userId === userId || newNotification.userId === 'all') {
-      setNotifications(prev => [newNotification, ...prev].slice(0, 100));
+  // 2. Mark as Read Mutation
+  const markAsReadMutation = useMutation({
+    mutationFn: (id: number) => markNotificationAsRead(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['in-app-notifications', userId] });
     }
+  });
 
-    return newNotification;
-  }, [userId]);
+  // 3. Delete Mutation
+  // Note: Ensure you add a `@DeleteMapping("/{id}")` endpoint to your Spring Boot NotificationController!
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => apiRequest({ 
+      path: `/api/notifications/${id}`, 
+      method: 'DELETE' 
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['in-app-notifications', userId] });
+    }
+  });
 
-  const markAsRead = useCallback((id: string) => {
-    const allNotifications = getStoredNotifications();
-    const updated = allNotifications.map(n => 
-      n.id === id ? { ...n, read: true } : n
-    );
-    saveNotifications(updated);
-    setNotifications(prev => prev.map(n => 
-      n.id === id ? { ...n, read: true } : n
-    ));
-  }, []);
+  // ============================================
+  // EXPORTED UI HELPERS
+  // ============================================
+
+  const markAsRead = useCallback((id: string | number) => {
+    markAsReadMutation.mutate(Number(id));
+  }, [markAsReadMutation]);
 
   const markAllAsRead = useCallback(() => {
-    const allNotifications = getStoredNotifications();
-    const updated = allNotifications.map(n => 
-      (!userId || n.userId === userId || n.userId === 'all') 
-        ? { ...n, read: true } 
-        : n
-    );
-    saveNotifications(updated);
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  }, [userId]);
+    // Loops through all unread notifications and marks them as read
+    notifications
+      .filter(n => !n.read)
+      .forEach(n => markAsReadMutation.mutate(Number(n.id)));
+  }, [notifications, markAsReadMutation]);
 
-  const deleteNotification = useCallback((id: string) => {
-    const allNotifications = getStoredNotifications();
-    const updated = allNotifications.filter(n => n.id !== id);
-    saveNotifications(updated);
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  }, []);
+  const deleteNotification = useCallback((id: string | number) => {
+    deleteMutation.mutate(Number(id));
+  }, [deleteMutation]);
 
   const getUnreadCount = useCallback(() => {
     return notifications.filter(n => !n.read).length;
   }, [notifications]);
+
+  // Dummy add function for frontend compatibility if any components still use it locally
+  const addNotification = useCallback((data: any) => {
+    console.warn("addNotification should now be triggered via the backend bulk-send/send APIs");
+    return data;
+  }, []);
 
   return {
     notifications,

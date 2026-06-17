@@ -5,6 +5,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { QuickStatsWidget } from '@/components/dashboard/QuickStatsWidget';
+import { useProperties, useUnits } from '@/hooks/useProperties';
+import { useMaintenance } from '@/hooks/useMaintenance';
+import { useMyInvoices } from '@/hooks/useBilling';
 import { 
   Building2, 
   Home, 
@@ -22,51 +25,104 @@ export default function Dashboard() {
   const { t } = useTranslation();
   const { user } = useAuth();
 
+  // Fetch real data from your backend infrastructure
+  const { properties, isLoading: propertiesLoading } = useProperties();
+  const { units, isLoading: unitsLoading } = useUnits();
+  const { requests: maintenanceRequests, isLoading: maintenanceLoading } = useMaintenance();
+  const { data: invoices = [], isLoading: invoicesLoading } = useMyInvoices();
+
+  /* ======================================================
+     📊 REAL-TIME METRICS CALCULATIONS
+  ====================================================== */
+  
+  // 1. Occupancy Rate Calculation
+  const totalUnitsCount = units.length;
+  const occupiedUnitsCount = units.filter(u => u.status === 'occupied').length;
+  const occupancyRate = totalUnitsCount > 0 ? Math.round((occupiedUnitsCount / totalUnitsCount) * 100) : 0;
+
+  // 2. Rent Collected Calculation (Summing up paid invoices)
+  const totalRentCollected = invoices
+    .filter((inv: any) => inv.status?.toLowerCase() === 'paid')
+    .reduce((sum: number, inv: any) => sum + (inv.amount || 0), 0);
+
+  // Currency Formatter Utility (e.g., 2400000 -> KES 2.40M or KES 2,400,000)
+  const formatCurrency = (value: number) => {
+    if (value >= 1_000_000) {
+      return `KES ${(value / 1_000_000).toFixed(2)}M`;
+    } else if (value >= 1_000) {
+      return `KES ${(value / 1_000).toFixed(1)}K`;
+    }
+    return `KES ${value.toLocaleString()}`;
+  };
+
+  // 3. Maintenance Breakdown
+  const pendingOrUrgentMaintenance = maintenanceRequests.filter(
+    req => req.status === 'pending' || req.priority === 'high' || req.priority === 'urgent'
+  ).length;
+
   const stats = [
     {
       title: t('dashboard.totalProperties'),
-      value: '12',
+      value: propertiesLoading ? '...' : String(properties.length),
       icon: Building2,
-      trend: '+2 this month',
+      trend: t('dashboard.activeProperties', { defaultValue: 'Managed estates' }),
       color: 'text-primary',
       bgColor: 'bg-primary/10',
       href: '/properties',
     },
     {
       title: t('dashboard.totalUnits'),
-      value: '156',
+      value: unitsLoading ? '...' : String(totalUnitsCount),
       icon: Home,
-      trend: '94% occupied',
+      trend: `${occupancyRate}% occupied`,
       color: 'text-success',
       bgColor: 'bg-success/10',
       href: '/units',
     },
     {
       title: t('dashboard.rentCollected'),
-      value: 'KES 2.4M',
+      value: invoicesLoading ? '...' : formatCurrency(totalRentCollected),
       icon: DollarSign,
-      trend: '+15% from last month',
+      trend: t('dashboard.grossCollection', { defaultValue: 'Total paid invoices' }),
       color: 'text-warning',
       bgColor: 'bg-warning/10',
       href: '/billing',
     },
     {
       title: t('dashboard.maintenanceRequests'),
-      value: '8',
+      value: maintenanceLoading ? '...' : String(maintenanceRequests.length),
       icon: Wrench,
-      trend: '3 urgent',
+      trend: `${pendingOrUrgentMaintenance} attention needed`,
       color: 'text-destructive',
       bgColor: 'bg-destructive/10',
       href: '/maintenance',
     },
   ];
 
-  const recentActivity = [
-    { type: 'payment', message: 'John Doe paid rent for Unit 12A', time: '2 hours ago', icon: CheckCircle },
-    { type: 'maintenance', message: 'New maintenance request: Leaky faucet in Unit 5B', time: '4 hours ago', icon: AlertCircle },
-    { type: 'tenant', message: 'New tenant application for Unit 3C', time: '1 day ago', icon: Users },
-    { type: 'message', message: 'Message from tenant in Unit 8A', time: '2 days ago', icon: MessageSquare },
+  /* ======================================================
+     🔄 DYNAMIC RECENT ACTIVITY BUILDER
+  ====================================================== */
+  const dynamicActivities = [
+    ...maintenanceRequests.slice(0, 2).map((req) => ({
+      type: 'maintenance',
+      message: `${req.title} (${req.propertyName} - Unit ${req.ticketNumber})`,
+      time: req.status === 'pending' ? 'New Request' : req.status.replace('_', ' '),
+      icon: AlertCircle,
+    })),
+    ...invoices.slice(0, 2).map((inv: any) => ({
+      type: 'payment',
+      message: `Invoice ${inv.invoiceNumber || ''} status updated to ${inv.status}`,
+      time: inv.dueDate ? `Due: ${new Date(inv.dueDate).toLocaleDateString()}` : 'Recent',
+      icon: CheckCircle,
+    })),
+  ].slice(0, 4); // Keep top 4 combined entries
+
+  // Fallback if backend has zero records yet
+  const recentActivity = dynamicActivities.length > 0 ? dynamicActivities : [
+    { type: 'empty', message: 'No recent structural activities found.', time: 'System clear', icon: CheckCircle }
   ];
+
+  const globalLoading = propertiesLoading || unitsLoading || maintenanceLoading || invoicesLoading;
 
   return (
     <DashboardLayout
@@ -115,8 +171,10 @@ export default function Dashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>{t('dashboard.recentActivity')}</CardTitle>
-            <Button variant="ghost" size="sm" className="gap-1">
-              View all <ArrowRight className="h-4 w-4" />
+            <Button variant="ghost" size="sm" className="gap-1" asChild>
+              <Link to="/maintenance">
+                View all <ArrowRight className="h-4 w-4" />
+              </Link>
             </Button>
           </CardHeader>
           <CardContent>
@@ -132,8 +190,8 @@ export default function Dashboard() {
                     <activity.icon className="h-4 w-4" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm">{activity.message}</p>
-                    <p className="text-xs text-muted-foreground">{activity.time}</p>
+                    <p className="text-sm font-medium truncate">{activity.message}</p>
+                    <p className="text-xs text-muted-foreground capitalize">{activity.time}</p>
                   </div>
                 </div>
               ))}

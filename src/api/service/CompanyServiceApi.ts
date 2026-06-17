@@ -29,6 +29,8 @@ export interface CompanyResponse {
   createdAt?: string;
 }
 
+
+
 export interface CreateCompanyRequest {
   name: string;
 }
@@ -59,6 +61,20 @@ export const CompanyServiceApi = {
     apiRequest<null, CompanyResponse[]>({
       path: API_PATHS.GET_ALL_COMPANIES,
       method: "GET",
+    }),
+
+    // NEW: Suspend Company
+  suspend: (id: number) =>
+    apiRequest<null, CompanyResponse>({
+      path: API_PATHS.SUSPEND_COMPANY(id),
+      method: "POST",
+    }),
+
+  // NEW: Activate Company
+  activate: (id: number) =>
+    apiRequest<null, CompanyResponse>({
+      path: API_PATHS.ACTIVATE_COMPANY(id),
+      method: "POST",
     }),
 
   /**

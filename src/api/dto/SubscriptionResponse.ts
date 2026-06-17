@@ -1,11 +1,14 @@
 export type SubscriptionPlan = "BASIC" | "PREMIUM" | "ENTERPRISE";
-
 export type SubscriptionStatus = "ACTIVE" | "SUSPENDED" | "EXPIRED";
-
+export type BillingCycle = "MONTHLY" | "ANNUAL";
 
 export interface SubscriptionResponse {
   id: number;
-  landlordId: number;
+  
+  // 🔥 Shifted to Company
+  companyId: number;
+  companyName?: string; 
+  
   plan: SubscriptionPlan;
   billingCycle: BillingCycle;
   status: SubscriptionStatus;
@@ -18,8 +21,6 @@ export interface SubscriptionResponse {
   createdAt: string;
   updatedAt: string;
 }
-
-export type BillingCycle = "MONTHLY" | "ANNUAL";
 
 export interface UpdateSubscriptionRequest {
   plan: SubscriptionPlan;
