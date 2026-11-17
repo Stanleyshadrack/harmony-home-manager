@@ -42,5 +42,6 @@ export const notificationOperationsApi = {
       path: "/api/notification-operations/send",
       method: "POST",
       body: { tenantIds, channel: "EMAIL", title, message },
+      timeout: 90000,
     }),
 };
