@@ -9,11 +9,10 @@ import { ResetPasswordForm } from '@/components/auth/ResetPasswordForm';
 import { EmailVerificationForm } from '@/components/auth/EmailVerificationForm';
 import { EmailOTPVerification } from '@/components/auth/EmailOTPVerification';
 import { AwaitingApproval } from '@/components/auth/AwaitingApproval';
-import { TestSimulator } from '@/components/auth/TestSimulator';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Button } from '@/components/ui/button';
-import { Building2, FlaskConical } from 'lucide-react';
+import { Building2 } from 'lucide-react';
 import { AuthTokens } from '@/services/tokenService';
 import { jwtDecode } from 'jwt-decode';
 import type { JwtPayload } from '@/types/auth';
@@ -33,7 +32,6 @@ export default function Auth() {
   const [otpUserId, setOtpUserId] = useState('');
   const [pendingLoginRedirect, setPendingLoginRedirect] = useState<string | null>(null);
   const [pendingApprovalData, setPendingApprovalData] = useState<{ email: string; role: string } | null>(null);
-  const [showTestSimulator, setShowTestSimulator] = useState(false);
   const navigate = useNavigate();
 
 
@@ -112,15 +110,6 @@ const homeByRole: Record<string, string> = {
             <span className="font-bold text-lg">{t('common.appName')}</span>
           </div>
           <div className="flex items-center gap-2 ml-auto">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowTestSimulator(!showTestSimulator)}
-              className="text-warning border-warning/50 hover:bg-warning/10"
-            >
-              <FlaskConical className="h-4 w-4 mr-1" />
-              Test
-            </Button>
             <LanguageSwitcher />
             <ThemeSwitcher />
           </div>
@@ -129,11 +118,6 @@ const homeByRole: Record<string, string> = {
         {/* Form Container */}
         <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8">
           <div className="w-full max-w-md space-y-6">
-            {/* Test Simulator */}
-            {showTestSimulator && (
-              <TestSimulator onClose={() => setShowTestSimulator(false)} />
-            )}
-
             {(authView === 'login' || authView === 'register') && (
               <div className="text-center">
                 <h2 className="text-2xl font-bold tracking-tight">
