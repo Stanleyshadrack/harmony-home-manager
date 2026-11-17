@@ -2,8 +2,9 @@ name: Verify Frontend Build
 on:
   pull_request:
     branches: [main]
-  push:
-    branches: [fix/fullstack-completion-20261117]
+concurrency:
+  group: frontend-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 jobs:
   build:
     runs-on: ubuntu-latest
