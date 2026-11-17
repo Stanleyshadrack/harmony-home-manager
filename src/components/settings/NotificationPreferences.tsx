@@ -32,7 +32,9 @@ export function NotificationPreferences() {
     key: 'enabled' | 'waterReadings' | 'payments' | 'maintenance' | 'messages' | 'tenantApplications',
     value: boolean
   ) => {
-    void updateChannelPreference(channel, key, value).then(() => toast.success(`${channels.find(c => c.key === channel)?.label} ${key === 'enabled' ? (value ? 'enabled' : 'disabled') : `${key} ${value ? 'enabled' : 'disabled'}`}`);
+    void updateChannelPreference(channel, key, value)
+      .then(() => toast.success('Notification preferences saved'))
+      .catch(error => toast.error(error instanceof Error ? error.message : 'Unable to save notification preferences'));
   };
 
   const handleReset = () => {
