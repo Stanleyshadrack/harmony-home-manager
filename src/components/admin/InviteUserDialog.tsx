@@ -1,179 +1,221 @@
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { UserPlus, Loader2, Mail, User, Building2, Wrench } from 'lucide-react';
-import { UserRole } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
-import { inviteUserService } from '@/api/service/invite.user.service.api';
+"use client";
 
-const inviteSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  role: z.enum(['tenant', 'employee', 'landlord']),
-});
+import { useEffect, useMemo, useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, UserPlus } from "lucide-react";
+import { toast } from "sonner";
+import type { UserRole } from "@/contexts/AuthContext";
+import { inviteUserService, invitationApi, type InviteOptions, type InviteSummary, type InviteUserPayload } from "@/api/service/invite.user.service.api";
 
-type InviteFormData = z.infer<typeof inviteSchema>;
+type Role = InviteUserPayload["role"];
 
-interface InviteUserDialogProps {
+interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   inviterRole: UserRole;
 }
 
-const roleOptions = [
-  { value: 'tenant', label: 'Tenant', icon: User, description: 'Renter of property units' },
-  { value: 'employee', label: 'Employee', icon: Wrench, description: 'Staff member for maintenance' },
-  { value: 'landlord', label: 'Landlord', icon: Building2, description: 'Property owner (Admin only)' },
-];
+export function InviteUserDialog({ open, onOpenChange, inviterRole }: Props) {
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<Role>("TENANT");
+  const [propertyIds, setPropertyIds] = useState<number[]>([]);
+  const [unitId, setUnitId] = useState<number | null>(null);
+  const [companyId, setCompanyId] = useState<number | null>(null);
+  const [options, setOptions] = useState<InviteOptions>({ properties: [], units: [] });
+  const [invitations, setInvitations] = useState<InviteSummary[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [working, setWorking] = useState(false);
 
-const roleMap = {
-  tenant: 'TENANT',
-  employee: 'EMPLOYEE',
-  landlord: 'LANDLORD',
-} as const;
+  async function refresh() {
+    setLoading(true);
+    try {
+      const [available, existing] = await Promise.all([
+        invitationApi.options(), invitationApi.list(),
+      ]);
+      setOptions(available);
+      setInvitations(existing);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to load invitation options");
+    } finally {
+      setLoading(false);
+    }
+  }
 
-export function InviteUserDialog({
-  open,
-  onOpenChange,
-  inviterRole,
-}: InviteUserDialogProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  useEffect(() => {
+    if (open) void refresh();
+  }, [open]);
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    reset,
-    formState: { errors },
-  } = useForm<InviteFormData>({
-    resolver: zodResolver(inviteSchema),
-    defaultValues: { role: 'tenant' },
-  });
+  const companies = useMemo(() => Array.from(
+    new Map(options.properties.map(p => [p.companyId, { id: p.companyId, name: p.companyName }])).values()
+  ), [options.properties]);
 
-  const selectedRole = watch('role');
+  const properties = options.properties.filter(p =>
+    role !== "LANDLORD" || companyId === null || p.companyId === companyId
+  );
 
-  const availableRoles = roleOptions.filter(role => {
-    if (inviterRole === 'super_admin') return true;
-    if (inviterRole === 'landlord') return role.value !== 'landlord';
-    return false;
-  });
+  const availableUnits = options.units.filter(u => propertyIds.includes(u.propertyId));
 
-  const onSubmit = async (data: InviteFormData) => {
-    setIsSubmitting(true);
+  function selectRole(next: Role) {
+    setRole(next);
+    setPropertyIds([]);
+    setUnitId(null);
+    setCompanyId(null);
+  }
+
+  function toggleProperty(id: number, checked: boolean) {
+    setPropertyIds(previous => {
+      const next = role === "TENANT"
+        ? (checked ? [id] : [])
+        : (checked ? [...previous, id] : previous.filter(p => p !== id));
+      return Array.from(new Set(next));
+    });
+    setUnitId(null);
+  }
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email.trim())) {
+      toast.error("Enter a valid email address");
+      return;
+    }
+    if (!propertyIds.length) {
+      toast.error("Select an assigned property");
+      return;
+    }
+    if (role === "TENANT" && !unitId) {
+      toast.error("Select a vacant unit for this tenant");
+      return;
+    }
+    if (role === "LANDLORD" && !companyId) {
+      toast.error("Select the landlord's company");
+      return;
+    }
+
+    setWorking(true);
     try {
       await inviteUserService({
-        email: data.email,
-        role: roleMap[data.role],
+        email: email.trim(),
+        role,
+        apartmentIds: propertyIds,
+        companyId: role === "LANDLORD" ? companyId : undefined,
+        unitId: role === "TENANT" ? unitId : undefined,
       });
-
-      toast.success('Invitation sent!', {
-        description: `An invitation email has been sent to ${data.email}`,
-      });
-
-      reset();
-      onOpenChange(false);
-    } catch {
-      toast.error('Failed to send invitation');
+      toast.success("Invitation accepted by email service");
+      setEmail("");
+      setPropertyIds([]);
+      setUnitId(null);
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Invitation could not be sent");
     } finally {
-      setIsSubmitting(false);
+      setWorking(false);
     }
-  };
+  }
+
+  async function action(invitation: InviteSummary, task: "resend" | "revoke") {
+    setWorking(true);
+    try {
+      if (task === "resend") await invitationApi.resend(invitation.id);
+      else await invitationApi.revoke(invitation.id);
+      toast.success(task === "resend" ? "Invitation resent" : "Invitation revoked");
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not update invitation");
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  const roles: { value: Role; label: string }[] = inviterRole === "super_admin"
+    ? [{ value: "TENANT", label: "Tenant" }, { value: "EMPLOYEE", label: "Employee" }, { value: "LANDLORD", label: "Landlord" }]
+    : [{ value: "TENANT", label: "Tenant" }, { value: "EMPLOYEE", label: "Employee" }];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <UserPlus className="h-5 w-5" />
-            Invite User
-          </DialogTitle>
-          <DialogDescription>
-            Send an invitation email to add a new user to the system.
-          </DialogDescription>
+          <DialogTitle>Invite user</DialogTitle>
+          <DialogDescription>Invitations are sent by the backend and expire after 48 hours.</DialogDescription>
         </DialogHeader>
-
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="space-y-2">
-            <Label>Email Address *</Label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="email"
-                placeholder="user@example.com"
-                className="pl-10"
-                {...register('email')}
-              />
-            </div>
-            {errors.email && (
-              <p className="text-sm text-destructive">{errors.email.message}</p>
-            )}
+        {loading && <p className="text-sm text-muted-foreground">Loading available properties and invitations…</p>}
+        <form className="space-y-4" onSubmit={submit}>
+          <div className="space-y-1">
+            <Label htmlFor="invite-email">Email address</Label>
+            <Input id="invite-email" type="email" required value={email}
+              onChange={e => setEmail(e.target.value)} />
           </div>
-
-          <div className="space-y-2">
-            <Label>Role *</Label>
-            <Select
-              value={selectedRole}
-              onValueChange={(value) =>
-                setValue('role', value as InviteFormData['role'])
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select role" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableRoles.map(role => (
-                  <SelectItem key={role.value} value={role.value}>
-                    <div className="flex items-center gap-2">
-                      <role.icon className="h-4 w-4" />
-                      {role.label}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
+          <div className="space-y-1">
+            <Label>User role</Label>
+            <Select value={role} onValueChange={value => selectRole(value as Role)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{roles.map(r => <SelectItem value={r.value} key={r.value}>{r.label}</SelectItem>)}</SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">
-              {roleOptions.find(r => r.value === selectedRole)?.description}
-            </p>
           </div>
-
+          {role === "LANDLORD" && (
+            <div className="space-y-1">
+              <Label>Company</Label>
+              <Select value={companyId === null ? "" : String(companyId)}
+                onValueChange={value => { setCompanyId(Number(value)); setPropertyIds([]); }}>
+                <SelectTrigger><SelectValue placeholder="Select company" /></SelectTrigger>
+                <SelectContent>{companies.map(company => (
+                  <SelectItem key={company.id} value={String(company.id)}>{company.name}</SelectItem>
+                ))}</SelectContent>
+              </Select>
+            </div>
+          )}
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium">Assigned {role === "TENANT" ? "property" : "properties"}</legend>
+            {!properties.length && <p className="text-sm text-muted-foreground">No available properties.</p>}
+            {properties.map(property => (
+              <label key={property.id} className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={propertyIds.includes(property.id)}
+                  onChange={e => toggleProperty(property.id, e.target.checked)}
+                  disabled={working} />
+                {property.name}
+              </label>
+            ))}
+          </fieldset>
+          {role === "TENANT" && (
+            <div className="space-y-1">
+              <Label>Vacant unit</Label>
+              <Select value={unitId === null ? "" : String(unitId)}
+                onValueChange={value => setUnitId(Number(value))}>
+                <SelectTrigger><SelectValue placeholder="Select a vacant unit" /></SelectTrigger>
+                <SelectContent>{availableUnits.map(unit => (
+                  <SelectItem key={unit.id} value={String(unit.id)}>{unit.unitNumber}</SelectItem>
+                ))}</SelectContent>
+              </Select>
+            </div>
+          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Send Invitation
-                </>
-              )}
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+            <Button type="submit" disabled={working || loading || !propertyIds.length}>
+              {working ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <UserPlus className="h-4 w-4 mr-2" />}
+              Send invitation
             </Button>
           </DialogFooter>
         </form>
+
+        <div className="border-t pt-3 space-y-2">
+          <h3 className="text-sm font-semibold">Existing invitations</h3>
+          {!invitations.length && <p className="text-sm text-muted-foreground">No pending or expired invitations.</p>}
+          {invitations.map(inv => (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded border p-2 text-sm" key={inv.id}>
+              <div><div className="font-medium">{inv.email}</div>
+                <div className="text-muted-foreground">{inv.role} · {inv.status}</div>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" disabled={working} onClick={() => action(inv, "resend")}>Resend</Button>
+                {inv.status !== "REVOKED" && <Button size="sm" variant="destructive" disabled={working}
+                  onClick={() => action(inv, "revoke")}>Revoke</Button>}
+              </div>
+            </div>
+          ))}
+        </div>
       </DialogContent>
     </Dialog>
   );
