@@ -35,6 +35,7 @@ import { usePendingRegistrations } from '@/hooks/useRegistrations';
 import { useAuth } from '@/contexts/AuthContext';
 import { TenantCard } from '@/components/tenants/TenantCard';
 import { TenantApprovals } from '@/components/tenants/TenantApprovals';
+import { TenantWorkflowApprovals } from '@/components/tenants/TenantWorkflowApprovals';
 import { Tenant } from '@/types/tenant';
 import { useToast } from '@/hooks/use-toast';
 import { InviteUserDialog } from '@/components/admin/InviteUserDialog';
@@ -194,7 +195,10 @@ const filteredTenants = tenants.filter((tenant) => {
 
         <TabsContent value={activeTab} className="mt-6">
           {activeTab === 'approvals' ? (
-            <TenantApprovals />
+            <div className="space-y-6">
+              <TenantWorkflowApprovals />
+              <TenantApprovals />
+            </div>
           ) : isLoading ? (
             <div className="flex justify-center py-12">Loading…</div>
           ) : filteredTenants.length ? (
