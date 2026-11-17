@@ -125,7 +125,7 @@ export function InvoiceForm({ onSubmit, onCancel, isLoading, initialData, isEdit
           render={({ field }) => (
             <FormItem>
               <FormLabel>{t('units.title')}</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={v => field.onChange(Number(v))} value={field.value > 0 ? String(field.value) : undefined}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select unit" />
