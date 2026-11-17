@@ -78,14 +78,16 @@ export function useNotificationPreferences() {
   const { user } = useAuth();
   const [preferences, setPreferences] = useState<NotificationPreferences>(defaultPreferences);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     setIsLoading(true);
+    setError(null);
     if (!user?.id) { setIsLoading(false); return; }
     apiRequest<null, NotificationPreferences>({path:'/api/account-support/notification-preferences',method:'GET'})
       .then(data=>{if(active)setPreferences(data);})
-      .catch(error=>{if(active)console.error('Could not load notification preferences',error);})
+      .catch(error=>{if(active)setError(error instanceof Error ? error.message : 'Unable to load saved preferences');})
       .finally(()=>{if(active)setIsLoading(false);});
     return ()=>{active=false;};
   }, [user?.id]);
@@ -131,6 +133,7 @@ export function useNotificationPreferences() {
   return {
     preferences,
     isLoading,
+    error,
     updatePreferences,
     updateChannelPreference,
     resetToDefaults,
