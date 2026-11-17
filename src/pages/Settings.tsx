@@ -10,8 +10,6 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { User, Mail, Phone, Camera, Save, Loader2 } from 'lucide-react';
-import { SessionManager } from '@/components/settings/SessionManager';
-import { TwoFactorSetup } from '@/components/auth/TwoFactorSetup';
 import { NotificationPreferences } from '@/components/settings/NotificationPreferences';
 import { fileToBase64 } from '@/services/userManagementService';
 import { apiRequest } from '@/api/https';
@@ -272,13 +270,9 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        {/* Security - 2FA Setup */}
-        <TwoFactorSetup />
-
-        {/* Session Management */}
-        <div className="lg:col-span-2">
-          <SessionManager />
-        </div>
+        <Card className="lg:col-span-3"><CardHeader><CardTitle>Account security</CardTitle>
+          <CardDescription>Security is enforced by the server. Super Admin sign-in requires the configured email verification flow. This screen does not create or revoke login sessions or enable an authenticator app.</CardDescription>
+          </CardHeader><CardContent className="text-sm text-muted-foreground">Use Sign Out to end your current browser session. Contact your administrator for account access and verification changes.</CardContent></Card>
 
         {/* Notification Preferences */}
         <div className="lg:col-span-2">
