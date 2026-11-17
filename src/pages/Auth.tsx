@@ -191,16 +191,17 @@ if (isLoading) {
                 
                   onBack={() => setAuthView('login')}
                   onSuccess={(tokens: AuthTokens) => {
-                    console.log('Login successful with tokens:', {
-                      accessToken: tokens.accessToken.substring(0, 20) + '...',
-                      refreshToken: tokens.refreshToken.substring(0, 20) + '...',
-    
-                    });
-                    // Complete the login to set the user in context
-                   completeLogin(tokens.accessToken);
-                   // navigate AFTER state update
-                   navigate(pendingLoginRedirect || '/dashboard', { replace: true });
-
+                    completeLogin(tokens.accessToken);
+                    // Navigate to the correct portal after MFA for each role.
+                    const payload = JSON.parse(atob(tokens.accessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+                    const role = String(payload.role || '').toLowerCase();
+                    const homeByRole: Record<string, string> = {
+                      super_admin: '/admin-portal',
+                      landlord: '/dashboard',
+                      employee: '/employee-portal',
+                      tenant: '/tenant-portal',
+                    };
+                    navigate(pendingLoginRedirect || homeByRole[role] || '/auth', { replace: true });
                   }}
                 />
               )}
