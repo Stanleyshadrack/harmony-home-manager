@@ -1,6 +1,6 @@
 import { API_PATHS } from "../constants/constants";
 import { apiRequest } from "../https";
-import { VerifyMfaResponse } from "../dto/VerifyMfaResponse";
+import { VerifyMfaResponse } from "../dto/verifyMfaResponse";
 import { VerifyMfaRequest } from "../dto/VerifyMfaRequest";
 
 export const verifyMfaService = async (payload: VerifyMfaRequest) => {
