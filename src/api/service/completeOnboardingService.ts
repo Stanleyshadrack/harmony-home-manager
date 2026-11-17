@@ -10,6 +10,7 @@ export interface CompleteOnboardingPayload {
     emergencyContactName?: string;
     emergencyContactPhone?: string;
     relationship?: string;
+    idNumber?: string;
   } | null;
   lease?: {
     startDate: string;
