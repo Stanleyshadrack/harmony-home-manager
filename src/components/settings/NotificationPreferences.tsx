@@ -11,8 +11,8 @@ import { toast } from 'sonner';
 
 const channels = [
   { key: 'inApp' as const, label: 'In-App', icon: Bell, description: 'Notifications in the app' },
-  { key: 'email' as const, label: 'Email', icon: Mail, description: 'Email notifications (simulated)' },
-  { key: 'sms' as const, label: 'SMS', icon: MessageSquare, description: 'Text message alerts (simulated)' },
+  { key: 'email' as const, label: 'Email', icon: Mail, description: 'Email notifications (when SMTP is configured)' },
+  { key: 'sms' as const, label: 'SMS', icon: MessageSquare, description: 'SMS requires a configured sending provider' },
 ];
 
 const categories = [
@@ -32,13 +32,11 @@ export function NotificationPreferences() {
     key: 'enabled' | 'waterReadings' | 'payments' | 'maintenance' | 'messages' | 'tenantApplications',
     value: boolean
   ) => {
-    updateChannelPreference(channel, key, value);
-    toast.success(`${channels.find(c => c.key === channel)?.label} ${key === 'enabled' ? (value ? 'enabled' : 'disabled') : `${key} ${value ? 'enabled' : 'disabled'}`}`);
+    void updateChannelPreference(channel, key, value).then(() => toast.success(`${channels.find(c => c.key === channel)?.label} ${key === 'enabled' ? (value ? 'enabled' : 'disabled') : `${key} ${value ? 'enabled' : 'disabled'}`}`);
   };
 
   const handleReset = () => {
-    resetToDefaults();
-    toast.success('Notification preferences reset to defaults');
+    void resetToDefaults().then(() => toast.success('Notification preferences reset to defaults')).catch(error => toast.error(error instanceof Error ? error.message : 'Unable to reset preferences'));
   };
 
   if (isLoading) {
@@ -80,7 +78,7 @@ export function NotificationPreferences() {
                   <div className="flex items-center gap-2">
                     <Label className="font-medium">{channel.label}</Label>
                     {channel.key !== 'inApp' && (
-                      <Badge variant="outline" className="text-xs">Simulated</Badge>
+                      <Badge variant="outline" className="text-xs">Provider-dependent</Badge>
                     )}
                   </div>
                   <p className="text-sm text-muted-foreground">{channel.description}</p>
