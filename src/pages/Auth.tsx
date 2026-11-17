@@ -6,7 +6,6 @@ import { LoginForm } from '@/components/auth/LoginForm';
 import { RegisterForm } from '@/components/auth/RegisterForm';
 import { ForgotPasswordForm } from '@/components/auth/ForgotPasswordForm';
 import { ResetPasswordForm } from '@/components/auth/ResetPasswordForm';
-import { EmailVerificationForm } from '@/components/auth/EmailVerificationForm';
 import { EmailOTPVerification } from '@/components/auth/EmailOTPVerification';
 import { AwaitingApproval } from '@/components/auth/AwaitingApproval';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
@@ -20,14 +19,13 @@ import { useNavigate } from 'react-router-dom';
 
 
 
-type AuthView = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'email-verification' | 'email-otp' | 'awaiting-approval';
+type AuthView = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'email-otp' | 'awaiting-approval';
 
 export default function Auth() {
   const { t } = useTranslation();
   const { user, isAuthenticated, completeLogin, isLoading } = useAuth();
   const [authView, setAuthView] = useState<AuthView>('login');
   const [resetEmail, setResetEmail] = useState('');
-  const [verificationEmail, setVerificationEmail] = useState('');
   const [otpEmail, setOtpEmail] = useState('');
   const [otpUserId, setOtpUserId] = useState('');
   const [pendingLoginRedirect, setPendingLoginRedirect] = useState<string | null>(null);
@@ -148,10 +146,6 @@ const homeByRole: Record<string, string> = {
               {authView === 'register' && (
                 <RegisterForm 
                   onSwitchToLogin={() => setAuthView('login')}
-                  onEmailVerification={(email) => {
-                    setVerificationEmail(email);
-                    setAuthView('email-verification');
-                  }}
                 />
               )}
               {authView === 'forgot-password' && (
@@ -167,13 +161,6 @@ const homeByRole: Record<string, string> = {
                 <ResetPasswordForm 
                   email={resetEmail}
                   onBack={() => setAuthView('forgot-password')}
-                  onSuccess={() => setAuthView('login')}
-                />
-              )}
-              {authView === 'email-verification' && (
-                <EmailVerificationForm
-                  email={verificationEmail}
-                  onBack={() => setAuthView('login')}
                   onSuccess={() => setAuthView('login')}
                 />
               )}
