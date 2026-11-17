@@ -60,40 +60,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   /* =========================
-     Bootstrap user from token
+     Validate JWT claims before restoring a session
   ========================= */
 
-  useEffect(() => {
-    console.log("🔁 Auth bootstrap starting...");
+  const userFromAccessToken = useCallback((accessToken: string): UserWithRole => {
+    const decoded = jwtDecode<JwtPayload>(accessToken);
+    const roles: UserRole[] = ["super_admin", "landlord", "employee", "tenant"];
+    const role = typeof decoded.role === "string"
+      ? decoded.role.toLowerCase() as UserRole
+      : null;
 
-    const token = tokenService.getAccessToken();
-    console.log("🔁 Stored access token:", token);
-
-    if (!token || typeof token !== "string" || !token.includes(".")) {
-      console.warn("⚠️ No valid JWT found in storage");
-      setIsLoading(false);
-      return;
+    if (
+      !decoded.sub ||
+      decoded.userId == null ||
+      !role ||
+      !roles.includes(role) ||
+      typeof decoded.exp !== "number" ||
+      decoded.exp * 1000 <= Date.now()
+    ) {
+      throw new Error("Invalid or expired access token");
     }
 
-    try {
-      const decoded = jwtDecode<JwtPayload>(token);
-      console.log("✅ JWT decoded on bootstrap:", decoded);
-
-      const userFromToken: UserWithRole = {
-        id: String(decoded.userId),
-        email: decoded.sub,
-        role: decoded.role.toLowerCase() as UserRole,
-        isApproved: true,
-      };
-
-      setUser(userFromToken);
-    } catch (err) {
-      console.error("❌ Failed to decode stored JWT:", err);
-      tokenService.clearTokens();
-    } finally {
-      setIsLoading(false);
-    }
+    return {
+      id: String(decoded.userId),
+      email: decoded.sub,
+      role,
+      isApproved: true,
+    };
   }, []);
+
+  useEffect(() => {
+    const token = tokenService.getAccessToken();
+
+    if (token) {
+      try {
+        setUser(userFromAccessToken(token));
+      } catch {
+        tokenService.clearTokens();
+        setUser(null);
+      }
+    }
+
+    setIsLoading(false);
+  }, [userFromAccessToken]);
 
   /* =========================
      Login (pre-OTP)
@@ -110,49 +119,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ========================= */
 
   const completeLogin = useCallback((accessToken: string) => {
-    console.log("🔐 completeLogin called");
-    console.log("🔐 accessToken value:", accessToken);
-    console.log("🔐 accessToken type:", typeof accessToken);
-
-    if (!accessToken) {
-      console.error("❌ accessToken is empty or undefined");
-      return;
-    }
-
-    if (typeof accessToken !== "string") {
-      console.error("❌ accessToken is NOT a string:", accessToken);
-      return;
-    }
-
-    if (!accessToken.includes(".")) {
-      console.error("❌ accessToken is NOT a JWT:", accessToken);
-      return;
-    }
-
     try {
-      const decoded = jwtDecode<JwtPayload>(accessToken);
-      console.log("✅ JWT decoded in completeLogin:", decoded);
-
-      const newUser: UserWithRole = {
-        id: String(decoded.userId),
-        email: decoded.sub,
-        role: decoded.role.toLowerCase() as UserRole,
-        isApproved: true,
-      };
-
-      setUser(newUser);
-    } catch (err) {
-      console.error("❌ jwtDecode failed in completeLogin:", err);
+      if (!accessToken || typeof accessToken !== "string") {
+        throw new Error("Missing access token");
+      }
+      setUser(userFromAccessToken(accessToken));
+    } catch {
       tokenService.clearTokens();
+      setUser(null);
     }
-  }, []);
+  }, [userFromAccessToken]);
 
   /* =========================
      Logout
   ========================= */
 
   const logout = () => {
-    console.log("🚪 Logging out user");
     setUser(null);
     tokenService.clearTokens();
   };
