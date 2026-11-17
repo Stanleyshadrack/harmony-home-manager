@@ -30,11 +30,12 @@ export default function Settings() {
     avatarUrl: user?.avatarUrl || '',
   });
   const [previewAvatar, setPreviewAvatar] = useState<string | null>(null);
+  const [savedProfile, setSavedProfile] = useState<typeof formData | null>(null);
   const [profileError, setProfileError] = useState('');
   useEffect(() => {
     let active = true;
     apiRequest<null, {firstName?:string;lastName?:string;phone?:string;avatarUrl?:string}>({ path:'/api/users/me', method:'GET' })
-      .then(profile => { if (active) setFormData({ firstName:profile.firstName || '', lastName:profile.lastName || '', phone:profile.phone || '', avatarUrl:profile.avatarUrl || '' }); })
+      .then(profile => { if (active) { const next = { firstName:profile.firstName || '', lastName:profile.lastName || '', phone:profile.phone || '', avatarUrl:profile.avatarUrl || '' }; setFormData(next); setSavedProfile(next); } })
       .catch(e => { if (active) setProfileError(e instanceof Error ? e.message : 'Profile could not be loaded'); });
     return () => { active = false; };
   }, [user?.id]);
@@ -91,6 +92,7 @@ export default function Settings() {
         path: '/api/users/me', method: 'PUT', body: formData,
       });
       setFormData({ firstName:saved.firstName || '', lastName:saved.lastName || '', phone:saved.phone || '', avatarUrl:saved.avatarUrl || '' });
+      setSavedProfile({ firstName:saved.firstName || '', lastName:saved.lastName || '', phone:saved.phone || '', avatarUrl:saved.avatarUrl || '' });
       setIsEditing(false);
       setPreviewAvatar(null);
       setProfileError('');
@@ -103,12 +105,7 @@ export default function Settings() {
   };
 
   const handleCancel = () => {
-    setFormData({
-      firstName: user?.firstName || '',
-      lastName: user?.lastName || '',
-      phone: user?.phone || '',
-      avatarUrl: formData.avatarUrl,
-    });
+    if (savedProfile) setFormData(savedProfile);
     setPreviewAvatar(null);
     setIsEditing(false);
   };
