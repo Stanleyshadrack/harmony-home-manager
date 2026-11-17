@@ -15,6 +15,8 @@ import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Button } from '@/components/ui/button';
 import { Building2, FlaskConical } from 'lucide-react';
 import { AuthTokens } from '@/services/tokenService';
+import { jwtDecode } from 'jwt-decode';
+import type { JwtPayload } from '@/types/auth';
 import { useNavigate } from 'react-router-dom';
 
 
@@ -23,7 +25,7 @@ type AuthView = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'e
 
 export default function Auth() {
   const { t } = useTranslation();
-  const { isAuthenticated, completeLogin, isLoading } = useAuth();
+  const { user, isAuthenticated, completeLogin, isLoading } = useAuth();
   const [authView, setAuthView] = useState<AuthView>('login');
   const [resetEmail, setResetEmail] = useState('');
   const [verificationEmail, setVerificationEmail] = useState('');
@@ -44,10 +46,16 @@ if (isLoading) {
 }
 
 
-// if (isAuthenticated && authView !== 'email-otp') {
-//   return <Navigate to="/dashboard" replace />
-// }
+const homeByRole: Record<string, string> = {
+    super_admin: '/admin-portal',
+    landlord: '/dashboard',
+    employee: '/employee-portal',
+    tenant: '/tenant-portal',
+  };
 
+  if (isAuthenticated && user && authView !== 'email-otp') {
+    return <Navigate to={homeByRole[user.role] || '/'} replace />;
+  }
 
 
   return (
@@ -193,14 +201,8 @@ if (isLoading) {
                   onSuccess={(tokens: AuthTokens) => {
                     completeLogin(tokens.accessToken);
                     // Navigate to the correct portal after MFA for each role.
-                    const payload = JSON.parse(atob(tokens.accessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+                    const payload = jwtDecode<JwtPayload>(tokens.accessToken);
                     const role = String(payload.role || '').toLowerCase();
-                    const homeByRole: Record<string, string> = {
-                      super_admin: '/admin-portal',
-                      landlord: '/dashboard',
-                      employee: '/employee-portal',
-                      tenant: '/tenant-portal',
-                    };
                     navigate(pendingLoginRedirect || homeByRole[role] || '/auth', { replace: true });
                   }}
                 />
