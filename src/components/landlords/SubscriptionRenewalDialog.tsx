@@ -118,7 +118,7 @@ export function SubscriptionRenewalDialog({
   try {
     // 🔐 Call backend
     if (selectedPlan !== landlord.subscription) {
-      await upgrade(selectedPlan.toUpperCase() as any);
+      await upgrade(selectedPlan.toUpperCase() as any, 'ANNUAL');
     } else {
       await renew();
     }
