@@ -26,6 +26,9 @@ import {
   getMaxAttempts,
 } from '@/services/loginSecurityService';
 import { loginService } from '@/api/service/login.service';
+import { tokenService } from '@/services/tokenService';
+import { jwtDecode } from 'jwt-decode';
+import type { JwtPayload } from '@/types/auth';
 
 const demoAccounts = [
   { label: 'Super Admin', email: 'admin@demo.com', password: 'admin123' },
@@ -53,7 +56,7 @@ interface LoginFormProps {
 
 export function LoginForm({ onSwitchToRegister, onForgotPassword, onRequireOTP, onAwaitingApproval }: LoginFormProps) {
   const { t } = useTranslation();
-  const { login, isLoading } = useAuth();
+  const { completeLogin, isLoading } = useAuth();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [lockoutInfo, setLockoutInfo] = useState<{ locked: boolean; remainingMs: number }>({ locked: false, remainingMs: 0 });
@@ -123,8 +126,6 @@ export function LoginForm({ onSwitchToRegister, onForgotPassword, onRequireOTP, 
   password: data.password,
 });
 
-console.log(res)
-
 // 🔐 MFA REQUIRED → STOP here
 if (res.mfaRequired) {
   toast.info("Verification required", {
@@ -135,12 +136,29 @@ if (res.mfaRequired) {
   return; // DO NOT continue
 }
 
-// 🚀 Normal login (TypeScript knows tokens exist here)
-localStorage.setItem("access_token", res.accessToken);
-localStorage.setItem("refresh_token", res.refreshToken);
+// Non-MFA users must use the same token store and auth context as MFA users.
+tokenService.setTokens({
+  accessToken: res.accessToken,
+  refreshToken: res.refreshToken,
+});
+completeLogin(res.accessToken);
+resetAttempts(data.email);
+
+const jwt = jwtDecode<JwtPayload>(res.accessToken);
+const homeByRole: Record<string, string> = {
+  super_admin: "/admin-portal",
+  landlord: "/dashboard",
+  employee: "/employee-portal",
+  tenant: "/tenant-portal",
+};
+const destination = homeByRole[String(jwt.role).toLowerCase()];
+if (!destination) {
+  tokenService.clearTokens();
+  throw new Error("Unrecognized user role");
+}
 
 toast.success(t("auth.loginSuccess"));
-navigate("/dashboard");
+navigate(destination, { replace: true });
 
 
   } catch (err: any) {
