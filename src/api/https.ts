@@ -20,7 +20,16 @@ export async function apiRequest<TReq, TRes>({
   retry = true,
   timeout = 15000,
 }: ApiRequestOptions<TReq>): Promise<TRes> {
-  const token = tokenService.getAccessToken();
+  // Never attach stale access tokens to public authentication actions.
+  // An invalid Bearer token must not prevent a fresh login or MFA attempt.
+  const publicAuthPaths = [
+    "/api/auth/login", "/api/auth/verify-mfa", "/api/auth/resend-otp",
+    "/api/auth/refresh", "/api/auth/password-reset/request",
+    "/api/auth/password-reset/confirm", "/api/auth/validate",
+    "/api/auth/validate-set-password", "/api/auth/onboarding",
+    "/api/auth/set-password", "/api/auth/force-password-change",
+  ];
+  const token = publicAuthPaths.includes(path) ? null : tokenService.getAccessToken();
 
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
@@ -94,7 +103,7 @@ export async function apiRequest<TReq, TRes>({
       message = "Unexpected server error";
     }
 
-    throw new Error(message);
+    throw new Error(`[HTTP ${res.status}] ${message}`);
   }
 
   /* =========================
