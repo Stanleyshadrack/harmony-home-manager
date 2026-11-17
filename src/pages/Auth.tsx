@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoginForm } from '@/components/auth/LoginForm';
+import { ForcePasswordChangeForm } from '@/components/auth/ForcePasswordChangeForm';
 import { RegisterForm } from '@/components/auth/RegisterForm';
 import { ForgotPasswordForm } from '@/components/auth/ForgotPasswordForm';
 import { ResetPasswordForm } from '@/components/auth/ResetPasswordForm';
@@ -19,13 +20,14 @@ import { useNavigate } from 'react-router-dom';
 
 
 
-type AuthView = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'email-otp' | 'awaiting-approval';
+type AuthView = 'login' | 'register' | 'force-password' | 'forgot-password' | 'reset-password' | 'email-otp' | 'awaiting-approval';
 
 export default function Auth() {
   const { t } = useTranslation();
   const { user, isAuthenticated, completeLogin, isLoading } = useAuth();
   const [authView, setAuthView] = useState<AuthView>('login');
   const [resetEmail, setResetEmail] = useState('');
+  const [forcePasswordEmail, setForcePasswordEmail] = useState('');
   const [otpEmail, setOtpEmail] = useState('');
   const [otpUserId, setOtpUserId] = useState('');
   const [pendingLoginRedirect, setPendingLoginRedirect] = useState<string | null>(null);
@@ -137,6 +139,10 @@ const homeByRole: Record<string, string> = {
                     setPendingLoginRedirect(redirect);
                     setAuthView('email-otp');
                   }}
+                  onForcePasswordChange={(email) => {
+                    setForcePasswordEmail(email);
+                    setAuthView('force-password');
+                  }}
                   onAwaitingApproval={(email, role) => {
                     setPendingApprovalData({ email, role });
                     setAuthView('awaiting-approval');
@@ -146,6 +152,13 @@ const homeByRole: Record<string, string> = {
               {authView === 'register' && (
                 <RegisterForm 
                   onSwitchToLogin={() => setAuthView('login')}
+                />
+              )}
+              {authView === 'force-password' && (
+                <ForcePasswordChangeForm
+                  email={forcePasswordEmail}
+                  onBack={() => setAuthView('login')}
+                  onSuccess={() => setAuthView('login')}
                 />
               )}
               {authView === 'forgot-password' && (
