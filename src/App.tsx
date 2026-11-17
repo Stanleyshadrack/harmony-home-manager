@@ -54,7 +54,6 @@ const App = () => (
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/onboarding" element={<Onboarding />} />
-                <Route path="/auth" element={<Auth />} />
                 <Route path="/set-password" element={<SetPasswordPage />} />
 
                 {/* Super Admin only routes */}
