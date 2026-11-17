@@ -22,22 +22,13 @@ export function mapUnitFormToCreateApi(
   return {
     propertyId: Number(form.propertyId),
     unitNumber: form.unitNumber,
-
-    // ✅ BOTH REQUIRED
     type: mappedType,
-    unitType: mappedType,
-
     status: STATUS_MAP[form.status],
-
     bedrooms: form.bedrooms,
     bathrooms: form.bathrooms,
-    sqft: form.squareFeet,
-
+    squareFeet: form.squareFeet,
     monthlyRent: form.monthlyRent,
     deposit: form.deposit,
-
-    meterId: form.meterId,
-    amenities: form.amenities ?? [],
-    floor: 1,
+    meterId: form.meterId ? Number(form.meterId) : null,
   };
 }
