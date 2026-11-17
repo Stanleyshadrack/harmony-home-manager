@@ -25,7 +25,7 @@ const categories = [
 
 export function NotificationPreferences() {
   const { t } = useTranslation();
-  const { preferences, updateChannelPreference, resetToDefaults, isLoading } = useNotificationPreferences();
+  const { preferences, updateChannelPreference, resetToDefaults, isLoading, error } = useNotificationPreferences();
 
   const handleToggle = (
     channel: 'inApp' | 'email' | 'sms',
@@ -49,6 +49,10 @@ export function NotificationPreferences() {
         </CardContent>
       </Card>
     );
+  }
+
+  if (error) {
+    return <Card><CardContent className="py-6 text-destructive" role="alert">Could not load notification preferences: {error}</CardContent></Card>;
   }
 
   return (
