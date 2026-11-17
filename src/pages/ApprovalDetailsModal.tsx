@@ -20,7 +20,7 @@ interface Props {
   onUpdated?: () => void;
 }
 
-export function ApprovalDetailsModal({
+export default function ApprovalDetailsModal({
   approvalId,
   open,
   onClose,
