@@ -37,11 +37,12 @@ interface LoginFormProps {
   onForgotPassword: () => void;
  onRequireOTP?: (email: string, redirect: string | null) => void;
   onAwaitingApproval?: (email: string, role: string) => void;
+  onForcePasswordChange?: (email: string) => void;
 }
 
 
 
-export function LoginForm({ onSwitchToRegister, onForgotPassword, onRequireOTP, onAwaitingApproval }: LoginFormProps) {
+export function LoginForm({ onSwitchToRegister, onForgotPassword, onRequireOTP, onAwaitingApproval, onForcePasswordChange }: LoginFormProps) {
   const { t } = useTranslation();
   const { completeLogin, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -108,6 +109,7 @@ export function LoginForm({ onSwitchToRegister, onForgotPassword, onRequireOTP, 
 
 // 🔐 MFA REQUIRED → STOP here
 if (res.mfaRequired) {
+  resetAttempts(data.email);
   toast.info("Verification required", {
     description: "A verification code has been sent to your email.",
   });
@@ -142,6 +144,16 @@ navigate(destination, { replace: true });
 
 
   } catch (err: any) {
+    const message = String(err?.message || "");
+    if (message.includes("Password change required")) {
+      onForcePasswordChange?.(data.email);
+      return;
+    }
+    // A mail service outage or access-policy denial is not a wrong password.
+    if (!message.includes("[HTTP 401]")) {
+      toast.error(message || "Unable to sign in");
+      return;
+    }
     const result = recordFailedAttempt(data.email);
 
     if (result.locked) {
