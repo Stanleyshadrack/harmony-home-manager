@@ -99,11 +99,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       try {
-        const claims = userFromAccessToken(token);
+        // The API may refresh an expired access token before returning /me.
         const actual = await apiRequest<null, {id:number;email:string;role:string}>({
           path: "/api/auth/me",
           method: "GET",
         });
+        const currentToken = tokenService.getAccessToken();
+        const claims = userFromAccessToken(currentToken || token);
         if (actual.email !== claims.email ||
             String(actual.id) !== claims.id ||
             actual.role.toLowerCase() !== claims.role) {
