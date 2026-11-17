@@ -1,4 +1,7 @@
 import { useForm } from 'react-hook-form';
+import { useEffect, useState } from 'react';
+import { TenantsApi } from '@/api/service/tenantsApi';
+import { PropertyUnitsApi } from '@/api/service/PropertyUnitsApi';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
@@ -23,8 +26,8 @@ import {
 import type { InvoiceFormData, InvoiceType } from '@/types/billing';
 
 const invoiceSchema = z.object({
-  tenantId: z.string().min(1, 'Please select a tenant'),
-  unitId: z.string().min(1, 'Please select a unit'),
+  tenantId: z.number().int().positive('Please select a tenant'),
+  unitId: z.number().int().positive('Please select a unit'),
   type: z.enum(['rent', 'water', 'utilities', 'late_fee', 'other'], {
     required_error: 'Please select an invoice type',
   }),
@@ -42,31 +45,32 @@ interface InvoiceFormProps {
   onSubmit: (data: InvoiceFormData) => void;
   onCancel: () => void;
   isLoading?: boolean;
-  initialData?: Partial<InvoiceFormData> & { tenantId?: string; unitId?: string };
+  initialData?: Partial<InvoiceFormData>;
   isEditing?: boolean;
 }
 
-// Mock tenant and unit data
-const mockTenants = [
-  { id: 't1', name: 'John Doe', unitId: 'u1' },
-  { id: 't2', name: 'Jane Smith', unitId: 'u2' },
-  { id: 't3', name: 'Mike Johnson', unitId: 'u3' },
-];
-
-const mockUnits = [
-  { id: 'u1', number: 'A101', propertyName: 'Sunrise Apartments' },
-  { id: 'u2', number: 'B202', propertyName: 'Sunrise Apartments' },
-  { id: 'u3', number: 'C303', propertyName: 'Ocean View Towers' },
-];
-
 export function InvoiceForm({ onSubmit, onCancel, isLoading, initialData, isEditing }: InvoiceFormProps) {
   const { t } = useTranslation();
+  const [tenantOptions, setTenantOptions] = useState<{id:number;name:string}[]>([]);
+  const [unitOptions, setUnitOptions] = useState<{id:number;number:string}[]>([]);
+  const [optionsError, setOptionsError] = useState('');
+  useEffect(() => {
+    let active = true;
+    Promise.all([TenantsApi.getAll(), PropertyUnitsApi.fetchAll()])
+      .then(([tenants, units]) => {
+        if (!active) return;
+        setTenantOptions(tenants.map(t => ({id:Number(t.id),name:[t.firstName,t.lastName].filter(Boolean).join(' ') || t.email})));
+        setUnitOptions(units.map(u => ({id:Number(u.id),number:u.unitNumber})));
+      })
+      .catch(e => {if(active) setOptionsError(e instanceof Error ? e.message : 'Unable to load tenant and unit options');});
+    return () => {active = false;};
+  }, []);
 
   const form = useForm<InvoiceFormData>({
     resolver: zodResolver(invoiceSchema),
     defaultValues: {
-      tenantId: initialData?.tenantId || '',
-      unitId: initialData?.unitId || '',
+      tenantId: initialData?.tenantId ?? 0,
+      unitId: initialData?.unitId ?? 0,
       type: initialData?.type || 'rent',
       description: initialData?.description || '',
       amount: initialData?.amount || 0,
@@ -89,21 +93,22 @@ export function InvoiceForm({ onSubmit, onCancel, isLoading, initialData, isEdit
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+        {optionsError && <p role="alert" className="text-destructive text-sm">{optionsError}</p>}
         <FormField
           control={form.control}
           name="tenantId"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Tenant</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={v => field.onChange(Number(v))} value={field.value > 0 ? String(field.value) : undefined}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select tenant" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {mockTenants.map((tenant) => (
-                    <SelectItem key={tenant.id} value={tenant.id}>
+                  {tenantOptions.map((tenant) => (
+                    <SelectItem key={tenant.id} value={String(tenant.id)}>
                       {tenant.name}
                     </SelectItem>
                   ))}
@@ -127,9 +132,9 @@ export function InvoiceForm({ onSubmit, onCancel, isLoading, initialData, isEdit
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {mockUnits.map((unit) => (
-                    <SelectItem key={unit.id} value={unit.id}>
-                      {unit.number} - {unit.propertyName}
+                  {unitOptions.map((unit) => (
+                    <SelectItem key={unit.id} value={String(unit.id)}>
+                      {unit.number}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -219,7 +224,7 @@ export function InvoiceForm({ onSubmit, onCancel, isLoading, initialData, isEdit
           <Button type="button" variant="outline" onClick={onCancel}>
             {t('common.cancel')}
           </Button>
-          <Button type="submit" disabled={isLoading}>
+          <Button type="submit" disabled={isLoading || !!optionsError}>
             {isLoading ? t('common.loading') : isEditing ? t('common.save') : t('billing.createInvoice')}
           </Button>
         </div>
