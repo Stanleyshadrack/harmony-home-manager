@@ -240,7 +240,7 @@ export function SubscriptionRenewalDialog({
                         <div className="flex items-center justify-between">
                           <Label htmlFor={plan.id} className="font-semibold cursor-pointer">
                             {plan.name}
-                            {plan.id === 'enterprise' && (
+                            {plan.id === 'ENTERPRISE' && (
                               <Badge variant="secondary" className="ml-2">
                                 <Sparkles className="h-3 w-3 mr-1" />
                                 Popular
