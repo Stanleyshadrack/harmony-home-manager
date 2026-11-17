@@ -76,7 +76,6 @@ import { BulkEmailForm } from '@/components/admin/BulkEmailForm';
 import { SubscriptionRenewalDialog } from '@/components/landlords/SubscriptionRenewalDialog';
 import { sendSubscriptionRenewalConfirmationEmail, sendUserInvitationEmail } from '@/services/adminEmailService';
 import { InviteUserDialog } from '@/components/admin/InviteUserDialog';
-import { useInvitations } from '@/hooks/useInvitations';
 import { AssignPropertiesDialog } from '@/components/properties/AssignPropertiesDialog';
 import { LandlordTypes } from '@/types/LandlordTypes';
 import { SubscriptionPlan } from '@/api/dto/SubscriptionResponse';
@@ -138,7 +137,6 @@ const [approvalLoading, setApprovalLoading] = useState(false);
     }
   });
 
-  const { createInvitation, invitations, getPendingInvitations } = useInvitations();
 
   const auditLogs = getAuditLogs();
   const activitySummary = getActivitySummary();
