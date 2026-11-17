@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useApprovals } from "@/hooks/useApprovals";
+import { TenantWorkflowApprovals } from '@/components/tenants/TenantWorkflowApprovals';
 import { Approval } from "@/api/dto/approval.dto";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -613,6 +614,7 @@ const [approvalLoading, setApprovalLoading] = useState(false);
 
           {/* Approvals Tab */}
           <TabsContent value="approvals" className="space-y-4">
+            <TenantWorkflowApprovals />
   <div className="flex items-center justify-between">
     <div>
       <h2 className="text-xl font-semibold">Approvals</h2>
@@ -628,7 +630,7 @@ const [approvalLoading, setApprovalLoading] = useState(false);
     )}
   </div>
 
-  {approvals.filter(a => a.status === "PENDING").length > 0 ? (
+  {approvals.filter(a => a.status === "PENDING" && !["TENANT", "LEASE", "DOCUMENT"].includes(a.type)).length > 0 ? (
     <Card>
       <Table>
         <TableHeader>
@@ -643,7 +645,7 @@ const [approvalLoading, setApprovalLoading] = useState(false);
 
         <TableBody>
           {approvals
-            .filter(a => a.status === "PENDING")
+            .filter(a => a.status === "PENDING" && !["TENANT", "LEASE", "DOCUMENT"].includes(a.type))
             .map((approval) => (
               <TableRow key={approval.id}>
                 <TableCell>
