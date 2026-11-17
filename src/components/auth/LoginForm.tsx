@@ -10,13 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Loader2, LogIn, UserCheck, Lock } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Eye, EyeOff, Loader2, LogIn, Lock } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   isAccountLocked,
@@ -29,13 +23,6 @@ import { loginService } from '@/api/service/login.service';
 import { tokenService } from '@/services/tokenService';
 import { jwtDecode } from 'jwt-decode';
 import type { JwtPayload } from '@/types/auth';
-
-const demoAccounts = [
-  { label: 'Super Admin', email: 'admin@demo.com', password: 'admin123' },
-  { label: 'Landlord', email: 'landlord@demo.com', password: 'landlord123' },
-  { label: 'Employee', email: 'employee@demo.com', password: 'employee123' },
-  { label: 'Tenant', email: 'tenant@demo.com', password: 'tenant123' },
-];
 
 const loginSchema = z.object({
   email: z.string().email('auth.emailInvalid'),
@@ -100,13 +87,6 @@ export function LoginForm({ onSwitchToRegister, onForgotPassword, onRequireOTP, 
       return () => clearInterval(interval);
     }
   }, [lockoutInfo.locked, emailValue]);
-
-  const fillDemoCredentials = (email: string, password: string) => {
-    setValue('email', email);
-    setValue('password', password);
-    setAttemptsWarning(null);
-    toast.success('Demo credentials filled');
-  };
 
   const onSubmit = async (data: LoginFormData) => {
   const lockStatus = isAccountLocked(data.email);
@@ -278,23 +258,7 @@ navigate(destination, { replace: true });
             </>
           )}
         </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button type="button" variant="outline" size="icon" title="Demo Login">
-              <UserCheck className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {demoAccounts.map((account) => (
-              <DropdownMenuItem
-                key={account.email}
-                onClick={() => fillDemoCredentials(account.email, account.password)}
-              >
-                {account.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+
       </div>
 
       <p className="text-center text-sm text-muted-foreground">
