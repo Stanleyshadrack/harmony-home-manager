@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { tokenService } from "@/services/tokenService";
 
 /** Review queue for the backend's tenant, lease, and document approvals. */
 export function TenantWorkflowApprovals() {
@@ -36,6 +37,43 @@ export function TenantWorkflowApprovals() {
       setReasonById((existing) => ({ ...existing, [item.id]: "" }));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not process approval");
+    } finally {
+      setWorkingId(null);
+    }
+  }
+
+  async function previewDocument(approvalId: number) {
+    const token = tokenService.getAccessToken();
+    if (!token) {
+      toast.error("Please log in to review documents");
+      return;
+    }
+
+    setWorkingId(approvalId);
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+      const response = await fetch(`${apiBase}/api/approvals/${approvalId}/document`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        throw new Error("Document preview unavailable or access denied");
+      }
+      const contentType = response.headers.get("content-type") || "";
+      if (!["application/pdf", "image/png", "image/jpeg"].some(
+        (allowed) => contentType.startsWith(allowed))) {
+        throw new Error("Unsupported document format");
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to open document");
     } finally {
       setWorkingId(null);
     }
@@ -77,7 +115,13 @@ export function TenantWorkflowApprovals() {
                   setReasonById((existing) => ({ ...existing, [item.id]: event.target.value }))
                 }
               />
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
+                {item.type === "DOCUMENT" && (
+                  <Button variant="outline" disabled={workingId !== null}
+                    onClick={() => previewDocument(item.id)}>
+                    View document
+                  </Button>
+                )}
                 <Button disabled={workingId !== null} onClick={() => decide(item, "approve")}>
                   Approve
                 </Button>
