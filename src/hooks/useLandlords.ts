@@ -9,10 +9,12 @@ import {
 } from "@/api/service/subscription.service";
 
 export type SubscriptionPlan = "BASIC" | "PREMIUM" | "ENTERPRISE";
+export type Landlord = LandlordTypes;
+export type SubscriptionPlanDetails = { id: SubscriptionPlan; name: string; price: number; maxProperties: number; maxUnits: number; features: string[] };
 export type LandlordStatus = "active" | "suspended" | "pending";
 
 
-const subscriptionPlans = [
+const subscriptionPlans: SubscriptionPlanDetails[] = [
   {
     id: "BASIC",
     name: "Basic Plan",
