@@ -10,6 +10,7 @@ import {
 import { jwtDecode } from "jwt-decode";
 import { tokenService } from "@/services/tokenService";
 import { JwtPayload } from "@/types/auth";
+import { apiRequest } from "@/api/https";
 
 /* =========================
    Types
@@ -90,18 +91,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const token = tokenService.getAccessToken();
-
-    if (token) {
+    let active = true;
+    const restore = async () => {
+      const token = tokenService.getAccessToken();
+      if (!token) {
+        if (active) setIsLoading(false);
+        return;
+      }
       try {
-        setUser(userFromAccessToken(token));
+        const claims = userFromAccessToken(token);
+        const actual = await apiRequest<null, {id:number;email:string;role:string}>({
+          path: "/api/auth/me",
+          method: "GET",
+        });
+        if (actual.email !== claims.email ||
+            String(actual.id) !== claims.id ||
+            actual.role.toLowerCase() !== claims.role) {
+          throw new Error("Session identity mismatch");
+        }
+        if (active) setUser(claims);
       } catch {
         tokenService.clearTokens();
-        setUser(null);
+        if (active) setUser(null);
+      } finally {
+        if (active) setIsLoading(false);
       }
-    }
-
-    setIsLoading(false);
+    };
+    void restore();
+    return () => { active = false; };
   }, [userFromAccessToken]);
 
   /* =========================
