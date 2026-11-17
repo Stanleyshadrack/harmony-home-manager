@@ -1,28 +1,40 @@
 import { apiRequest } from "../https";
 import { API_PATHS } from "../constants/constants";
 
-export type CompleteOnboardingPayload = {
+export interface CompleteOnboardingPayload {
   token: string;
-  firstName: string;
-  lastName: string;
-  phone: string;
-  idNumber: string;
-};
+  user: { firstName: string; lastName: string; phone: string };
+  tenant?: {
+    propertyId: number;
+    unitId: number;
+    emergencyContactName?: string;
+    emergencyContactPhone?: string;
+    relationship?: string;
+  } | null;
+  lease?: {
+    startDate: string;
+    endDate: string;
+    monthlyRent?: number | null;
+    securityDeposit?: number | null;
+    terms?: string;
+  } | null;
+  documents?: { idBase64?: string; leaseBase64?: string } | null;
+  employee?: { propertyIds: number[] } | null;
+  landlord?: { companyName?: string } | null;
+  companyId?: number | null;
+  apartmentIds?: number[] | null;
+  termsAccepted: boolean;
+}
 
-export type CompleteOnboardingResponse = {
-  approved: boolean;
-  passwordSet: boolean;
-};
+export interface CompleteOnboardingResponse {
+  status: number;
+  message: string;
+  timestamp: string;
+}
 
-export const completeOnboardingService = async (
-  payload: CompleteOnboardingPayload
-) => {
-  return apiRequest<
-    CompleteOnboardingPayload,
-    CompleteOnboardingResponse
-  >({
-    path: API_PATHS.AUTH_ONBOARDING, // "/api/auth/onboarding"
+export const completeOnboardingService = (payload: CompleteOnboardingPayload) =>
+  apiRequest<CompleteOnboardingPayload, CompleteOnboardingResponse>({
+    path: API_PATHS.AUTH_ONBOARDING,
     method: "POST",
     body: payload,
   });
-};
