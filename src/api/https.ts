@@ -98,7 +98,10 @@ export async function apiRequest<TReq, TRes>({
     }
 
     tokenService.clearTokens();
-    throw new Error("Session expired. Please log in again.");
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("apartment:session-expired"));
+    }
+    throw new ApiHttpError(401, path, "Session expired. Please sign in again.");
   }
 
   /* =========================
