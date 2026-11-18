@@ -35,7 +35,7 @@ export function IdleLockPreferences() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><Clock3 className="h-5 w-5"/>Automatic screen lock</CardTitle>
         <CardDescription>
-          Choose when your personal session is locked after inactivity. This does not change the Super Admin system maintenance lock.
+          Choose when your personal session locks after inactivity. An animated 5-second warning lets you select Keep Alive before the screen locks. This does not affect Super Admin maintenance locks.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
