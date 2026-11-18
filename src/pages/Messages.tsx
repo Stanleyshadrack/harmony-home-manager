@@ -81,16 +81,9 @@ export default function Messages() {
   };
 
   const removeMessage = async (message: Message) => {
-    try {
-      await deleteMessage(message.id);
-      void refreshConversations();
-    } catch (error) {
-      toast({
-        title: 'Could not delete message',
-        description: error instanceof Error ? error.message : 'Try again.',
-        variant: 'destructive',
-      });
-    }
+    // Confirmation dialog owns error display and stays open on failed deletion.
+    await deleteMessage(message.id);
+    void refreshConversations();
   };
 
   const create = async (data: NewConversationData) => {
