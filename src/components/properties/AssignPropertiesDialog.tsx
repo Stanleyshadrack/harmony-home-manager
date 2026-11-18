@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -21,7 +22,7 @@ interface AssignPropertiesDialogProps {
   landlord: Landlord | null;
   properties: Property[];
   assignedPropertyIds: string[];
-  onSave: (landlordId: string, propertyIds: string[]) => void;
+  onSave: (landlordId: string, propertyIds: string[]) => Promise<void>;
 }
 export function AssignPropertiesDialog({
   open,
@@ -33,34 +34,52 @@ export function AssignPropertiesDialog({
 }: AssignPropertiesDialogProps) {
   const [selected, setSelected] = useState<string[]>(assignedPropertyIds);
   const [search, setSearch] = useState('');
-  // Reset selection when dialog opens with new landlord
-  useState(() => {
-    setSelected(assignedPropertyIds);
-  });
+  const [saving, setSaving] = useState(false);
+
+  // The backend company ID defines what this landlord may manage.
+  const companyProperties = useMemo(
+    () => properties.filter(p => landlord?.companyId != null &&
+      p.companyId === landlord.companyId),
+    [properties, landlord?.companyId]
+  );
+
+  // Read existing assignments from the server every time the dialog opens.
+  useEffect(() => {
+    if (open) {
+      setSelected(assignedPropertyIds);
+      setSearch('');
+    }
+  }, [open, landlord?.id, assignedPropertyIds.join(',')]);
+
   const filteredProperties = useMemo(() => {
-    if (!search) return properties;
-    const q = search.toLowerCase();
-    return properties.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.address.toLowerCase().includes(q) ||
-        p.city.toLowerCase().includes(q)
+    if (!search.trim()) return companyProperties;
+    const q = search.trim().toLowerCase();
+    return companyProperties.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      p.address.toLowerCase().includes(q) ||
+      p.city.toLowerCase().includes(q)
     );
-  }, [properties, search]);
+  }, [companyProperties, search]);
+
   const toggleProperty = (id: string) => {
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+    setSelected(prev => prev.includes(id)
+      ? prev.filter(item => item !== id)
+      : [...prev, id]);
   };
-  const handleSave = () => {
-    if (landlord) {
-      onSave(String(landlord.id), selected);
+
+  const handleSave = async () => {
+    if (!landlord || saving || landlord.companyId == null) return;
+    setSaving(true);
+    try {
+      await onSave(String(landlord.id), selected);
       onOpenChange(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not save property assignments');
+    } finally {
+      setSaving(false);
     }
   };
   if (!landlord) return null;
-  const maxProperties = landlord.maxProperties;
-  const overLimit = selected.length > maxProperties;
   return (
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) setSearch(''); }}>
       <DialogContent className="max-w-lg">
@@ -71,7 +90,8 @@ export function AssignPropertiesDialog({
           </DialogTitle>
           <DialogDescription>
             Assign properties to <strong>{landlord.firstName} {landlord.lastName}</strong>.
-            Plan limit: {maxProperties} properties ({landlord.subscription} plan).
+            Only properties belonging to <strong>{landlord.company || 'this landlord\'s company'}</strong> can be assigned.
+            Company subscription limits apply across all landlords in the company.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -88,11 +108,11 @@ export function AssignPropertiesDialog({
           {/* Selection count */}
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">
-              {selected.length} of {maxProperties} properties selected
+              {selected.length} of {companyProperties.length} company properties selected
             </span>
-            {overLimit && (
+            {landlord.companyId == null && (
               <Badge variant="destructive" className="text-xs">
-                Exceeds plan limit
+                Landlord has no assigned company
               </Badge>
             )}
           </div>
@@ -107,11 +127,8 @@ export function AssignPropertiesDialog({
               ) : (
                 filteredProperties.map((property) => {
                   const isSelected = selected.includes(property.id);
-                  // Find if property is assigned to another landlord
-                  const assignedToOther = property.landlordId && 
-                    property.landlordId !== String(landlord.id) && 
-                    property.landlordId !== 'current-user' &&
-                    property.landlordId !== 'landlord-1';
+                  const assignedToOther = (property.landlordIds ?? [])
+                    .some(id => id !== landlord.id);
                   return (
                     <label
                       key={property.id}
@@ -167,7 +184,7 @@ export function AssignPropertiesDialog({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setSelected(properties.map((p) => p.id))}
+              onClick={() => setSelected(companyProperties.map(p => p.id))}
               className="text-xs"
             >
               Select All
@@ -178,9 +195,9 @@ export function AssignPropertiesDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={overLimit}>
+          <Button onClick={() => void handleSave()} disabled={saving || landlord.companyId == null}>
             <Building2 className="h-4 w-4 mr-2" />
-            Save Assignment ({selected.length})
+            {saving ? 'Saving...' : `Save Assignment (${selected.length})`}
           </Button>
         </DialogFooter>
       </DialogContent>
