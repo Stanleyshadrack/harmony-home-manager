@@ -1,3 +1,4 @@
+import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
@@ -29,6 +30,7 @@ import { Plus, Search, Home } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Units() {
+  const [viewMode, setViewMode] = useViewMode('units');
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const propertyIdFromUrl = searchParams.get('property');
@@ -176,9 +178,10 @@ export default function Units() {
         </Button>
       </div>
 
+      <div className="flex justify-end mb-3"><ViewModeToggle value={viewMode} onChange={setViewMode} /></div>
       {/* Units Grid */}
       {filteredUnits.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className={viewMode === 'grid' ? "grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "grid grid-cols-1 gap-3"}>
           {filteredUnits.map((unit) => (
             <UnitCard
               key={unit.id}
