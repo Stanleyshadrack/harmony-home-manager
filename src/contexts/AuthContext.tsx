@@ -45,6 +45,7 @@ interface AuthContextType {
   ) => Promise<{ error: string | null; redirect?: string }>;
   completeLogin: (accessToken: string) => void;
   logout: () => void;
+  refreshProfile: () => Promise<void>;
 }
 
 /* =========================
@@ -156,6 +157,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("apartment:session-expired", expire);
   }, []);
 
+  // Load the real editable profile, not just JWT claims. This keeps
+  // avatars and names synchronized after a profile photo is changed.
+  const refreshProfile = useCallback(async () => {
+    if (!tokenService.getAccessToken()) return;
+    const generation = authGeneration.current;
+    const profile = await apiRequest<null, {
+      id: number; firstName?: string; lastName?: string;
+      phone?: string; avatarUrl?: string | null;
+    }>({ path: '/api/users/me', method: 'GET' });
+    if (generation !== authGeneration.current || !tokenService.getAccessToken()) return;
+    setUser(previous => previous && previous.id === String(profile.id)
+      ? {
+          ...previous,
+          firstName: profile.firstName || undefined,
+          lastName: profile.lastName || undefined,
+          phone: profile.phone || undefined,
+          avatarUrl: profile.avatarUrl || undefined,
+        }
+      : previous);
+  }, []);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    void refreshProfile().catch(() => {
+      // An optional profile refresh must not tear down an authenticated session.
+    });
+  }, [user?.id, refreshProfile]);
+
   /* =========================
      Login (pre-OTP)
      Backend handles this
@@ -208,6 +237,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         completeLogin,
         logout,
+        refreshProfile,
       }}
     >
       {children}
