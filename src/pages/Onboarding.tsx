@@ -173,9 +173,6 @@ export default function Onboarding() {
         payload.landlord = { companyName: invite.companyName ?? undefined };
         payload.companyId = invite.companyId;
         payload.apartmentIds = invite.apartments?.map((property) => property.id) ?? [];
-        if (!payload.apartmentIds.length) {
-          throw new Error("No properties were assigned to this landlord invitation");
-        }
       }
 
       if (invite.role === "EMPLOYEE") {
