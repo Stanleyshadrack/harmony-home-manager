@@ -1,3 +1,4 @@
+import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -42,6 +43,7 @@ import { InviteUserDialog } from '@/components/admin/InviteUserDialog';
 import { TenantDetail } from '@/components/tenants/TenantDetail';
 
 export default function Tenants() {
+  const [viewMode, setViewMode] = useViewMode('tenants');
   const { t } = useTranslation();
   const { toast } = useToast();
   const { tenants, isLoading, updateTenant, deleteTenant } = useTenants();
@@ -193,6 +195,7 @@ const filteredTenants = tenants.filter((tenant) => {
           )}
         </TabsList>
 
+      <div className="flex justify-end mb-3"><ViewModeToggle value={viewMode} onChange={setViewMode} /></div>
         <TabsContent value={activeTab} className="mt-6">
           {activeTab === 'approvals' ? (
             <div className="space-y-6">
@@ -202,7 +205,7 @@ const filteredTenants = tenants.filter((tenant) => {
           ) : isLoading ? (
             <div className="flex justify-center py-12">Loading…</div>
           ) : filteredTenants.length ? (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className={viewMode === 'grid' ? "grid md:grid-cols-2 lg:grid-cols-3 gap-4" : "grid grid-cols-1 gap-3"}>
               {filteredTenants.map((tenant) => (
                 <TenantCard
                   key={tenant.id}
