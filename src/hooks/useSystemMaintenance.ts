@@ -27,12 +27,15 @@ export function useSystemMaintenance(userId?: string) {
   const refresh = useCallback(async () => {
     try {
       const next = await apiRequest<null, SystemMaintenanceStatus>({
-        path: userId ? '/api/system-maintenance/me' : '/api/system-maintenance/status', method: 'GET', retry: false,
+        path: userId ? '/api/system-maintenance/me' : '/api/system-maintenance/status', method: 'GET', retry: !!userId,
       });
       setStatus(next);
       setCheckedIdentity(identity);
       setError('');
     } catch (e) {
+      // An expired identity is not a maintenance outage. The auth provider
+      // receives the session-expired event and replaces the protected page
+      // with the normal sign-in flow.
       setCheckedIdentity(identity);
       setError(e instanceof Error ? e.message : 'System maintenance status unavailable');
     } finally {
