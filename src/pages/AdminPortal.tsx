@@ -437,7 +437,8 @@ const [approvalLoading, setApprovalLoading] = useState(false);
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-8">
+          <div className="w-full overflow-x-auto pb-1" role="region" aria-label="Admin portal sections" tabIndex={0}>
+           <TabsList className="grid h-auto min-h-10 w-full min-w-[900px] grid-cols-9 gap-1 p-1">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">Overview</span>
@@ -480,6 +481,7 @@ const [approvalLoading, setApprovalLoading] = useState(false);
               <span className="hidden sm:inline">Settings</span>
             </TabsTrigger>
           </TabsList>
+          </div>
 
           {/* Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-4">
