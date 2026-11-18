@@ -33,7 +33,7 @@ export function generatePaymentReceiptPDF(data: PaymentReceiptData): jsPDF {
   
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Receipt #: ${data.payment.id.toUpperCase()}`, 20, 35);
+  doc.text(`Receipt #: ${String(data.payment.id).toUpperCase()}`, 20, 35);
   doc.text(`Date: ${new Date(data.payment.paymentDate).toLocaleDateString()}`, 20, 42);
 
   // Checkmark icon area
