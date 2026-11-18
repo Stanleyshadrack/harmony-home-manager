@@ -21,6 +21,8 @@ export function MessageInput({ onSend, disabled = false, placeholder }: MessageI
     try {
       await onSend(text);
       setMessage('');
+    } catch {
+      // The parent displays the backend error. Preserve the draft for retry.
     } finally {
       setSending(false);
     }
