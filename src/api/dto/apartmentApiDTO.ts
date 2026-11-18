@@ -20,6 +20,8 @@ export interface PropertyApiResponse {
   occupiedUnits: number;
 
   landlordId: number;
+  companyId?: number | null;
+  companyName?: string | null;
 
   createdAt: string;
   updatedAt: string;
@@ -43,6 +45,7 @@ export interface CreatePropertyFormData {
   country: string;
   postalCode: string;
   propertyType: string;
+  companyId?: number;
   amenities?: string[];
   units?: CreatePropertyUnitFormData[]; // ✅ OPTIONAL
 }
