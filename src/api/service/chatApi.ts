@@ -42,6 +42,28 @@ export const chatApi = {
       body: { content },
     }),
 
+  uploadAttachment: (id: number, file: File, caption = '') => {
+    const body = new FormData();
+    body.append('file', file);
+    if (caption.trim()) body.append('caption', caption.trim());
+    return apiRequest<FormData, Message>({
+      path: `${ROOT}/conversations/${id}/attachments`,
+      method: 'POST',
+      body,
+      timeout: 45000,
+    });
+  },
+
+  forward: (destinationId: number, sourceConversationId: number, messageId: number) =>
+    apiRequest<{ sourceConversationId: number; messageId: number }, Message>({
+      path: `${ROOT}/conversations/${destinationId}/forward`,
+      method: 'POST',
+      body: { sourceConversationId, messageId },
+    }),
+
+  attachmentUrl: (conversationId: number, attachmentId: number) =>
+    `${ROOT}/conversations/${conversationId}/attachments/${attachmentId}`,
+
   markRead: (id: number) =>
     apiRequest<null, void>({
       path: `${ROOT}/conversations/${id}/read`,
