@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { User, Mail, Phone, Camera, Save, Loader2 } from 'lucide-react';
 import { NotificationPreferences } from '@/components/settings/NotificationPreferences';
 import { MaintenanceControl } from '@/components/settings/MaintenanceControl';
+import { IdleLockPreferences } from '@/components/settings/IdleLockPreferences';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Bell, ShieldCheck, UserRound } from 'lucide-react';
 import { fileToBase64 } from '@/services/userManagementService';
@@ -279,6 +280,7 @@ export default function Settings() {
 
         </TabsContent>
         <TabsContent value="security" className="space-y-5">
+        <IdleLockPreferences />
         <Card><CardHeader><CardTitle>Account security</CardTitle>
           <CardDescription>Security is enforced by the server. Super Admin sign-in requires the configured email verification flow. This screen does not create or revoke login sessions or enable an authenticator app.</CardDescription>
           </CardHeader><CardContent className="text-sm text-muted-foreground">Use Sign Out to end your current browser session. Contact your administrator for account access and verification changes.</CardContent></Card>
