@@ -33,11 +33,26 @@ interface ApiRequestOptions<T> {
  */
 function resolveApiBaseUrl(): string {
   const configured = process.env.NEXT_PUBLIC_API_URL?.trim();
-  if (configured) return configured.replace(/\/+$/, "");
   if (typeof window !== "undefined") {
-    return `${window.location.protocol}//${window.location.hostname}:8080`;
+    const host = window.location.hostname;
+    if (configured) {
+      const normalized = configured.replace(/\/+$/, "");
+      try {
+        const explicit = new URL(normalized);
+        // Existing developer .env.local files often hardcode localhost.
+        // On phones that hostname points to the phone, not the dev PC.
+        if (host !== "localhost" && host !== "127.0.0.1" &&
+            (explicit.hostname === "localhost" || explicit.hostname === "127.0.0.1")) {
+          return `${window.location.protocol}//${host}:${explicit.port || "8080"}`;
+        }
+      } catch {
+        // The configured URL is invalid; the normal fetch error will expose it.
+      }
+      return normalized;
+    }
+    return `${window.location.protocol}//${host}:8080`;
   }
-  return "http://localhost:8080";
+  return configured?.replace(/\/+$/, "") || "http://localhost:8080";
 }
 
 const BASE_URL = resolveApiBaseUrl();
