@@ -31,6 +31,7 @@ const mapApiProperty = (p: any): Property => ({
   companyId: p.companyId ?? null,
   companyName: p.companyName ?? null,
   landlordId: String(p.landlordId ?? ''),
+  landlordIds: Array.isArray(p.landlordIds) ? p.landlordIds.map(Number) : [],
   createdAt: p.createdAt,
   updatedAt: p.updatedAt,
 });
