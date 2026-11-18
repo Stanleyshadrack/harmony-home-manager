@@ -133,7 +133,7 @@ export function EmojiPicker({ onSelect, disabled = false, label = 'Insert emoji'
             <button
               key={item.name}
               type="button"
-              className="flex h-10 w-10 items-center justify-center rounded-md text-2xl hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex aspect-square w-full min-w-0 items-center justify-center rounded-md text-xl hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label={item.name}
               title={item.name}
               onClick={() => {
