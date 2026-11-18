@@ -176,7 +176,15 @@ let refreshInFlight: Promise<boolean> | null = null;
 /** A shared promise prevents concurrent requests rotating the same refresh token. */
 function refreshAccessToken(): Promise<boolean> {
   if (refreshInFlight) return refreshInFlight;
-  const work = performTokenRefresh();
+  const tokenAtRefreshStart = tokenService.getAccessToken();
+  // Web Locks serialize refresh-token rotation across browser tabs.
+  // localhost and HTTPS are secure contexts where navigator.locks is supported.
+  const work = typeof navigator !== "undefined" && navigator.locks
+    ? navigator.locks.request("apartment-auth-refresh", async () => {
+        if (tokenService.getAccessToken() !== tokenAtRefreshStart) return true;
+        return performTokenRefresh();
+      })
+    : performTokenRefresh();
   refreshInFlight = work;
   void work.then(
     () => { if (refreshInFlight === work) refreshInFlight = null; },
