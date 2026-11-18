@@ -77,6 +77,7 @@ const App = () => (
                   }
                 />
                 <Route path="/recent-activities" element={<ProtectedRoute allowedRoles={["super_admin","landlord"]}><RecentActivities /></ProtectedRoute>} />
+                <Route path="/subscription-plans" element={<ProtectedRoute allowedRoles={["super_admin","landlord"]}><SubscriptionPlans /></ProtectedRoute>} />
                 <Route
                   path="/properties"
                   element={
