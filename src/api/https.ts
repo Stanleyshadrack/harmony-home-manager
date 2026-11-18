@@ -23,6 +23,7 @@ export async function apiRequest<TReq, TRes>({
   // Never attach stale access tokens to public authentication actions.
   // An invalid Bearer token must not prevent a fresh login or MFA attempt.
   const publicAuthPaths = [
+    "/api/system-maintenance/status",
     "/api/auth/login", "/api/auth/verify-mfa", "/api/auth/resend-otp",
     "/api/auth/refresh", "/api/auth/password-reset/request",
     "/api/auth/password-reset/confirm", "/api/auth/validate",
