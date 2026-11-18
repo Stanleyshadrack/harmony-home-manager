@@ -120,11 +120,29 @@ export function useMessages(conversationId: number | null) {
     return sent;
   }, [conversationId]);
 
+  const uploadAttachment = useCallback(async (file: File, caption = '') => {
+    if (conversationId == null) throw new Error('Select a conversation');
+    const sent = await chatApi.uploadAttachment(conversationId, file, caption);
+    setMessages(previous => previous.some(message => message.id === sent.id)
+      ? previous : [...previous, sent]);
+    return sent;
+  }, [conversationId]);
+
+  const forwardMessage = useCallback(async (messageId: number, destinationId: number) => {
+    if (conversationId == null) throw new Error('Select a conversation');
+    const forwarded = await chatApi.forward(destinationId, conversationId, messageId);
+    if (destinationId === conversationId) {
+      setMessages(previous => previous.some(message => message.id === forwarded.id)
+        ? previous : [...previous, forwarded]);
+    }
+    return forwarded;
+  }, [conversationId]);
+
   const deleteMessage = useCallback(async (messageId: number) => {
     if (conversationId == null) throw new Error('Select a conversation');
     const deleted = await chatApi.deleteMessage(conversationId, messageId);
     setMessages(previous => previous.map(m => m.id === deleted.id ? deleted : m));
   }, [conversationId]);
 
-  return { messages, isLoading, error, sendMessage, deleteMessage };
+  return { messages, isLoading, error, sendMessage, uploadAttachment, forwardMessage, deleteMessage };
 }
