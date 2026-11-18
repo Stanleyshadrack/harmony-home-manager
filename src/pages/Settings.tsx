@@ -15,13 +15,13 @@ import { MaintenanceControl } from '@/components/settings/MaintenanceControl';
 import { IdleLockPreferences } from '@/components/settings/IdleLockPreferences';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Bell, ShieldCheck, UserRound } from 'lucide-react';
-import { fileToBase64 } from '@/services/userManagementService';
+import { useProtectedMedia } from '@/hooks/useProtectedMedia';
 import { apiRequest } from '@/api/https';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Settings() {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -34,6 +34,14 @@ export default function Settings() {
     avatarUrl: user?.avatarUrl || '',
   });
   const [previewAvatar, setPreviewAvatar] = useState<string | null>(null);
+  const [pendingAvatar, setPendingAvatar] = useState<File | null>(null);
+  const loadedAvatar = useProtectedMedia(formData.avatarUrl);
+
+  // Revoke the temporary URL when a different image is selected or the
+  // editing session ends. Do not store image data in localStorage.
+  useEffect(() => () => {
+    if (previewAvatar) URL.revokeObjectURL(previewAvatar);
+  }, [previewAvatar]);
   const [savedProfile, setSavedProfile] = useState<typeof formData | null>(null);
   const [profileError, setProfileError] = useState('');
   useEffect(() => {
@@ -51,40 +59,45 @@ export default function Settings() {
     return user?.email?.[0].toUpperCase() || 'U';
   };
 
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    event.target.value = '';
     if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast({
-        title: 'Invalid File',
-        description: 'Please select an image file.',
-        variant: 'destructive',
-      });
+    if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
+      toast({ title: 'Invalid image', description: 'Choose JPG, PNG, GIF or WEBP.',
+        variant: 'destructive' });
       return;
     }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: 'File Too Large',
-        description: 'Image must be less than 5MB.',
-        variant: 'destructive',
-      });
+    if (!file.size || file.size > 3 * 1024 * 1024) {
+      toast({ title: 'Image too large', description: 'Profile pictures must be 3 MB or smaller.',
+        variant: 'destructive' });
       return;
     }
+    setPendingAvatar(file);
+    setPreviewAvatar(URL.createObjectURL(file));
+  };
 
+  const removeAvatar = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
     try {
-      const base64 = await fileToBase64(file);
-      setPreviewAvatar(base64);
-      setFormData((prev) => ({ ...prev, avatarUrl: base64 }));
-    } catch {
-      toast({
-        title: 'Upload Failed',
-        description: 'Failed to process the image.',
-        variant: 'destructive',
+      const result = await apiRequest<null, typeof formData>({
+        path: '/api/users/me/avatar', method: 'DELETE',
       });
+      setPendingAvatar(null);
+      setPreviewAvatar(null);
+      const next = { firstName: result.firstName || '', lastName: result.lastName || '',
+        phone: result.phone || '', avatarUrl: result.avatarUrl || '' };
+      setFormData(next);
+      setSavedProfile(next);
+      await refreshProfile();
+      toast({ title: 'Profile photo removed' });
+    } catch (error) {
+      toast({ title: 'Unable to remove photo',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -92,14 +105,28 @@ export default function Settings() {
     if (!user?.id || isSaving) return;
     setIsSaving(true);
     try {
-      const saved = await apiRequest<typeof formData, typeof formData>({
-        path: '/api/users/me', method: 'PUT', body: formData,
+      let saved = await apiRequest<{
+        firstName: string; lastName: string; phone: string;
+      }, typeof formData>({
+        path: '/api/users/me', method: 'PUT',
+        body: { firstName: formData.firstName, lastName: formData.lastName, phone: formData.phone },
       });
-      setFormData({ firstName:saved.firstName || '', lastName:saved.lastName || '', phone:saved.phone || '', avatarUrl:saved.avatarUrl || '' });
-      setSavedProfile({ firstName:saved.firstName || '', lastName:saved.lastName || '', phone:saved.phone || '', avatarUrl:saved.avatarUrl || '' });
+      if (pendingAvatar) {
+        const payload = new FormData();
+        payload.append('file', pendingAvatar);
+        saved = await apiRequest<FormData, typeof formData>({
+          path: '/api/users/me/avatar', method: 'POST', body: payload, timeout: 30000,
+        });
+      }
+      const next = { firstName: saved.firstName || '', lastName: saved.lastName || '',
+        phone: saved.phone || '', avatarUrl: saved.avatarUrl || '' };
+      setFormData(next);
+      setSavedProfile(next);
+      setPendingAvatar(null);
       setIsEditing(false);
       setPreviewAvatar(null);
       setProfileError('');
+      await refreshProfile();
       toast({ title: 'Profile Updated', description: 'Your profile was saved to the server.' });
     } catch (error) {
       toast({ title: 'Update Failed', description: error instanceof Error ? error.message : 'Unable to save profile', variant: 'destructive' });
@@ -110,11 +137,12 @@ export default function Settings() {
 
   const handleCancel = () => {
     if (savedProfile) setFormData(savedProfile);
+    setPendingAvatar(null);
     setPreviewAvatar(null);
     setIsEditing(false);
   };
 
-  const displayAvatar = previewAvatar || formData.avatarUrl;
+  const displayAvatar = previewAvatar || loadedAvatar || undefined;
 
   return (
     <DashboardLayout
@@ -159,7 +187,7 @@ export default function Settings() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/gif,image/webp"
                 className="hidden"
                 onChange={handleFileSelect}
               />
@@ -169,6 +197,13 @@ export default function Settings() {
             </h3>
             <p className="text-sm text-muted-foreground">{user?.email}</p>
             <Badge className="mt-2">{t(`roles.${user?.role}`)}</Badge>
+            {isEditing && (formData.avatarUrl || pendingAvatar) && (
+              <Button type="button" size="sm" variant="outline"
+                className="mt-2" disabled={isSaving}
+                onClick={() => void removeAvatar()}>
+                Remove profile photo
+              </Button>
+            )}
             {!isEditing && (
               <Button variant="outline" className="mt-4 w-full" onClick={() => setIsEditing(true)}>
                 Edit Profile
