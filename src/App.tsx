@@ -12,6 +12,8 @@ import "@/i18n";
 
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import Locked from "./pages/Locked";
+import { SessionLockManager } from "@/components/auth/SessionLockManager";
 import Dashboard from "./pages/Dashboard";
 import RecentActivities from "./pages/RecentActivities";
 import Properties from "./pages/Properties";
@@ -50,10 +52,12 @@ const App = () => (
             <Toaster />
             <Sonner />
             <BrowserRouter>
+              <SessionLockManager />
               <Routes>
                 {/* Public routes */}
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/locked" element={<Locked />} />
                 <Route path="/onboarding" element={<Onboarding />} />
                 <Route path="/set-password" element={<SetPasswordPage />} />
 
