@@ -340,7 +340,7 @@ const [approvalLoading, setApprovalLoading] = useState(false);
       breadcrumbs={[{ label: 'Super Admin Portal' }]}
       title="Super Admin Portal"
     >
-      <div className="space-y-6">
+      <div className="space-y-5">
         {(propertyLoadError || unitsLoadError || billingLoadError) && (
           <div role="alert" className="rounded-lg border border-destructive/50 p-3 text-sm text-destructive">
             Platform totals are incomplete because some API requests failed.
@@ -350,11 +350,13 @@ const [approvalLoading, setApprovalLoading] = useState(false);
           </div>
         )}
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Platform Administration</h1>
-            <p className="text-muted-foreground">
-              Manage landlords, system settings, and user accounts
+            <h1 className="text-2xl font-bold">{activeTab === 'dashboard' ? 'Platform Overview' : 'Platform Administration'}</h1>
+            <p className="text-muted-foreground text-sm">
+              {activeTab === 'dashboard'
+                ? 'Portfolio performance and activity across the platform'
+                : 'Manage companies, people, access and platform settings'}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -372,7 +374,8 @@ const [approvalLoading, setApprovalLoading] = useState(false);
           </div>
         </div>
 
-        {/* Platform Stats */}
+        {/* Keep global KPIs on Overview only; each management tab owns its metrics. */}
+        {activeTab === 'dashboard' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <Card>
             <CardContent className="p-4">
@@ -445,6 +448,7 @@ const [approvalLoading, setApprovalLoading] = useState(false);
             </CardContent>
           </Card>
         </div>
+        )}
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
