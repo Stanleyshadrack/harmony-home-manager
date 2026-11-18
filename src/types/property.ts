@@ -16,6 +16,7 @@ export interface Property {
   companyId?: number | null;
   companyName?: string | null;
   landlordId: string;
+  landlordIds?: number[];
   createdAt: string;
   updatedAt: string;
 }
