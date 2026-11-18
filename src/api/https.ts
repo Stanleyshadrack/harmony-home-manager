@@ -34,6 +34,18 @@ const BASE_URL =
  * Only /api/auth/me can independently confirm that the active Bearer token
  * has been rejected. Never erase valid credentials on an unrelated 401.
  */
+async function getErrorDetail(response: Response): Promise<string> {
+  try {
+    const data = await response.clone().json();
+    if (typeof data?.message === "string" && data.message.trim()) return data.message;
+    if (typeof data?.error === "string" && data.error.trim()) return data.error;
+    if (typeof data?.code === "string" && data.code.trim()) return data.code;
+  } catch {
+    // The server may return a non-JSON error response.
+  }
+  return response.statusText || "Request rejected";
+}
+
 async function checkCurrentSession(accessToken: string): Promise<"valid" | "invalid" | "unavailable"> {
   try {
     const response = await fetch(`${BASE_URL}/api/auth/me`, {
@@ -146,8 +158,9 @@ export async function apiRequest<TReq, TRes>({
     if (sessionToken === token && token) {
       const sessionState = await checkCurrentSession(token);
       if (sessionState === "valid") {
+        const backendReason = await getErrorDetail(res);
         throw new ApiHttpError(401, path,
-          `[HTTP 401] ${method} ${path}: Request rejected, but your login is still valid.`);
+          `[HTTP 401] ${method} ${path}: ${backendReason}. Your session remains valid.`);
       }
       if (sessionState === "unavailable") {
         throw new Error("Unable to verify your session. Your login has been preserved.");
