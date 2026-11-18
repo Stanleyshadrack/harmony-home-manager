@@ -12,6 +12,7 @@ export interface LandlordTypes {
 
   // Business
   company?: string;
+  companyId?: number | null;
 
   // Status & subscription
   status: "active" | "suspended" | "pending";
