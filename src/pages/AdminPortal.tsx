@@ -1,3 +1,5 @@
+import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
+import { ResponsiveTableView } from '@/components/ui/responsive-table-view';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -81,6 +83,7 @@ import { LandlordTypes } from '@/types/LandlordTypes';
 import { SubscriptionPlan } from '@/api/dto/SubscriptionResponse';
 
 export default function AdminPortal() {
+  const [viewMode, setViewMode] = useViewMode('admin-portal', 'list');
   const { t } = useTranslation();
   const { toast } = useToast();
   const { properties } = useProperties();
@@ -630,7 +633,8 @@ const [approvalLoading, setApprovalLoading] = useState(false);
 
   {approvals.filter(a => a.status === "PENDING" && !["TENANT", "LEASE", "DOCUMENT"].includes(a.type)).length > 0 ? (
     <Card>
-      <Table>
+      <div className="flex justify-end p-3"><ViewModeToggle value={viewMode} onChange={setViewMode} /></div>
+              <ResponsiveTableView mode={viewMode}><Table>
         <TableHeader>
           <TableRow>
             <TableHead>Type</TableHead>
@@ -693,7 +697,7 @@ const [approvalLoading, setApprovalLoading] = useState(false);
               </TableRow>
           ))}
         </TableBody>
-      </Table>
+      </Table></ResponsiveTableView>
     </Card>
   ) : (
     <Card>
@@ -724,7 +728,8 @@ const [approvalLoading, setApprovalLoading] = useState(false);
             </div>
 
             <Card>
-              <Table>
+              <div className="flex justify-end p-3"><ViewModeToggle value={viewMode} onChange={setViewMode} /></div>
+              <ResponsiveTableView mode={viewMode}><Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Landlord</TableHead>
@@ -840,7 +845,7 @@ const [approvalLoading, setApprovalLoading] = useState(false);
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
+              </Table></ResponsiveTableView>
             </Card>
           </TabsContent>
 
