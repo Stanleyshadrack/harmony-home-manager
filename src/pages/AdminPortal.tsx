@@ -97,6 +97,7 @@ export default function AdminPortal() {
   const {
     landlords,
     subscriptionPlans,
+    updateLandlord,
     isSubscriptionExpired,
     getExpiredSubscriptions,
   } = useLandlords();
