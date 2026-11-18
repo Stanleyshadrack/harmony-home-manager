@@ -21,6 +21,7 @@ import {
 } from '@/services/loginSecurityService';
 import { loginService } from '@/api/service/login.service';
 import { tokenService } from '@/services/tokenService';
+import { consumeUnlockDestination } from '@/services/sessionLock';
 import { jwtDecode } from 'jwt-decode';
 import type { JwtPayload } from '@/types/auth';
 
@@ -139,8 +140,9 @@ if (!destination) {
   throw new Error("Unrecognized user role");
 }
 
+const restoredPath = consumeUnlockDestination(data.email, destination);
 toast.success(t("auth.loginSuccess"));
-navigate(destination, { replace: true });
+navigate(restoredPath, { replace: true });
 
 
   } catch (err: any) {
