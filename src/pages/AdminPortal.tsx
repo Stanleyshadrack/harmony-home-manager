@@ -73,6 +73,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { LandlordForm } from '@/components/admin/LandlordForm';
 import { SystemLockControl } from '@/components/admin/SystemLockControl';
+import { CompanyManagement } from '@/components/admin/CompanyManagement';
 import { UserPasswordReset } from '@/components/admin/UserPasswordReset';
 import { BulkEmailForm } from '@/components/admin/BulkEmailForm';
 import { SubscriptionRenewalDialog } from '@/components/landlords/SubscriptionRenewalDialog';
@@ -450,6 +451,10 @@ const [approvalLoading, setApprovalLoading] = useState(false);
                 </span>
               )}
             </TabsTrigger>
+            <TabsTrigger value="companies" className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Companies</span>
+            </TabsTrigger>
             <TabsTrigger value="landlords" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
               <span className="hidden sm:inline">Landlords</span>
@@ -708,6 +713,11 @@ const [approvalLoading, setApprovalLoading] = useState(false);
     </Card>
   )}
 </TabsContent>
+
+          {/* Company creation and management */}
+          <TabsContent value="companies" className="space-y-4">
+            <CompanyManagement />
+          </TabsContent>
 
           {/* Landlords Tab */}
           <TabsContent value="landlords" className="space-y-4">
