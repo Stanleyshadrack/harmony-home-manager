@@ -1,3 +1,4 @@
+import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -36,6 +37,7 @@ import { sendPaymentReceiptEmail } from '@/services/emailService';
 import type { Invoice, InvoiceStatus, Payment } from '@/types/billing';
 
 export default function Billing() {
+  const [viewMode, setViewMode] = useViewMode('billing');
   const { t } = useTranslation();
   const { toast } = useToast();
   const {
@@ -314,6 +316,7 @@ export default function Billing() {
             </TabsTrigger>
           </TabsList>
 
+      <div className="flex justify-end mb-3"><ViewModeToggle value={viewMode} onChange={setViewMode} /></div>
           <TabsContent value="invoices" className="mt-6">
             {filteredInvoices.length === 0 ? (
               <Card>
@@ -334,7 +337,7 @@ export default function Billing() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className={viewMode === 'grid' ? "grid gap-4 md:grid-cols-2 lg:grid-cols-3" : "grid grid-cols-1 gap-3"}>
                 {filteredInvoices.map((invoice) => (
                   <InvoiceCard
                     key={invoice.id}
@@ -361,7 +364,7 @@ export default function Billing() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className={viewMode === 'grid' ? "grid gap-4 md:grid-cols-2 lg:grid-cols-3" : "grid grid-cols-1 gap-3"}>
                 {filteredPayments.map((payment) => (
                   <PaymentCard key={payment.id} payment={payment} />
                 ))}
