@@ -13,6 +13,8 @@ export interface Property {
   occupiedUnits: number;
   amenities: string[];
   photos: string[];
+  companyId?: number | null;
+  companyName?: string | null;
   landlordId: string;
   createdAt: string;
   updatedAt: string;
@@ -57,6 +59,7 @@ export interface PropertyFormData {
   country: string;
   postalCode: string;
   propertyType: Property['propertyType'];
+  companyId?: number;
   amenities?: string[];
 }
 
