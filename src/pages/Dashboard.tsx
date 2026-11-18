@@ -132,7 +132,7 @@ export default function Dashboard() {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>{t('dashboard.recentActivity')}</CardTitle>
             <Button asChild variant="ghost" size="sm" className="gap-1">
-              <Link to="/audit-logs">View all <ArrowRight className="h-4 w-4" /></Link>
+              <Link to="/recent-activities">View all <ArrowRight className="h-4 w-4" /></Link>
             </Button>
           </CardHeader>
           <CardContent>
