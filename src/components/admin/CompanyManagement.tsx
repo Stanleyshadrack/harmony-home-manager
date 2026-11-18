@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Building2, Plus, RefreshCw, Search } from 'lucide-react';
+import { Building2, Plus, RefreshCw, Search, Users, CreditCard, Clock3, ArrowRight } from 'lucide-react';
 import { apiRequest } from '@/api/https';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -87,13 +87,13 @@ export function CompanyManagement() {
   );
 
   return (
-    <section className="min-w-0 space-y-5">
+    <section className="min-w-0 space-y-4">
       {/* Section header and primary action */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 space-y-1">
           <h2 className="text-xl font-semibold tracking-tight">Companies</h2>
           <p className="text-sm text-muted-foreground">
-            Manage your companies, their associated landlords and subscription status.
+            Organize properties, landlord accounts and subscriptions by company.
           </p>
         </div>
         <Button className="w-full shrink-0 sm:w-auto" onClick={() => setDialogOpen(true)}>
@@ -101,26 +101,30 @@ export function CompanyManagement() {
         </Button>
       </div>
 
-      {/* Compact, real-time summary based on the loaded company list */}
+      {/* Company-level KPI cards appear once company data exists. */}
+      {companies.length > 0 && (
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
-          { label: 'Total companies', value: companies.length },
-          { label: 'Active subscriptions', value: activeCount },
-          { label: 'Expiring within 30 days', value: expiringSoon },
-          { label: 'Total properties', value: totalProperties },
+          { label: 'Total companies', value: companies.length, icon: Building2 },
+          { label: 'Active subscriptions', value: activeCount, icon: CreditCard },
+          { label: 'Expiring within 30 days', value: expiringSoon, icon: Clock3 },
+          { label: 'Total properties', value: totalProperties, icon: Users },
         ].map(metric => (
           <Card key={metric.label} className="min-w-0">
-            <CardContent className="p-3 sm:p-4">
-              <p className="text-xs text-muted-foreground">{metric.label}</p>
-              <p className="mt-1 text-xl font-semibold tabular-nums">
-                {loading && companies.length === 0 ? '…' : metric.value}
-              </p>
+            <CardContent className="flex items-center justify-between gap-2 p-3 sm:p-4">
+              <div>
+                <p className="text-xs text-muted-foreground">{metric.label}</p>
+                <p className="mt-1 text-2xl font-semibold tabular-nums">{metric.value}</p>
+              </div>
+              <span className="rounded-lg bg-primary/10 p-2 text-primary"><metric.icon className="h-4 w-4" /></span>
             </CardContent>
           </Card>
         ))}
       </div>
+      )}
 
       {/* Search and display controls */}
+      {(companies.length > 0 || search.length > 0) && (
       <div className="flex flex-col gap-3 rounded-lg border bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative min-w-0 flex-1 sm:max-w-xl">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -138,17 +142,41 @@ export function CompanyManagement() {
         </div>
       </div>
 
+      )}
       {loading && <p role="status" className="text-sm text-muted-foreground">Loading companies…</p>}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
       {!loading && !error && visible.length === 0 && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-            <Building2 className="h-9 w-9 text-muted-foreground" />
-            <p className="font-medium">{search ? 'No matching companies' : 'No companies yet'}</p>
-            <p className="text-sm text-muted-foreground">
-              {search ? 'Try a different search term.' : 'Create your first company to get started.'}
+        <Card className="overflow-hidden border-dashed">
+          <CardContent className="flex flex-col items-center justify-center px-5 py-10 text-center sm:py-14">
+            <div className="mb-4 rounded-2xl border bg-primary/10 p-4 text-primary">
+              <Building2 className="h-8 w-8" />
+            </div>
+            <h3 className="text-lg font-semibold">
+              {search ? 'No companies match your search' : 'Set up your first company'}
+            </h3>
+            <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
+              {search
+                ? 'Try another name or clear your search to see all companies.'
+                : 'Companies organize properties, landlord accounts, and subscriptions. Create one to start setting up your portfolio.'}
             </p>
+            <div className="mt-5 flex flex-wrap justify-center gap-2">
+              {search ? (
+                <Button variant="outline" onClick={() => setSearch('')}>Clear search</Button>
+              ) : (
+                <Button onClick={() => setDialogOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" /> Create first company
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" onClick={() => void load()}>
+                <RefreshCw className="mr-2 h-4 w-4" /> Refresh
+              </Button>
+            </div>
+            {!search && (
+              <p className="mt-5 flex items-center gap-2 text-xs text-muted-foreground">
+                Next: invite landlords <ArrowRight className="h-3 w-3" /> assign properties
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
