@@ -2,6 +2,22 @@ import { tokenService } from "@/services/tokenService";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 
+export class ApiHttpError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly path: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = status === 423 ? "MaintenanceLockedError" : "ApiHttpError";
+  }
+}
+
+export function isMaintenanceLockedError(error: unknown): error is ApiHttpError {
+  return error instanceof ApiHttpError && error.status === 423;
+}
+
+
 interface ApiRequestOptions<T> {
   path: string;
   method?: HttpMethod;
@@ -107,7 +123,7 @@ export async function apiRequest<TReq, TRes>({
       message = "Unexpected server error";
     }
 
-    throw new Error(`[HTTP ${res.status}] ${message}`);
+    throw new ApiHttpError(res.status, path, `[HTTP ${res.status}] ${method} ${path}: ${message}`);
   }
 
   /* =========================
