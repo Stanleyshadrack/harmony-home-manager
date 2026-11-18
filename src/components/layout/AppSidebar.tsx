@@ -98,9 +98,9 @@ const secondaryNavItems: NavItem[] = [
 export function AppSidebar() {
   const { t } = useTranslation();
   const { user, logout } = useAuth();
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const location = useLocation();
-  const collapsed = state === 'collapsed';
+  const collapsed = !isMobile && state === 'collapsed';
   const userRole = user?.role || 'tenant';
 
   // Filter nav items based on user role
@@ -113,6 +113,7 @@ export function AppSidebar() {
   );
 
   const handleLogout = async () => {
+    setOpenMobile(false);
     await logout();
     toast.success(t('auth.logoutSuccess'));
   };
@@ -141,7 +142,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="border-b border-sidebar-border">
+      <SidebarHeader className="border-b border-sidebar-border pr-12 md:pr-2">
         <div className="flex items-center gap-3 px-2 py-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
             <Building2 className="h-4 w-4" />
@@ -173,7 +174,7 @@ export function AppSidebar() {
                     isActive={location.pathname === item.url}
                     tooltip={collapsed ? getRoleModuleLabel(item.url, userRole, t(item.title)) : undefined}
                   >
-                    <NavLink to={item.url}>
+                    <NavLink to={item.url} onClick={() => setOpenMobile(false)}>
                       <item.icon className="h-4 w-4" />
                       <span>{getRoleModuleLabel(item.url, userRole, t(item.title))}</span>
                     </NavLink>
@@ -196,7 +197,7 @@ export function AppSidebar() {
                       isActive={location.pathname === item.url}
                       tooltip={collapsed ? getRoleModuleLabel(item.url, userRole, t(item.title)) : undefined}
                     >
-                      <NavLink to={item.url}>
+                      <NavLink to={item.url} onClick={() => setOpenMobile(false)}>
                         <item.icon className="h-4 w-4" />
                         <span>{getRoleModuleLabel(item.url, userRole, t(item.title))}</span>
                       </NavLink>
@@ -243,7 +244,7 @@ export function AppSidebar() {
                 className="w-56"
               >
                 <DropdownMenuItem asChild>
-                  <NavLink to="/settings" className="cursor-pointer">
+                  <NavLink to="/settings" className="cursor-pointer" onClick={() => setOpenMobile(false)}>
                     <Settings className="mr-2 h-4 w-4" />
                     {t('settings.profile')}
                   </NavLink>
