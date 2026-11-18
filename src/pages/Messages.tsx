@@ -11,6 +11,7 @@ import { MessageThread } from '@/components/messages/MessageThread';
 import { MessageInput } from '@/components/messages/MessageInput';
 import { NewConversationDialog } from '@/components/messages/NewConversationDialog';
 import { GroupManagementDialog } from '@/components/messages/GroupManagementDialog';
+import { ForwardMessageDialog } from '@/components/messages/ForwardMessageDialog';
 import type { Conversation, Message, NewConversationData } from '@/types/message';
 import { useToast } from '@/hooks/use-toast';
 
@@ -26,13 +27,14 @@ export default function Messages() {
   const [selectedSnapshot, setSelectedSnapshot] = useState<Conversation | null>(null);
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [showGroupDialog, setShowGroupDialog] = useState(false);
+  const [forwardCandidate, setForwardCandidate] = useState<Message | null>(null);
   const [showMobileList, setShowMobileList] = useState(true);
 
   const selectedConversation = selectedSnapshot?.id === selectedId
     ? selectedSnapshot : conversations.find(item => item.id === selectedId) ?? null;
   const {
     messages, isLoading: loadingMessages, error: messagesError,
-    sendMessage, deleteMessage,
+    sendMessage, uploadAttachment, forwardMessage, deleteMessage,
   } = useMessages(selectedId);
 
   useEffect(() => {
@@ -78,6 +80,24 @@ export default function Messages() {
       });
       throw error;
     }
+  };
+
+  const uploadFile = async (file: File, caption: string) => {
+    try {
+      await uploadAttachment(file, caption);
+      void refreshConversations();
+    } catch (error) {
+      toast({ title: 'Could not upload attachment',
+        description: error instanceof Error ? error.message : 'Try again.',
+        variant: 'destructive' });
+      throw error;
+    }
+  };
+
+  const forward = async (message: Message, destinationId: number) => {
+    await forwardMessage(message.id, destinationId);
+    await refreshConversations();
+    toast({ title: 'Message forwarded', description: 'Sent to the selected conversation.' });
   };
 
   const removeMessage = async (message: Message) => {
@@ -207,6 +227,7 @@ export default function Messages() {
                 messages={messages}
                 isLoading={loadingMessages}
                 onDelete={removeMessage}
+                onForward={setForwardCandidate}
                 canDeleteOthers={selectedConversation.type === 'GROUP' && selectedConversation.currentUserAdmin}
                 totalParticipants={selectedConversation.members.length}
               />
@@ -215,7 +236,7 @@ export default function Messages() {
                   Only group admins can send messages in this group.
                 </p>
               )}
-              <MessageInput onSend={send} disabled={!canSend}
+              <MessageInput onSend={send} onUploadFile={uploadFile} disabled={!canSend}
                 placeholder={canSend ? 'Type a message…' : 'Only admins can send'} />
             </>
           ) : (
@@ -237,6 +258,13 @@ export default function Messages() {
         open={showNewDialog}
         onOpenChange={setShowNewDialog}
         onSubmit={create}
+      />
+      <ForwardMessageDialog
+        open={forwardCandidate !== null}
+        onOpenChange={open => { if (!open) setForwardCandidate(null); }}
+        message={forwardCandidate}
+        conversations={conversations}
+        onForward={forward}
       />
       <GroupManagementDialog
         open={showGroupDialog}
