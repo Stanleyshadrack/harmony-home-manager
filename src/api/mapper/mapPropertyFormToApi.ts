@@ -13,6 +13,7 @@ export function mapPropertyFormToApi(
     country: form.country,
     postalCode: form.postalCode,
     propertyType: form.propertyType.toUpperCase(),
+    ...(form.companyId != null ? { companyId: form.companyId } : {}),
     amenities: form.amenities,
   };
 }
