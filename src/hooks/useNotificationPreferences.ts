@@ -1,8 +1,10 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiRequest } from '@/api/https';
+import { DEFAULT_SOUND_SETTINGS, NotificationSoundSettings } from '@/services/notificationSound';
 
 export interface NotificationPreferences {
+  sound: NotificationSoundSettings;
   inApp: {
     enabled: boolean;
     waterReadings: boolean;
@@ -30,6 +32,7 @@ export interface NotificationPreferences {
 }
 
 const defaultPreferences: NotificationPreferences = {
+  sound: DEFAULT_SOUND_SETTINGS,
   inApp: {
     enabled: true,
     waterReadings: true,
@@ -86,7 +89,7 @@ export function useNotificationPreferences() {
     setError(null);
     if (!user?.id) { setIsLoading(false); return; }
     apiRequest<null, NotificationPreferences>({path:'/api/account-support/notification-preferences',method:'GET'})
-      .then(data=>{if(active)setPreferences(data);})
+      .then(data=>{if(active)setPreferences({...data,sound:data.sound ?? DEFAULT_SOUND_SETTINGS});})
       .catch(error=>{if(active)setError(error instanceof Error ? error.message : 'Unable to load saved preferences');})
       .finally(()=>{if(active)setIsLoading(false);});
     return ()=>{active=false;};
@@ -114,6 +117,15 @@ export function useNotificationPreferences() {
     setPreferences(saved);
   },[preferences,user?.id]);
 
+  const updateSoundSettings = useCallback(async (settings: NotificationSoundSettings) => {
+    if (!user?.id) throw new Error('Not authenticated');
+    const next = {...preferences, sound: settings};
+    const saved = await apiRequest<NotificationPreferences,NotificationPreferences>({
+      path:'/api/account-support/notification-preferences', method:'PUT', body:next,
+    });
+    setPreferences({...saved, sound:saved.sound ?? DEFAULT_SOUND_SETTINGS});
+  }, [preferences,user?.id]);
+
   const resetToDefaults = useCallback(async () => {
     if (!user?.id) throw new Error('Not authenticated');
     const saved = await apiRequest<NotificationPreferences,NotificationPreferences>({
@@ -137,6 +149,7 @@ export function useNotificationPreferences() {
     updatePreferences,
     updateChannelPreference,
     resetToDefaults,
+    updateSoundSettings,
     shouldNotify,
   };
 }
