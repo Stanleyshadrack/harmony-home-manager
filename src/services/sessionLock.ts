@@ -17,7 +17,7 @@ export function readLockInfo(): LockInfo | null {
 }
 
 /** Immediately remove usable browser credentials before signalling the UI. */
-export function lockSession(reason: LockInfo['reason'] = 'manual') {
+export function lockSession(reason: LockInfo['reason'] = 'manual', broadcast = true) {
   if (typeof window === 'undefined') return;
   const path = window.location.pathname + window.location.search;
   const email = window.localStorage.getItem('apartment:active-email') || '';
@@ -27,7 +27,7 @@ export function lockSession(reason: LockInfo['reason'] = 'manual') {
   } satisfies LockInfo));
   tokenService.clearTokens();
   // A storage event is delivered to other tabs sharing this origin.
-  localStorage.setItem(LOCK_EVENT, String(Date.now()));
+  if (broadcast) localStorage.setItem(LOCK_EVENT, String(Date.now()));
   window.dispatchEvent(new Event(SESSION_LOCK_EVENT));
 }
 
