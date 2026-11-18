@@ -117,16 +117,10 @@ export default function EmployeePortal() {
     try {
       const unit = units.find((u) => u.id === data.unitId);
       if (unit) {
-        createWaterInvoice(
-          data,
-          'tenant-1',
-          'Tenant Name',
-          'Property Name',
-          unit.unitNumber
-        );
+        await createWaterInvoice(data);
         toast({
           title: 'Water Reading Recorded',
-          description: 'Invoice has been generated for the tenant.',
+          description: 'Reading saved; billing follows the approved billing cycle.',
         });
         setShowWaterReadingForm(false);
       }
