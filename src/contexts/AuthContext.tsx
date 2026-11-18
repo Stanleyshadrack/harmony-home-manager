@@ -126,6 +126,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { active = false; };
   }, [userFromAccessToken]);
 
+  // Prevent stale authenticated screens when an API refresh cannot recover a session.
+  useEffect(() => {
+    const expire = () => {
+      tokenService.clearTokens();
+      setUser(null);
+      setIsLoading(false);
+    };
+    window.addEventListener("apartment:session-expired", expire);
+    return () => window.removeEventListener("apartment:session-expired", expire);
+  }, []);
+
   /* =========================
      Login (pre-OTP)
      Backend handles this
