@@ -20,6 +20,7 @@ export interface PropertyApiResponse {
   occupiedUnits: number;
 
   landlordId: number;
+  landlordIds?: number[];
   companyId?: number | null;
   companyName?: string | null;
 
