@@ -172,8 +172,8 @@ export function useProperties() {
      UNASSIGN LANDLORD
   ========================= */
   const unassignLandlordMutation = useMutation({
-    mutationFn: (propertyId: number) =>
-      PropertyApi.unassignLandlord(propertyId),
+    mutationFn: ({ propertyId, landlordId }: { propertyId: number; landlordId: number }) =>
+      PropertyApi.unassignLandlord(propertyId, landlordId),
 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['properties'] });
@@ -210,8 +210,8 @@ export function useProperties() {
     assignLandlord: (propertyId: number, landlordId: number) =>
       assignLandlordMutation.mutateAsync({ propertyId, landlordId }),
 
-    unassignLandlord: (propertyId: number) =>
-      unassignLandlordMutation.mutateAsync(propertyId),
+    unassignLandlord: (propertyId: number, landlordId: number) =>
+      unassignLandlordMutation.mutateAsync({ propertyId, landlordId }),
   };
 }
 
