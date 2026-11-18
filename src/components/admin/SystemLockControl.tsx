@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 
 type LockUser = { id: number; email: string; name: string; role: string; locked: boolean; reason: string | null };
 type LockResult = { emailsQueued: number };
+type EmailStatus = { pending: number; sent: number; failed: number; mostRecentError: string | null };
 type GlobalResult = { status: {enabled:boolean;message:string}; emailsQueued:number };
 
 export function SystemLockControl() {
@@ -28,6 +29,7 @@ export function SystemLockControl() {
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<{kind:'global'|'user'|'bulk'; enabled:boolean; user?:LockUser} | null>(null);
   const [usersError, setUsersError] = useState('');
+  const [mailStatus, setMailStatus] = useState<EmailStatus | null>(null);
 
   async function loadUsers() {
     try {
@@ -40,7 +42,20 @@ export function SystemLockControl() {
       setUsersError(e instanceof Error ? e.message : 'Could not load user accounts');
     }
   }
-  useEffect(() => {void loadUsers();}, []);
+  async function loadMailStatus() {
+    try {
+      const result = await apiRequest<null, EmailStatus>({
+        path: '/api/system-maintenance/email-status', method: 'GET'
+      });
+      setMailStatus(result);
+    } catch { setMailStatus(null); }
+  }
+  useEffect(() => {
+    void loadUsers();
+    void loadMailStatus();
+    const timer = window.setInterval(() => void loadMailStatus(), 15000);
+    return () => window.clearInterval(timer);
+  }, []);
   useEffect(() => { if (status.message) setReason(status.message); }, [status.message]);
 
   async function apply() {
@@ -71,6 +86,7 @@ export function SystemLockControl() {
         queued = result.emailsQueued;
       }
       await loadUsers();
+      await loadMailStatus();
       toast({title:'Access updated',description:
         `The lock state was saved. ${queued} email notification(s) queued for SMTP delivery.`});
       setConfirm(null);
@@ -116,6 +132,24 @@ export function SystemLockControl() {
           Emails are queued after a lock-state change. SMTP delivery is tracked and retried by the server;
           queuing an email is not proof that it reached the inbox.
         </p>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5"/> Maintenance email delivery</CardTitle>
+        <CardDescription>Counts are read from the server. Sent means accepted by SMTP, not confirmed inbox delivery.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {mailStatus ? <div className="space-y-2 text-sm">
+          <div className="flex flex-wrap gap-4">
+            <span>Queued: <strong>{mailStatus.pending}</strong></span>
+            <span>SMTP accepted: <strong>{mailStatus.sent}</strong></span>
+            <span>Retrying / failed: <strong>{mailStatus.failed}</strong></span>
+          </div>
+          {mailStatus.mostRecentError && <p role="alert" className="break-words text-destructive">{mailStatus.mostRecentError}</p>}
+          <Button variant="outline" size="sm" onClick={()=>void loadMailStatus()}>Refresh email status</Button>
+        </div> : <p className="text-sm text-muted-foreground">Email delivery status unavailable</p>}
       </CardContent>
     </Card>
 
