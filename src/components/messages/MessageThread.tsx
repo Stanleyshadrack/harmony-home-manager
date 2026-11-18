@@ -3,14 +3,17 @@ import type { Message } from '@/types/message';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { Check, CheckCheck, Trash2 } from 'lucide-react';
+import { Check, CheckCheck, Trash2, Forward } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { ConfirmActionDialog } from './ConfirmActionDialog';
+import { MessageAttachment } from './MessageAttachment';
+import { UserAvatar } from '@/components/profile/UserAvatar';
 
 interface MessageThreadProps {
   messages: Message[];
   isLoading?: boolean;
   onDelete?: (message: Message) => Promise<void>;
+  onForward?: (message: Message) => void;
   canDeleteOthers?: boolean;
   totalParticipants?: number;
 }
@@ -19,6 +22,7 @@ export function MessageThread({
   messages,
   isLoading,
   onDelete,
+  onForward,
   canDeleteOthers = false,
   totalParticipants = 2,
 }: MessageThreadProps) {
@@ -49,16 +53,37 @@ export function MessageThread({
           const own = message.senderId === Number(user?.id);
           const canDelete = !message.deleted && !!onDelete && (own || canDeleteOthers);
           return (
-            <div key={message.id} className={cn('flex', own ? 'justify-end' : 'justify-start')}>
+            <div key={message.id} className={cn('flex items-end gap-2', own ? 'justify-end' : 'justify-start')}>
+              {!own && <UserAvatar name={message.senderName} avatarUrl={message.senderAvatarUrl} className="h-7 w-7" />}
               <div className={cn(
                 'group relative max-w-[88%] rounded-xl px-3 py-2 shadow-sm sm:max-w-[75%]',
                 own ? 'bg-primary text-primary-foreground' : 'border bg-background'
               )}>
                 {!own && <p className="mb-1 text-xs font-semibold text-primary">{message.senderName}</p>}
-                <p className={cn('whitespace-pre-wrap break-words text-sm', message.deleted && 'italic opacity-75')}>
-                  {message.content}
-                </p>
+                {message.forwarded && (
+                  <p className="mb-1 flex items-center gap-1 text-[11px] italic opacity-75">
+                    <Forward className="h-3 w-3" /> Forwarded
+                  </p>
+                )}
+                {(!message.attachment || message.content !== message.attachment.filename) && (
+                  <p className={cn('whitespace-pre-wrap break-words text-sm', message.deleted && 'italic opacity-75')}>
+                    {message.content}
+                  </p>
+                )}
+                {!message.deleted && message.attachment && (
+                  <MessageAttachment conversationId={message.conversationId}
+                    attachment={message.attachment} />
+                )}
                 <div className={cn('mt-1 flex items-center justify-end gap-2 text-[11px]', own ? 'text-primary-foreground/80' : 'text-muted-foreground')}>
+                  {!message.deleted && onForward && (
+                    <Button type="button" variant="ghost" size="icon"
+                      title="Forward this message"
+                      aria-label="Forward this message"
+                      className="h-8 w-8 opacity-80 hover:opacity-100"
+                      onClick={() => onForward(message)}>
+                      <Forward className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                   {canDelete && (
                     <Button
                       type="button"
