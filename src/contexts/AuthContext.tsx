@@ -5,6 +5,7 @@ import {
   useEffect,
   ReactNode,
   useCallback,
+  useRef,
 } from "react";
 
 import { jwtDecode } from "jwt-decode";
@@ -59,6 +60,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserWithRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  // Distinguish a real new login from a legitimate access-token refresh.
+  const authGeneration = useRef(0);
 
   /* =========================
      Validate JWT claims before restoring a session
@@ -93,6 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true;
     const restore = async () => {
+      const generationAtStart = authGeneration.current;
       const token = tokenService.getAccessToken();
       if (!token) {
         if (active) setIsLoading(false);
@@ -105,9 +109,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           method: "GET",
         });
         const currentToken = tokenService.getAccessToken();
-        // If OTP login or another tab replaced this session while /me was in
-        // flight, do not let stale restoration overwrite the freshly logged-in user.
-        if (currentToken !== token) return;
+        // Refresh can legitimately replace the token while /me is in flight.
+        // Only a new explicit login/logout invalidates the older restoration.
+        if (generationAtStart !== authGeneration.current || !active || !currentToken) return;
         const claims = userFromAccessToken(currentToken);
         if (actual.email !== claims.email ||
             String(actual.id) !== claims.id ||
@@ -121,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         // A request launched with a previous session must never clear tokens
         // issued later by a fresh MFA login or a different browser tab.
-        if (tokenService.getAccessToken() !== token) return;
+        if (generationAtStart !== authGeneration.current || !active) return;
         // A backend restart or network outage must not erase credentials.
         // apiRequest clears tokens itself only when the backend rejects the
         // session and token refresh conclusively fails.
@@ -143,6 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Prevent stale authenticated screens when an API refresh cannot recover a session.
   useEffect(() => {
     const expire = () => {
+      authGeneration.current += 1;
       tokenService.clearTokens();
       setUser(null);
       setIsLoading(false);
@@ -166,6 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ========================= */
 
   const completeLogin = useCallback((accessToken: string) => {
+    authGeneration.current += 1;
     try {
       if (!accessToken || typeof accessToken !== "string") {
         throw new Error("Missing access token");
@@ -184,6 +190,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ========================= */
 
   const logout = useCallback(() => {
+    authGeneration.current += 1;
     setUser(null);
     tokenService.clearTokens();
   }, []);
