@@ -14,6 +14,7 @@ import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Button } from '@/components/ui/button';
 import { Building2 } from 'lucide-react';
 import { AuthTokens } from '@/services/tokenService';
+import { consumeUnlockDestination } from '@/services/sessionLock';
 import { jwtDecode } from 'jwt-decode';
 import type { JwtPayload } from '@/types/auth';
 import { useNavigate } from 'react-router-dom';
@@ -183,11 +184,15 @@ const homeByRole: Record<string, string> = {
                 
                   onBack={() => setAuthView('login')}
                   onSuccess={(tokens: AuthTokens) => {
-                    completeLogin(tokens.accessToken);
-                    // Navigate to the correct portal after MFA for each role.
+                    // Only an authenticated matching account can return to the locked page.
                     const payload = jwtDecode<JwtPayload>(tokens.accessToken);
                     const role = String(payload.role || '').toLowerCase();
-                    navigate(pendingLoginRedirect || homeByRole[role] || '/auth', { replace: true });
+                    const destination = consumeUnlockDestination(
+                      String(payload.sub || otpEmail),
+                      pendingLoginRedirect || homeByRole[role] || '/auth'
+                    );
+                    completeLogin(tokens.accessToken);
+                    navigate(destination, { replace: true });
                   }}
                 />
               )}
