@@ -288,7 +288,6 @@ const [approvalLoading, setApprovalLoading] = useState(false);
     { id: 'active_landlords', label: 'Active Landlords', icon: <CheckCircle className="h-4 w-4" />, count: activeLandlords },
   ];
 
-  const { addNotification } = useInAppNotifications();
 
   const handleRejectApproval = async () => {
   if (!selectedApproval || !rejectionReason.trim()) return;
