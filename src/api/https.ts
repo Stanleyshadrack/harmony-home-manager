@@ -32,27 +32,32 @@ interface ApiRequestOptions<T> {
  * An explicit NEXT_PUBLIC_API_URL still overrides this for deployments.
  */
 function resolveApiBaseUrl(): string {
-  const configured = process.env.NEXT_PUBLIC_API_URL?.trim();
+  const configured = process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/+$/, "") || "";
+
   if (typeof window !== "undefined") {
-    const host = window.location.hostname;
-    if (configured) {
-      const normalized = configured.replace(/\/+$/, "");
-      try {
-        const explicit = new URL(normalized);
-        // Existing developer .env.local files often hardcode localhost.
-        // On phones that hostname points to the phone, not the dev PC.
-        if (host !== "localhost" && host !== "127.0.0.1" &&
-            (explicit.hostname === "localhost" || explicit.hostname === "127.0.0.1")) {
-          return `${window.location.protocol}//${host}:${explicit.port || "8080"}`;
-        }
-      } catch {
-        // The configured URL is invalid; the normal fetch error will expose it.
-      }
-      return normalized;
+    // Use the same origin in the browser for local/LAN development.
+    // Phone -> Next.js :3000 -> internal proxy -> Spring Boot 127.0.0.1:8080.
+    // Never direct a phone to localhost or a privately addressed backend on :8080.
+    if (!configured) return "";
+    try {
+      const parsed = new URL(configured, window.location.origin);
+      const host = parsed.hostname.toLowerCase();
+      const isPrivateBackend = host === "localhost" ||
+        host === "127.0.0.1" ||
+        host === "0.0.0.0" ||
+        host.startsWith("192.168.") ||
+        host.startsWith("10.") ||
+        /^172\.(1[6-9]|2\d|3[01])\./.test(host);
+      if (isPrivateBackend) return "";
+      return configured;
+    } catch {
+      // Malformed environment URL should not break the local API proxy.
+      return "";
     }
-    return `${window.location.protocol}//${host}:8080`;
   }
-  return configured?.replace(/\/+$/, "") || "http://localhost:8080";
+
+  // Server-side calls may need an absolute address.
+  return configured || "http://127.0.0.1:8080";
 }
 
 const BASE_URL = resolveApiBaseUrl();
