@@ -179,11 +179,13 @@ function refreshAccessToken(): Promise<boolean> {
   const tokenAtRefreshStart = tokenService.getAccessToken();
   // Web Locks serialize refresh-token rotation across browser tabs.
   // localhost and HTTPS are secure contexts where navigator.locks is supported.
-  const work = typeof navigator !== "undefined" && navigator.locks
-    ? navigator.locks.request("apartment-auth-refresh", async () => {
-        if (tokenService.getAccessToken() !== tokenAtRefreshStart) return true;
-        return performTokenRefresh();
-      })
+  const work: Promise<boolean> = typeof navigator !== "undefined" && navigator.locks
+    ? (async (): Promise<boolean> => {
+        return await navigator.locks.request("apartment-auth-refresh", async () => {
+          if (tokenService.getAccessToken() !== tokenAtRefreshStart) return true;
+          return await performTokenRefresh();
+        });
+      })()
     : performTokenRefresh();
   refreshInFlight = work;
   void work.then(
