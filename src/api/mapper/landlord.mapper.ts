@@ -20,6 +20,7 @@ export const mapLandlordDto = (dto: any): LandlordTypes => ({
   email: dto.email ?? "",
   phone: dto.phone ?? "",
   company: dto.company ?? dto.companyName,
+  companyId: dto.companyId == null ? null : Number(dto.companyId),
   avatarUrl: dto.avatarUrl,
 
   status: String(dto.status ?? "pending").toLowerCase() === "active"
