@@ -11,6 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { User, Mail, Phone, Camera, Save, Loader2 } from 'lucide-react';
 import { NotificationPreferences } from '@/components/settings/NotificationPreferences';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Bell, ShieldCheck, UserRound } from 'lucide-react';
 import { fileToBase64 } from '@/services/userManagementService';
 import { apiRequest } from '@/api/https';
 import { useToast } from '@/hooks/use-toast';
@@ -121,7 +123,13 @@ export default function Settings() {
       ]}
     >
       {profileError && <p role="alert" className="text-destructive mb-4">{profileError}</p>}
-      <div className="grid gap-6 lg:grid-cols-3">
+      <Tabs defaultValue="account" className="space-y-5">
+        <TabsList className="h-auto flex flex-wrap justify-start gap-1">
+          <TabsTrigger value="account" className="gap-2"><UserRound className="h-4 w-4" />Profile & Account</TabsTrigger>
+          <TabsTrigger value="security" className="gap-2"><ShieldCheck className="h-4 w-4" />Security</TabsTrigger>
+          <TabsTrigger value="notifications" className="gap-2"><Bell className="h-4 w-4" />Notifications & Sounds</TabsTrigger>
+        </TabsList>
+        <TabsContent value="account" className="grid gap-6 lg:grid-cols-3">
         {/* Profile Card */}
         <Card className="lg:col-span-1">
           <CardHeader>
@@ -267,15 +275,20 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-3"><CardHeader><CardTitle>Account security</CardTitle>
+        </TabsContent>
+        <TabsContent value="security" className="space-y-5">
+        <Card><CardHeader><CardTitle>Account security</CardTitle>
           <CardDescription>Security is enforced by the server. Super Admin sign-in requires the configured email verification flow. This screen does not create or revoke login sessions or enable an authenticator app.</CardDescription>
           </CardHeader><CardContent className="text-sm text-muted-foreground">Use Sign Out to end your current browser session. Contact your administrator for account access and verification changes.</CardContent></Card>
 
+        </TabsContent>
+        <TabsContent value="notifications" className="space-y-5">
         {/* Notification Preferences */}
-        <div className="lg:col-span-2">
+        <div className="max-w-4xl">
           <NotificationPreferences />
         </div>
-      </div>
+        </TabsContent>
+      </Tabs>
     </DashboardLayout>
   );
 }
