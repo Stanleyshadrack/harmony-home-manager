@@ -115,8 +115,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           localStorage.setItem('apartment:active-email', claims.email);
           setUser(claims);
         }
-      } catch {
-        tokenService.clearTokens();
+      } catch (error) {
+        // A backend restart or network outage must not erase credentials.
+        // apiRequest clears tokens itself only when the backend rejects the
+        // session and token refresh conclusively fails.
+        if (!tokenService.getAccessToken() ||
+            (error instanceof Error && (error.message.includes("Session expired") ||
+              error.message.includes("Session identity mismatch") ||
+              error.message.includes("Invalid or expired access token")))) {
+          tokenService.clearTokens();
+        }
         if (active) setUser(null);
       } finally {
         if (active) setIsLoading(false);
