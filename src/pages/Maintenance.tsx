@@ -1,3 +1,4 @@
+import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -37,6 +38,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { MaintenanceRequest, MaintenanceStatus } from '@/types/maintenance';
 
 export default function Maintenance() {
+  const [viewMode, setViewMode] = useViewMode('maintenance');
   const { t } = useTranslation();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -228,6 +230,7 @@ export default function Maintenance() {
             </TabsTrigger>
           </TabsList>
 
+      <div className="flex justify-end mb-3"><ViewModeToggle value={viewMode} onChange={setViewMode} /></div>
           <TabsContent value={activeTab} className="mt-6">
             {filteredRequests.length === 0 ? (
               <Card>
@@ -250,7 +253,7 @@ export default function Maintenance() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className={viewMode === 'grid' ? "grid gap-4 md:grid-cols-2 lg:grid-cols-3" : "grid grid-cols-1 gap-3"}>
                 {filteredRequests.map((request) => (
                   <MaintenanceCard
                     key={request.id}
