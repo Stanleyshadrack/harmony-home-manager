@@ -17,9 +17,10 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   inviterRole: UserRole;
+  initialRole?: Role;
 }
 
-export function InviteUserDialog({ open, onOpenChange, inviterRole }: Props) {
+export function InviteUserDialog({ open, onOpenChange, inviterRole, initialRole }: Props) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>("TENANT");
   const [propertyIds, setPropertyIds] = useState<number[]>([]);
@@ -46,8 +47,15 @@ export function InviteUserDialog({ open, onOpenChange, inviterRole }: Props) {
   }
 
   useEffect(() => {
-    if (open) void refresh();
-  }, [open]);
+    if (open) {
+      setRole(initialRole === "LANDLORD" && inviterRole === "super_admin" ? "LANDLORD" : "TENANT");
+      setEmail("");
+      setCompanyId(null);
+      setPropertyIds([]);
+      setUnitId(null);
+      void refresh();
+    }
+  }, [open, initialRole, inviterRole]);
 
   // Companies must be selectable before any property has been created.
   const companies = options.companies;
