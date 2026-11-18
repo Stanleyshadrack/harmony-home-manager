@@ -67,7 +67,7 @@ REJECT_APPROVAL: (id: number) =>
  UNITS: "/api/units",
 
   UNIT_BY_ID: (id: string) =>
-    `/v1/apartment-units/${id}`,
+    `/api/units/${id}`,
 
 UNITS_BY_PROPERTY: (propertyId: number | string) =>
   `/api/units/property/${propertyId}`,
