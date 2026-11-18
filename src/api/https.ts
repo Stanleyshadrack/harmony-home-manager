@@ -83,7 +83,7 @@ async function checkCurrentSession(accessToken: string): Promise<"valid" | "inva
   try {
     const response = await fetch(`${BASE_URL}/api/auth/me`, {
       method: "GET",
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: { Accept: "application/json", Authorization: `Bearer ${accessToken}` },
       signal: AbortSignal.timeout(7000),
     });
     if (response.ok) return "valid";
@@ -131,6 +131,7 @@ export async function apiRequest<TReq, TRes>({
       method,
       signal: controller.signal,
       headers: {
+        "Accept": "application/json",
         ...(body instanceof FormData
           ? {}
           : { "Content-Type": "application/json" }),
@@ -294,7 +295,7 @@ async function performTokenRefresh(): Promise<RefreshResult> {
   try {
     const res = await fetch(`${BASE_URL}/api/auth/refresh`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Accept": "application/json", "Content-Type": "application/json" },
       body: JSON.stringify({ refreshToken: originalRefreshToken }),
     });
 
