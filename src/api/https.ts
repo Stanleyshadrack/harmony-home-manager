@@ -11,7 +11,7 @@ interface ApiRequestOptions<T> {
 }
 
 const BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "";
 
 export async function apiRequest<TReq, TRes>({
   path,
