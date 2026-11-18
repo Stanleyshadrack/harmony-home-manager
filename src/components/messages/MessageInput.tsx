@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Send } from 'lucide-react';
+import { EmojiPicker } from './EmojiPicker';
 
 interface MessageInputProps {
   onSend: (content: string) => Promise<void>;
@@ -12,6 +13,21 @@ interface MessageInputProps {
 export function MessageInput({ onSend, disabled = false, placeholder }: MessageInputProps) {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const insertEmoji = (emoji: string) => {
+    if (disabled || sending) return;
+    const input = textareaRef.current;
+    const start = input?.selectionStart ?? message.length;
+    const end = input?.selectionEnd ?? message.length;
+    const text = (message.slice(0, start) + emoji + message.slice(end)).slice(0, 4000);
+    const caret = Math.min(start + emoji.length, text.length);
+    setMessage(text);
+    window.requestAnimationFrame(() => {
+      input?.focus();
+      input?.setSelectionRange(caret, caret);
+    });
+  };
 
   const submit = async (event?: React.FormEvent) => {
     event?.preventDefault();
@@ -31,8 +47,10 @@ export function MessageInput({ onSend, disabled = false, placeholder }: MessageI
   return (
     <form onSubmit={event => void submit(event)} className="shrink-0 border-t p-3 sm:p-4">
       <div className="flex items-end gap-2">
+        <EmojiPicker onSelect={insertEmoji} disabled={disabled || sending} label="Add emoji to message" />
         <Textarea
           aria-label="Type a message"
+          ref={textareaRef}
           value={message}
           onChange={event => setMessage(event.target.value)}
           onKeyDown={event => {
