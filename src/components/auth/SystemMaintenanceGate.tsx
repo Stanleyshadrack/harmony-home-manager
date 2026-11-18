@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export function SystemMaintenanceGate({children}:{children: React.ReactNode}) {
   const { user, isLoading: authLoading, logout } = useAuth();
-  const { status, loading, error, refresh } = useSystemMaintenance();
+  const { status, loading, error, refresh } = useSystemMaintenance(user?.id);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -33,7 +33,7 @@ export function SystemMaintenanceGate({children}:{children: React.ReactNode}) {
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
           <Wrench className="h-10 w-10 text-primary"/>
         </div>
-        <CardTitle className="text-2xl">System under maintenance</CardTitle>
+        <CardTitle className="text-2xl">{('scope' in status && status.scope === 'USER') ? 'Account access restricted' : 'System under maintenance'}</CardTitle>
         <CardDescription>Access has temporarily been restricted by the system administrator.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5 text-center">
