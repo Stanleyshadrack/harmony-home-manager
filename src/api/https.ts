@@ -88,6 +88,9 @@ export async function apiRequest<TReq, TRes>({
   /* =========================
      Error handling
   ========================= */
+  if (res.status === 423 && typeof window !== "undefined") {
+    window.dispatchEvent(new Event("apartment:maintenance-status"));
+  }
   if (!res.ok) {
     let message = "Request failed";
 
