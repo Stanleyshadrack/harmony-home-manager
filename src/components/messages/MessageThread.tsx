@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Message } from '@/types/message';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Check, CheckCheck, Trash2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { ConfirmActionDialog } from './ConfirmActionDialog';
 
 interface MessageThreadProps {
   messages: Message[];
@@ -23,6 +24,7 @@ export function MessageThread({
 }: MessageThreadProps) {
   const { user } = useAuth();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [pendingDelete, setPendingDelete] = useState<Message | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -35,6 +37,7 @@ export function MessageThread({
   }
 
   return (
+    <>
     <div className="min-h-0 flex-1 overflow-y-auto bg-muted/20 px-3 py-4 sm:px-5">
       <div className="mx-auto max-w-3xl space-y-3">
         {messages.length === 0 && (
@@ -63,8 +66,8 @@ export function MessageThread({
                       size="icon"
                       title="Delete message for everyone"
                       aria-label="Delete message for everyone"
-                      className="h-6 w-6 opacity-70 hover:opacity-100"
-                      onClick={() => { if (window.confirm('Delete this message for everyone?')) void onDelete?.(message); }}
+                      className="h-8 w-8 opacity-80 hover:opacity-100"
+                      onClick={() => setPendingDelete(message)}
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
@@ -85,5 +88,16 @@ export function MessageThread({
         <div ref={bottomRef} aria-hidden="true" />
       </div>
     </div>
+    <ConfirmActionDialog
+      open={pendingDelete !== null}
+      onOpenChange={open => { if (!open) setPendingDelete(null); }}
+      title="Delete message?"
+      description="This message will be deleted for everyone in this conversation. You cannot undo this action."
+      confirmLabel="Delete for everyone"
+      onConfirm={async () => {
+        if (pendingDelete && onDelete) await onDelete(pendingDelete);
+      }}
+    />
+    </>
   );
 }
