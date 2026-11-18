@@ -63,7 +63,7 @@ import {
   Mail,
   RefreshCw,
 } from 'lucide-react';
-import { useProperties } from '@/hooks/useProperties';
+import { useProperties, useUnits } from '@/hooks/useProperties';
 import { useTenants } from '@/hooks/useTenants';
 import { useBilling } from '@/hooks/useBilling';
 import { useInAppNotifications } from '@/hooks/useInAppNotifications';
@@ -87,9 +87,10 @@ export default function AdminPortal() {
   const [viewMode, setViewMode] = useViewMode('admin-portal', 'list');
   const { t } = useTranslation();
   const { toast } = useToast();
-  const { properties } = useProperties();
+  const { properties, loadError: propertyLoadError } = useProperties();
+  const { units, loadError: unitsLoadError } = useUnits();
   const { tenants } = useTenants();
-  const { invoices, payments } = useBilling();
+  const { invoices, payments, loadError: billingLoadError } = useBilling();
   const { user } = useAuth();
   const [showApprovalDetails, setShowApprovalDetails] = useState(false);
   const {
@@ -153,7 +154,7 @@ const [approvalLoading, setApprovalLoading] = useState(false);
   const totalLandlords = landlords.length;
   const activeLandlords = landlords.filter((l) => l.status === 'active').length;
   const totalProperties = properties.length;
-  const totalUnits = landlords.reduce((sum, l) => sum + l.currentUnits, 0);
+  const totalUnits = units.length;
   const expiredSubscriptions = getExpiredSubscriptions();
 
   const filteredLandlords = landlords.filter(
@@ -340,6 +341,14 @@ const [approvalLoading, setApprovalLoading] = useState(false);
       title="Super Admin Portal"
     >
       <div className="space-y-6">
+        {(propertyLoadError || unitsLoadError || billingLoadError) && (
+          <div role="alert" className="rounded-lg border border-destructive/50 p-3 text-sm text-destructive">
+            Platform totals are incomplete because some API requests failed.
+            {propertyLoadError && <p>Properties: {propertyLoadError}</p>}
+            {unitsLoadError && <p>Units: {unitsLoadError}</p>}
+            {billingLoadError && <p>Billing: {billingLoadError}</p>}
+          </div>
+        )}
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
