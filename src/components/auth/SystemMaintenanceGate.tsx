@@ -1,5 +1,3 @@
-import { useEffect } from 'react';
-import { isMaintenanceLockedError } from '@/api/https';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Wrench, ShieldAlert, RefreshCw, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,17 +10,6 @@ export function SystemMaintenanceGate({children}:{children: React.ReactNode}) {
   const { status, loading, error, refresh } = useSystemMaintenance(user?.id);
   const location = useLocation();
   const navigate = useNavigate();
-
-  // Expected 423 responses can race with the 10-second status poll.
-  // The maintenance overlay replaces the page; do not report these as
-  // unhandled runtime crashes in development. Other errors remain visible.
-  useEffect(() => {
-    const handleUnhandled = (event: PromiseRejectionEvent) => {
-      if (isMaintenanceLockedError(event.reason)) event.preventDefault();
-    };
-    window.addEventListener('unhandledrejection', handleUnhandled);
-    return () => window.removeEventListener('unhandledrejection', handleUnhandled);
-  }, []);
 
   const isAdmin = user?.role === 'super_admin';
   const adminLogin = location.pathname === '/auth' &&
@@ -38,7 +25,9 @@ export function SystemMaintenanceGate({children}:{children: React.ReactNode}) {
     <p className="text-sm text-muted-foreground">{error}</p>
     <Button variant="outline" onClick={() => void refresh()}><RefreshCw className="h-4 w-4"/> Retry</Button>
   </div>;
-  if (!status.enabled || adminLogin) return <>{children}</>;
+  // Admin authentication remains available for recovery during global maintenance.
+  // An existing authenticated non-admin cannot bypass an individual account lock.
+  if (!status.enabled || (!user && adminLogin)) return <>{children}</>;
 
   return <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
     <Card className="w-full max-w-lg shadow-lg">
