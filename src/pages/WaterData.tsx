@@ -1,3 +1,5 @@
+import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
+import { ResponsiveTableView } from '@/components/ui/responsive-table-view';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
@@ -50,6 +52,7 @@ import { useWaterData } from '@/hooks/useWaterData';
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--info))', 'hsl(var(--warning))', 'hsl(var(--success))'];
 
 export default function WaterData() {
+  const [viewMode, setViewMode] = useViewMode('waterdata', 'list');
   const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -470,6 +473,8 @@ export default function WaterData() {
             </div>
 
             <Card>
+              <div className="flex justify-end mb-3"><ViewModeToggle value={viewMode} onChange={setViewMode} /></div>
+              <ResponsiveTableView mode={viewMode}>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -550,6 +555,7 @@ export default function WaterData() {
                   ))}
                 </TableBody>
               </Table>
+              </ResponsiveTableView>
             </Card>
           </TabsContent>
 
