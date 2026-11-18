@@ -18,14 +18,14 @@ export function announceMaintenanceChange() {
   window.dispatchEvent(new Event(EVENT));
 }
 
-export function useSystemMaintenance() {
+export function useSystemMaintenance(userId?: string) {
   const [status, setStatus] = useState<SystemMaintenanceStatus>(DEFAULT_STATUS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const refresh = useCallback(async () => {
     try {
       const next = await apiRequest<null, SystemMaintenanceStatus>({
-        path: '/api/system-maintenance/status', method: 'GET', retry: false,
+        path: userId ? '/api/system-maintenance/me' : '/api/system-maintenance/status', method: 'GET', retry: false,
       });
       setStatus(next);
       setError('');
@@ -34,7 +34,7 @@ export function useSystemMaintenance() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     void refresh();
