@@ -184,12 +184,14 @@ function refreshAccessToken(): Promise<RefreshResult> {
   // Serialize rotating refresh tokens across multiple browser tabs.
   const work: Promise<RefreshResult> =
     typeof navigator !== "undefined" && navigator.locks
-      ? navigator.locks.request("apartment-auth-refresh", async (): Promise<RefreshResult> => {
-          const latest = tokenService.getAccessToken();
-          if (latest && latest !== tokenAtStart) return "ok";
-          if (!latest) return "invalid";
-          return performTokenRefresh();
-        })
+      ? (async (): Promise<RefreshResult> => {
+          return await navigator.locks.request("apartment-auth-refresh", async () => {
+            const latest = tokenService.getAccessToken();
+            if (latest && latest !== tokenAtStart) return "ok" as const;
+            if (!latest) return "invalid" as const;
+            return await performTokenRefresh();
+          });
+        })()
       : performTokenRefresh();
 
   refreshInFlight = work;
