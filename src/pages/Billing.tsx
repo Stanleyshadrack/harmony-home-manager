@@ -21,7 +21,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Plus, Search, Droplets, FileText, Filter, Zap, Download, CheckCircle, Mail, Loader2, Edit } from 'lucide-react';
-import { logAuditEvent } from '@/services/auditService';
 import { useBilling } from '@/hooks/useBilling';
 import { useAutoInvoice } from '@/hooks/useAutoInvoice';
 import { BillingStats } from '@/components/billing/BillingStats';
@@ -222,6 +221,9 @@ export default function Billing() {
       ]}
     >
       <div className="space-y-6">
+        {loadError && <div role="alert" className="rounded-lg border border-destructive/50 p-3 text-sm text-destructive">
+          Billing data could not be loaded: {loadError}
+        </div>}
         {/* Stats */}
         <BillingStats
           invoices={invoices}
