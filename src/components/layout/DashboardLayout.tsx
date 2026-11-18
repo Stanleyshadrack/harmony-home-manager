@@ -1,6 +1,7 @@
 import { readLockInfo } from '@/services/sessionLock';
 import { ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
+import { getRoleModuleLabel } from '@/lib/roleModuleLabels';
 import { useAuth } from '@/contexts/AuthContext';
 import { SidebarProvider, SidebarTrigger, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from './AppSidebar';
@@ -24,7 +25,16 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children, title, breadcrumbs }: DashboardLayoutProps) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const location = useLocation();
+  const modulePath = '/' + location.pathname.split('/').filter(Boolean)[0];
+  const moduleLabel = user ? getRoleModuleLabel(modulePath, user.role, '') : '';
+  const displayTitle = moduleLabel || title;
+  const displayBreadcrumbs = breadcrumbs?.map((crumb, index) =>
+    index === breadcrumbs.length - 1 && moduleLabel
+      ? { ...crumb, label: moduleLabel }
+      : crumb
+  );
 
   if (readLockInfo()) return <Navigate to="/locked" replace />;
 
@@ -50,10 +60,10 @@ export function DashboardLayout({ children, title, breadcrumbs }: DashboardLayou
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
             
-            {breadcrumbs && breadcrumbs.length > 0 && (
+            {displayBreadcrumbs && displayBreadcrumbs.length > 0 && (
               <Breadcrumb>
                 <BreadcrumbList>
-                  {breadcrumbs.map((crumb, index) => (
+                  {displayBreadcrumbs.map((crumb, index) => (
                     <BreadcrumbItem key={index}>
                       {index > 0 && <BreadcrumbSeparator />}
                       {crumb.href ? (
@@ -77,7 +87,7 @@ export function DashboardLayout({ children, title, breadcrumbs }: DashboardLayou
           {/* Main Content */}
           <main className="flex-1 overflow-auto">
             <div className="container py-6">
-              {title && (
+              {displayTitle && (
                 <h1 className="text-2xl font-bold mb-6">{title}</h1>
               )}
               {children}
