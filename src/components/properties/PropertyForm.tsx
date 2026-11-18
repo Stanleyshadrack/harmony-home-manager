@@ -24,11 +24,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Loader2, X } from 'lucide-react';
+import { Check, ChevronsUpDown, Loader2, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useState, useEffect } from 'react';
 import { PropertyApi } from '@/api/service/add.apartments.service.api';
 import { mapPropertyFormToCreateDTO } from '@/api/mapper/mapPropertyForm';
+import { apiRequest } from '@/api/https';
+import { useAuth } from '@/contexts/AuthContext';
+import { fetchMyLandlordProfile } from '@/api/service/landlords.service.api';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+
+type CompanyOption = { id: number; name: string };
 
 const propertySchema = z.object({
   name: z.string().min(1, 'Property name is required'),
@@ -66,6 +73,72 @@ export function PropertyForm({ open, onOpenChange, property }: PropertyFormProps
   const [newAmenity, setNewAmenity] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'super_admin';
+  const isLandlord = user?.role === 'landlord';
+
+  const [companyPickerOpen, setCompanyPickerOpen] = useState(false);
+  const [companySearch, setCompanySearch] = useState('');
+  const [companyOptions, setCompanyOptions] = useState<CompanyOption[]>([]);
+  const [companyLoading, setCompanyLoading] = useState(false);
+  const [companyError, setCompanyError] = useState('');
+  const [selectedCompany, setSelectedCompany] = useState<CompanyOption | null>(null);
+  const [landlordCompany, setLandlordCompany] = useState<CompanyOption | null>(null);
+  const [landlordCompanyLoading, setLandlordCompanyLoading] = useState(false);
+
+  // Company options are searched on the server rather than loading every
+  // company into the browser. This remains usable with large company lists.
+  useEffect(() => {
+    if (!open || !isSuperAdmin || !!property || !companyPickerOpen) return;
+    let active = true;
+    setCompanyLoading(true);
+    setCompanyError('');
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const results = await apiRequest<null, CompanyOption[]>({
+          path: `/api/companies/options?search=${encodeURIComponent(companySearch.trim())}`,
+          method: 'GET',
+        });
+        if (active) setCompanyOptions(results);
+      } catch (error) {
+        if (active) {
+          setCompanyOptions([]);
+          setCompanyError(error instanceof Error ? error.message : 'Unable to load companies');
+        }
+      } finally {
+        if (active) setCompanyLoading(false);
+      }
+    }, 250);
+    return () => { active = false; window.clearTimeout(timeoutId); };
+  }, [open, isSuperAdmin, property, companyPickerOpen, companySearch]);
+
+  // Read-only display for landlords. The backend is the authority for the
+  // linked company; callers cannot choose or override a different company.
+  useEffect(() => {
+    if (!open || !isLandlord || !!property) return;
+    let active = true;
+    setLandlordCompanyLoading(true);
+    setCompanyError('');
+    fetchMyLandlordProfile()
+      .then(profile => {
+        if (!active) return;
+        const id = profile.companyId == null ? NaN : Number(profile.companyId);
+        if (!Number.isSafeInteger(id) || id <= 0) {
+          setLandlordCompany(null);
+          setCompanyError('Your landlord account is not assigned to a company. Contact the administrator.');
+          return;
+        }
+        setLandlordCompany({ id, name: profile.company || 'Assigned company' });
+      })
+      .catch(error => {
+        if (active) {
+          setLandlordCompany(null);
+          setCompanyError(error instanceof Error ? error.message : 'Could not verify your assigned company');
+        }
+      })
+      .finally(() => { if (active) setLandlordCompanyLoading(false); });
+    return () => { active = false; };
+  }, [open, isLandlord, property]);
 
 
   const {
@@ -103,6 +176,11 @@ export function PropertyForm({ open, onOpenChange, property }: PropertyFormProps
         amenities: property?.amenities || [],
       });
       setAmenities(property?.amenities || []);
+      setSelectedCompany(property?.companyId && property.companyName
+        ? { id: property.companyId, name: property.companyName }
+        : null);
+      setCompanyPickerOpen(false);
+      setCompanySearch('');
     }
   }, [property, open, reset]);
 
@@ -111,19 +189,33 @@ export function PropertyForm({ open, onOpenChange, property }: PropertyFormProps
 //  const [submitting, setSubmitting] = useState(false);
 
 const handleFormSubmit = async (data: PropertyFormData) => {
+  if (!property && isSuperAdmin && !selectedCompany) {
+    toast({ variant: 'destructive', title: 'Company is required',
+      description: 'Search for and select the company that will own this property.' });
+    return;
+  }
+  if (!property && isLandlord && !landlordCompany?.id) {
+    toast({ variant: 'destructive', title: 'Company unavailable',
+      description: companyError || 'Your landlord account must be assigned to a company before adding a property.' });
+    return;
+  }
+
   try {
     setSubmitting(true);
 
-    const payload = mapPropertyFormToCreateDTO({
-      ...data,
-      amenities,
-    });
+    if (property) {
+      // Editing does not change the company or create an additional property.
+      await PropertyApi.update(Number(property.id), { ...data, amenities });
+    } else {
+      const payload = mapPropertyFormToCreateDTO({
+        ...data,
+        amenities,
+        ...(isSuperAdmin && selectedCompany ? { companyId: selectedCompany.id } : {}),
+      });
+      await PropertyApi.create(payload);
+    }
 
-    console.log('CREATE PROPERTY PAYLOAD', payload);
-
-    await PropertyApi.create(payload);
-
-    queryClient.invalidateQueries({ queryKey: ['properties'] });
+    await queryClient.invalidateQueries({ queryKey: ['properties'] });
 
     toast({
       title: t('common.success'),
@@ -134,26 +226,17 @@ const handleFormSubmit = async (data: PropertyFormData) => {
 
     reset();
     setAmenities([]);
+    setSelectedCompany(null);
     onOpenChange(false);
-
-  } catch (err: any) {
-    console.error('Failed to create property', err);
-
-    const message =
-      err?.message ||
-      t('common.unexpectedError', 'Something went wrong. Please try again.');
-
-    toast({
-      variant: 'destructive',
-      title: t('common.error'),
-      description: message,
-    });
-
+  } catch (err: unknown) {
+    const message = err instanceof Error
+      ? err.message
+      : t('common.unexpectedError', 'Something went wrong. Please try again.');
+    toast({ variant: 'destructive', title: t('common.error'), description: message });
   } finally {
     setSubmitting(false);
   }
 };
-
 
 
 
@@ -184,6 +267,91 @@ const handleFormSubmit = async (data: PropertyFormData) => {
 
         <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-2">
+            {isSuperAdmin && !property && (
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="property-company-trigger">Company *</Label>
+                <Popover open={companyPickerOpen} onOpenChange={setCompanyPickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      id="property-company-trigger"
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={companyPickerOpen}
+                      aria-label="Select company"
+                      className="min-h-11 w-full justify-between text-left font-normal"
+                    >
+                      <span className="truncate">{selectedCompany?.name ?? 'Search and select a company...'}</span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-[min(26rem,calc(100vw-3rem))] p-0">
+                    <Command shouldFilter={false}>
+                      <CommandInput
+                        value={companySearch}
+                        onValueChange={setCompanySearch}
+                        placeholder="Search by company name..."
+                        aria-label="Search companies"
+                      />
+                      <CommandList>
+                        {companyLoading && (
+                          <div role="status" className="p-3 text-sm text-muted-foreground">Searching companies...</div>
+                        )}
+                        {companyError && (
+                          <div role="alert" className="p-3 text-sm text-destructive">{companyError}</div>
+                        )}
+                        {!companyLoading && !companyError && companyOptions.length === 0 && (
+                          <CommandEmpty>No companies found. Try another name.</CommandEmpty>
+                        )}
+                        {!companyLoading && !companyError && (
+                          <CommandGroup>
+                            {companyOptions.map(company => (
+                              <CommandItem
+                                key={company.id}
+                                value={String(company.id)}
+                                onSelect={() => {
+                                  setSelectedCompany(company);
+                                  setCompanyPickerOpen(false);
+                                  setCompanySearch('');
+                                }}
+                                className="min-h-11 gap-2"
+                              >
+                                <Check className={`h-4 w-4 shrink-0 ${selectedCompany?.id === company.id ? 'opacity-100' : 'opacity-0'}`} />
+                                <span className="truncate">{company.name}</span>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        )}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                <p className="text-xs text-muted-foreground">Required for Super Admins. Search the company directory by name.</p>
+              </div>
+            )}
+
+            {isLandlord && !property && (
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Company</Label>
+                <div className="flex min-h-11 items-center rounded-md border bg-muted/50 px-3 text-sm">
+                  {landlordCompanyLoading ? 'Loading assigned company...' : (landlordCompany?.name || 'No company assigned')}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Automatically linked to your landlord account. Company cannot be changed here.
+                </p>
+                {companyError && <p role="alert" className="text-sm text-destructive">{companyError}</p>}
+              </div>
+            )}
+
+            {!!property && (property.companyName || property.companyId) && (
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Company</Label>
+                <div className="flex min-h-11 items-center rounded-md border bg-muted/50 px-3 text-sm">
+                  {property.companyName || `Company #${property.companyId}`}
+                </div>
+                <p className="text-xs text-muted-foreground">Existing property company cannot be changed here.</p>
+              </div>
+            )}
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="name">{t('properties.propertyName')} *</Label>
               <Input
@@ -337,7 +505,13 @@ const handleFormSubmit = async (data: PropertyFormData) => {
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {t('common.cancel')}
             </Button>
-            <Button type="submit" disabled={submitting}>
+            <Button
+              type="submit"
+              disabled={submitting || (!property && (
+                (isSuperAdmin && !selectedCompany) ||
+                (isLandlord && (landlordCompanyLoading || !landlordCompany))
+              ))}
+            >
               {submitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
