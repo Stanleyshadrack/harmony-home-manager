@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { apiRequest } from '@/api/https';
+import { claimNewUnreadNotification, playIncomingNotificationSound } from '@/services/notificationSound';
 
 export type NotificationPriority = 'low' | 'medium' | 'high';
 export type NotificationCategory =
@@ -38,6 +39,9 @@ export function useInAppNotifications(userId?: string) {
       const data = await apiRequest<null, ServerNotification[]>({
         path: '/api/notifications/in-app', method: 'GET',
       });
+      if (claimNewUnreadNotification(userId, data)) {
+        void playIncomingNotificationSound();
+      }
       setNotifications(data.map(item => ({
         ...item, id: String(item.id), userId, priority: 'medium' as const,
       })));
