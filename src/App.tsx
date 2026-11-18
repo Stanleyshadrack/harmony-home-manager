@@ -14,6 +14,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Locked from "./pages/Locked";
 import { SessionLockManager } from "@/components/auth/SessionLockManager";
+import { SystemMaintenanceGate } from "@/components/auth/SystemMaintenanceGate";
 import Dashboard from "./pages/Dashboard";
 import RecentActivities from "./pages/RecentActivities";
 import Properties from "./pages/Properties";
@@ -53,6 +54,7 @@ const App = () => (
             <Sonner />
             <BrowserRouter>
               <SessionLockManager />
+              <SystemMaintenanceGate>
               <Routes>
                 {/* Public routes */}
                 <Route path="/" element={<Index />} />
@@ -290,6 +292,7 @@ const App = () => (
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </SystemMaintenanceGate>
             </BrowserRouter>
           </TooltipProvider>
         </RBACProvider>
