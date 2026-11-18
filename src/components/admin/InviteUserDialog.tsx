@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +25,7 @@ export function InviteUserDialog({ open, onOpenChange, inviterRole }: Props) {
   const [propertyIds, setPropertyIds] = useState<number[]>([]);
   const [unitId, setUnitId] = useState<number | null>(null);
   const [companyId, setCompanyId] = useState<number | null>(null);
-  const [options, setOptions] = useState<InviteOptions>({ properties: [], units: [] });
+  const [options, setOptions] = useState<InviteOptions>({ properties: [], units: [], companies: [] });
   const [invitations, setInvitations] = useState<InviteSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [working, setWorking] = useState(false);
@@ -49,9 +49,8 @@ export function InviteUserDialog({ open, onOpenChange, inviterRole }: Props) {
     if (open) void refresh();
   }, [open]);
 
-  const companies = useMemo(() => Array.from(
-    new Map(options.properties.map(p => [p.companyId, { id: p.companyId, name: p.companyName }])).values()
-  ), [options.properties]);
+  // Companies must be selectable before any property has been created.
+  const companies = options.companies;
 
   const properties = options.properties.filter(p =>
     role !== "LANDLORD" || companyId === null || p.companyId === companyId
@@ -82,7 +81,7 @@ export function InviteUserDialog({ open, onOpenChange, inviterRole }: Props) {
       toast.error("Enter a valid email address");
       return;
     }
-    if (!propertyIds.length) {
+    if (role !== "LANDLORD" && !propertyIds.length) {
       toast.error("Select an assigned property");
       return;
     }
@@ -157,7 +156,7 @@ export function InviteUserDialog({ open, onOpenChange, inviterRole }: Props) {
           </div>
           {role === "LANDLORD" && (
             <div className="space-y-1">
-              <Label>Company</Label>
+              <Label>Company <span className="text-destructive">*</span></Label>
               <Select value={companyId === null ? "" : String(companyId)}
                 onValueChange={value => { setCompanyId(Number(value)); setPropertyIds([]); }}>
                 <SelectTrigger><SelectValue placeholder="Select company" /></SelectTrigger>
@@ -165,11 +164,23 @@ export function InviteUserDialog({ open, onOpenChange, inviterRole }: Props) {
                   <SelectItem key={company.id} value={String(company.id)}>{company.name}</SelectItem>
                 ))}</SelectContent>
               </Select>
+              {!companies.length && !loading && (
+                <p className="text-sm text-destructive">
+                  Create a company in the Companies tab before inviting a landlord.
+                </p>
+              )}
             </div>
           )}
           <fieldset className="space-y-2">
-            <legend className="text-sm font-medium">Assigned {role === "TENANT" ? "property" : "properties"}</legend>
-            {!properties.length && <p className="text-sm text-muted-foreground">No available properties.</p>}
+            <legend className="text-sm font-medium">Assigned {role === "TENANT" ? "property" : "properties"} {role === "LANDLORD" && <span className="font-normal text-muted-foreground">(optional)</span>}</legend>
+            {role === "LANDLORD" && (
+              <p className="text-xs text-muted-foreground">
+                You can invite a landlord without assigning properties. After approval, they can create properties within their company.
+              </p>
+            )}
+            {!properties.length && <p className="text-sm text-muted-foreground">
+              {role === "LANDLORD" ? "No properties in this company yet. You can still send the invitation." : "No available properties."}
+            </p>}
             {properties.map(property => (
               <label key={property.id} className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={propertyIds.includes(property.id)}
@@ -193,7 +204,7 @@ export function InviteUserDialog({ open, onOpenChange, inviterRole }: Props) {
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
-            <Button type="submit" disabled={working || loading || !propertyIds.length}>
+            <Button type="submit" disabled={working || loading || (role === "LANDLORD" ? companyId === null : !propertyIds.length || (role === "TENANT" && !unitId))}>
               {working ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <UserPlus className="h-4 w-4 mr-2" />}
               Send invitation
             </Button>
