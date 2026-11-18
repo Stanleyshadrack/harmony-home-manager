@@ -1,53 +1,55 @@
+/** DTOs from /api/chat. Never use fake user IDs for chat identities. */
+export type ChatType = 'DIRECT' | 'GROUP';
+export type ChatRole = 'SUPER_ADMIN' | 'LANDLORD' | 'EMPLOYEE' | 'TENANT';
+
+export interface ChatContact {
+  id: number;
+  name: string;
+  email: string;
+  role: ChatRole;
+  companyId: number | null;
+}
+
+export interface ChatMember {
+  userId: number;
+  name: string;
+  role: ChatRole;
+  admin: boolean;
+  joinedAt: string;
+}
+
 export interface Message {
-  id: string;
-  conversationId: string;
-  senderId: string;
+  id: number;
+  conversationId: number;
+  senderId: number;
   senderName: string;
-  senderRole: 'tenant' | 'employee' | 'landlord';
+  senderRole: ChatRole;
   content: string;
-  attachments?: MessageAttachment[];
-  isForwarded: boolean;
-  forwardedFrom?: string;
-  readBy: string[];
+  deleted: boolean;
+  readBy: number[];
   createdAt: string;
 }
 
-export interface MessageAttachment {
-  id: string;
-  name: string;
-  url: string;
-  type: string;
-  size: number;
-}
-
 export interface Conversation {
-  id: string;
-  participants: ConversationParticipant[];
-  type: 'direct' | 'group';
-  subject?: string;
-  propertyId?: string;
-  unitId?: string;
-  lastMessage?: Message;
+  id: number;
+  type: ChatType;
+  title: string;
+  description: string | null;
+  companyId: number | null;
+  members: ChatMember[];
+  lastMessage: Message | null;
   unreadCount: number;
+  currentUserAdmin: boolean;
+  adminsOnlySend: boolean;
+  adminsOnlyEditInfo: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface ConversationParticipant {
-  userId: string;
-  name: string;
-  role: 'tenant' | 'employee' | 'landlord';
-  avatarUrl?: string;
-}
-
-export interface NewMessageData {
-  conversationId: string;
-  content: string;
-  attachments?: File[];
-}
-
 export interface NewConversationData {
-  participantIds: string[];
-  subject?: string;
-  initialMessage: string;
+  type: ChatType;
+  participantIds: number[];
+  title?: string;
+  description?: string;
+  initialMessage?: string;
 }
