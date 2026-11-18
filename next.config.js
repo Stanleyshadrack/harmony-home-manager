@@ -13,10 +13,6 @@ const nextConfig = {
         source: '/api/:path*',
         destination: 'http://127.0.0.1:8080/api/:path*',
       },
-      {
-        source: '/:path*',
-        destination: '/', // Always serve index.html (fixes /dashboard refresh)
-      },
     ];
   },
 };
