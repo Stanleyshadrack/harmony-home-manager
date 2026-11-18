@@ -94,39 +94,42 @@ export async function apiRequest<TReq, TRes>({
      🔄 Handle expired token
   ========================= */
   if (res.status === 401 && retry && !publicAuthPaths.includes(path)) {
-    // Several requests may receive 401 together. The backend rotates its
-    // refresh token; all requests must share a single refresh operation.
-    const refreshed = await refreshAccessToken();
-    const newerToken = tokenService.getAccessToken();
-    if (refreshed || (token && newerToken && newerToken !== token)) {
-      return apiRequest<TReq, TRes>({
-        path,
-        method,
-        body,
-        retry: false,
-        timeout,
-      });
+    // A different in-flight request or tab might have refreshed or removed
+    // this session while this original request was being processed.
+    const latestToken = tokenService.getAccessToken();
+    if (latestToken !== token) {
+      if (latestToken) {
+        return apiRequest<TReq, TRes>({ path, method, body, retry: false, timeout });
+      }
+      throw new ApiHttpError(401, path, "Session expired. Please sign in again.");
     }
 
-    // An old failed request must not delete a newer login/refresh session.
+    const refreshResult = await refreshAccessToken();
+    const currentToken = tokenService.getAccessToken();
+    if (refreshResult === "ok" && currentToken) {
+      return apiRequest<TReq, TRes>({ path, method, body, retry: false, timeout });
+    }
+
+    if (refreshResult === "unavailable") {
+      // Do not log out on a transient backend outage or failed network call.
+      throw new Error("Unable to reach authentication service. Your session has been preserved; retry once the backend is running.");
+    }
+
+    // Only the original session owner can expire it. Other requests must not
+    // erase a newer login from another tab.
     if (tokenService.getAccessToken() === token) {
       tokenService.clearTokens();
-      if (typeof window !== "undefined") {
+      if (typeof window !== "undefined")
         window.dispatchEvent(new Event("apartment:session-expired"));
-      }
     }
     throw new ApiHttpError(401, path, "Session expired. Please sign in again.");
   }
 
-  /* =========================
-     Error handling
-  ========================= */
   if (res.status === 401 && !publicAuthPaths.includes(path) && !retry &&
       tokenService.getAccessToken() === token) {
     tokenService.clearTokens();
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined")
       window.dispatchEvent(new Event("apartment:session-expired"));
-    }
   }
   if (res.status === 423 && typeof window !== "undefined") {
     window.dispatchEvent(new Event("apartment:maintenance-status"));
@@ -171,22 +174,24 @@ export async function apiRequest<TReq, TRes>({
    Refresh token helper
 ========================= */
 
-let refreshInFlight: Promise<boolean> | null = null;
+type RefreshResult = "ok" | "invalid" | "unavailable";
+let refreshInFlight: Promise<RefreshResult> | null = null;
 
-/** A shared promise prevents concurrent requests rotating the same refresh token. */
-function refreshAccessToken(): Promise<boolean> {
+function refreshAccessToken(): Promise<RefreshResult> {
   if (refreshInFlight) return refreshInFlight;
-  const tokenAtRefreshStart = tokenService.getAccessToken();
-  // Web Locks serialize refresh-token rotation across browser tabs.
-  // localhost and HTTPS are secure contexts where navigator.locks is supported.
-  const work: Promise<boolean> = typeof navigator !== "undefined" && navigator.locks
-    ? (async (): Promise<boolean> => {
-        return await navigator.locks.request("apartment-auth-refresh", async () => {
-          if (tokenService.getAccessToken() !== tokenAtRefreshStart) return true;
-          return await performTokenRefresh();
-        });
-      })()
-    : performTokenRefresh();
+  const tokenAtStart = tokenService.getAccessToken();
+
+  // Serialize rotating refresh tokens across multiple browser tabs.
+  const work: Promise<RefreshResult> =
+    typeof navigator !== "undefined" && navigator.locks
+      ? navigator.locks.request("apartment-auth-refresh", async (): Promise<RefreshResult> => {
+          const latest = tokenService.getAccessToken();
+          if (latest && latest !== tokenAtStart) return "ok";
+          if (!latest) return "invalid";
+          return performTokenRefresh();
+        })
+      : performTokenRefresh();
+
   refreshInFlight = work;
   void work.then(
     () => { if (refreshInFlight === work) refreshInFlight = null; },
@@ -195,27 +200,30 @@ function refreshAccessToken(): Promise<boolean> {
   return work;
 }
 
-async function performTokenRefresh(): Promise<boolean> {
+async function performTokenRefresh(): Promise<RefreshResult> {
   const originalRefreshToken = tokenService.getRefreshToken();
-  if (!originalRefreshToken) return false;
+  if (!originalRefreshToken) return "invalid";
+
   try {
     const res = await fetch(`${BASE_URL}/api/auth/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refreshToken: originalRefreshToken }),
     });
-    if (!res.ok) return false;
-    const tokens = await res.json() as { accessToken?: string; refreshToken?: string };
-    if (!tokens.accessToken || !tokens.refreshToken) return false;
 
-    // Avoid restoring a session after manual sign-out or after another login.
-    if (tokenService.getRefreshToken() !== originalRefreshToken) return false;
-    tokenService.setTokens({
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-    });
-    return true;
+    // 4xx rejects credentials; server errors and outages are recoverable.
+    if (!res.ok) return res.status >= 400 && res.status < 500 ? "invalid" : "unavailable";
+
+    const tokens = await res.json() as { accessToken?: string; refreshToken?: string };
+    if (!tokens.accessToken || !tokens.refreshToken) return "unavailable";
+
+    // Avoid restoring a signed-out session or overwriting a later login.
+    if (tokenService.getRefreshToken() !== originalRefreshToken)
+      return tokenService.getAccessToken() ? "ok" : "invalid";
+
+    tokenService.setTokens({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken });
+    return "ok";
   } catch {
-    return false;
+    return "unavailable";
   }
 }
