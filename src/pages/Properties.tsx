@@ -32,7 +32,7 @@ import { toast } from 'sonner';
 export default function Properties() {
   const [viewMode, setViewMode] = useViewMode('properties');
   const { t } = useTranslation();
-  const { properties, isLoading, addProperty, updateProperty, deleteProperty } = useProperties();
+  const { properties, isLoading, loadError, addProperty, updateProperty, deleteProperty } = useProperties();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
@@ -100,6 +100,7 @@ const filteredProperties = properties.filter((property) => {
         { label: t('properties.title') },
       ]}
     >
+      {loadError && <div role="alert" className="rounded-lg border border-destructive/50 p-3 mb-4 text-sm text-destructive">Property data could not be refreshed: {loadError}</div>}
       {/* Actions Bar */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <div className="relative flex-1">
