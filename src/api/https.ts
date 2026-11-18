@@ -85,21 +85,27 @@ export async function apiRequest<TReq, TRes>({
   /* =========================
      🔄 Handle expired token
   ========================= */
-  if (res.status === 401 && retry && !path.includes("/auth/refresh")) {
+  if (res.status === 401 && retry && !publicAuthPaths.includes(path)) {
+    // Several requests may receive 401 together. The backend rotates its
+    // refresh token; all requests must share a single refresh operation.
     const refreshed = await refreshAccessToken();
-
-    if (refreshed) {
+    const newerToken = tokenService.getAccessToken();
+    if (refreshed || (token && newerToken && newerToken !== token)) {
       return apiRequest<TReq, TRes>({
         path,
         method,
         body,
         retry: false,
+        timeout,
       });
     }
 
-    tokenService.clearTokens();
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("apartment:session-expired"));
+    // An old failed request must not delete a newer login/refresh session.
+    if (tokenService.getAccessToken() === token) {
+      tokenService.clearTokens();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("apartment:session-expired"));
+      }
     }
     throw new ApiHttpError(401, path, "Session expired. Please sign in again.");
   }
@@ -150,21 +156,39 @@ export async function apiRequest<TReq, TRes>({
    Refresh token helper
 ========================= */
 
-async function refreshAccessToken(): Promise<boolean> {
-  const refreshToken = tokenService.getRefreshToken();
-  if (!refreshToken) return false;
+let refreshInFlight: Promise<boolean> | null = null;
 
+/** A shared promise prevents concurrent requests rotating the same refresh token. */
+function refreshAccessToken(): Promise<boolean> {
+  if (refreshInFlight) return refreshInFlight;
+  const work = performTokenRefresh();
+  refreshInFlight = work;
+  void work.then(
+    () => { if (refreshInFlight === work) refreshInFlight = null; },
+    () => { if (refreshInFlight === work) refreshInFlight = null; },
+  );
+  return work;
+}
+
+async function performTokenRefresh(): Promise<boolean> {
+  const originalRefreshToken = tokenService.getRefreshToken();
+  if (!originalRefreshToken) return false;
   try {
     const res = await fetch(`${BASE_URL}/api/auth/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken }),
+      body: JSON.stringify({ refreshToken: originalRefreshToken }),
     });
-
     if (!res.ok) return false;
+    const tokens = await res.json() as { accessToken?: string; refreshToken?: string };
+    if (!tokens.accessToken || !tokens.refreshToken) return false;
 
-    const tokens = await res.json();
-    tokenService.setTokens(tokens);
+    // Avoid restoring a session after manual sign-out or after another login.
+    if (tokenService.getRefreshToken() !== originalRefreshToken) return false;
+    tokenService.setTokens({
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    });
     return true;
   } catch {
     return false;
