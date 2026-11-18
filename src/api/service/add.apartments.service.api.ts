@@ -46,7 +46,10 @@ export const PropertyApi = Object.freeze({
     apiRequest<PropertyFormData, PropertyApiResponse>({
       path: API_PATHS.PROPERTY_BY_ID(id),
       method: "PUT",
-      body: data,
+      body: {
+        ...data,
+        propertyType: data.propertyType.toUpperCase(),
+      },
     }),
 
   /* =========================
