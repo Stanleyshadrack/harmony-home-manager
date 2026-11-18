@@ -26,8 +26,21 @@ interface ApiRequestOptions<T> {
   timeout?: number;
 }
 
-const BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+/**
+ * The browser must address the backend on the computer hosting Next.js.
+ * localhost points to the phone itself when viewed from a mobile browser.
+ * An explicit NEXT_PUBLIC_API_URL still overrides this for deployments.
+ */
+function resolveApiBaseUrl(): string {
+  const configured = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (configured) return configured.replace(/\\/+$/, "");
+  if (typeof window !== "undefined") {
+    return `${window.location.protocol}//${window.location.hostname}:8080`;
+  }
+  return "http://localhost:8080";
+}
+
+const BASE_URL = resolveApiBaseUrl();
 
 /**
  * A 401 on an individual module is not proof that the entire session expired.
