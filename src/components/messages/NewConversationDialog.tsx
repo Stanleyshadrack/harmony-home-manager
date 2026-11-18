@@ -1,189 +1,205 @@
-import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { useEffect, useState } from 'react';
+import { chatApi } from '@/api/service/chatApi';
+import type { ChatContact, Conversation, ChatType, NewConversationData } from '@/types/message';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, Check } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { UsersRound, UserRound, Search, Check, Loader2, X } from 'lucide-react';
+import { toast } from 'sonner';
 
-interface NewConversationDialogProps {
+interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (participantIds: string[], subject: string, message: string) => void;
+  onSubmit: (data: NewConversationData) => Promise<Conversation>;
 }
 
-// Mock contacts data
-const mockContacts = [
-  { id: 'user-1', name: 'John Doe', role: 'tenant', unit: 'A101' },
-  { id: 'user-2', name: 'Mary Wanjiku', role: 'tenant', unit: 'B202' },
-  { id: 'user-3', name: 'Peter Ochieng', role: 'tenant', unit: 'C301' },
-  { id: 'emp-1', name: 'James Mwangi', role: 'employee', department: 'Maintenance' },
-  { id: 'emp-2', name: 'Sarah Kamau', role: 'employee', department: 'Admin' },
-  { id: 'landlord-1', name: 'David Kimani', role: 'landlord' },
-];
-
-const roleColors = {
-  tenant: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-  employee: 'bg-green-500/10 text-green-600 border-green-500/20',
-  landlord: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
-};
-
-export function NewConversationDialog({
-  open,
-  onOpenChange,
-  onSubmit,
-}: NewConversationDialogProps) {
-  const { t } = useTranslation();
+export function NewConversationDialog({ open, onOpenChange, onSubmit }: Props) {
+  const [type, setType] = useState<ChatType>('DIRECT');
+  const [contacts, setContacts] = useState<ChatContact[]>([]);
+  const [selected, setSelected] = useState<ChatContact[]>([]);
   const [search, setSearch] = useState('');
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [subject, setSubject] = useState('');
-  const [message, setMessage] = useState('');
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [initialMessage, setInitialMessage] = useState('');
+  const [loadingContacts, setLoadingContacts] = useState(false);
+  const [working, setWorking] = useState(false);
 
-  const filteredContacts = mockContacts.filter((contact) =>
-    contact.name.toLowerCase().includes(search.toLowerCase())
-  );
+  useEffect(() => {
+    if (!open) return;
+    setType('DIRECT');
+    setSelected([]);
+    setSearch('');
+    setTitle('');
+    setDescription('');
+    setInitialMessage('');
+  }, [open]);
 
-  const toggleContact = (id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    setLoadingContacts(true);
+    const timer = window.setTimeout(async () => {
+      try {
+        const list = await chatApi.contacts(search);
+        if (active) setContacts(list);
+      } catch (error) {
+        if (active) {
+          setContacts([]);
+          toast.error(error instanceof Error ? error.message : 'Could not load contacts');
+        }
+      } finally {
+        if (active) setLoadingContacts(false);
+      }
+    }, 250);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [open, search]);
+
+  const changeType = (next: ChatType) => {
+    setType(next);
+    setSelected([]);
+    setSearch('');
   };
 
-  const handleSubmit = () => {
-    if (selectedIds.length > 0 && message.trim()) {
-      onSubmit(selectedIds, subject, message);
-      setSelectedIds([]);
-      setSubject('');
-      setMessage('');
+  const selectedCompany = selected.find(contact =>
+    contact.role !== 'SUPER_ADMIN' && contact.companyId != null
+  )?.companyId;
+
+  const visibleContacts = contacts.filter(contact => {
+    if (selected.some(item => item.id === contact.id)) return false;
+    if (type !== 'GROUP' || selectedCompany == null) return true;
+    return contact.role === 'SUPER_ADMIN' || contact.companyId === selectedCompany;
+  });
+
+  const choose = (contact: ChatContact) => {
+    setSelected(previous => type === 'DIRECT' ? [contact] : [...previous, contact]);
+  };
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selected.length) return;
+    if (type === 'GROUP' && (!title.trim() || selectedCompany == null)) {
+      toast.error('Name the group and select people from one company');
+      return;
+    }
+    setWorking(true);
+    try {
+      await onSubmit({
+        type,
+        participantIds: selected.map(contact => contact.id),
+        ...(type === 'GROUP' ? { title: title.trim(), description: description.trim() } : {}),
+        initialMessage: initialMessage.trim(),
+      });
       onOpenChange(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to create conversation');
+    } finally {
+      setWorking(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+    <Dialog open={open} onOpenChange={value => { if (!working) onOpenChange(value); }}>
+      <DialogContent className="flex max-h-[90dvh] w-[calc(100vw-2rem)] max-w-lg flex-col overflow-hidden p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle>{t('messages.newConversation')}</DialogTitle>
+          <DialogTitle>New conversation</DialogTitle>
+          <DialogDescription>
+            Message another person or create a company group. Group creator becomes an admin.
+          </DialogDescription>
         </DialogHeader>
-
-        <div className="space-y-4">
-          <div>
-            <Label>{t('messages.selectRecipients')}</Label>
-            <div className="relative mt-2">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={t('messages.searchContacts')}
-                className="pl-9"
-              />
-            </div>
+        <form onSubmit={event => void submit(event)} className="flex min-h-0 flex-1 flex-col gap-3">
+          <div className="grid grid-cols-2 gap-2">
+            <Button type="button" variant={type === 'DIRECT' ? 'default' : 'outline'}
+              onClick={() => changeType('DIRECT')} className="min-h-11 gap-2">
+              <UserRound className="h-4 w-4" /> One-to-one
+            </Button>
+            <Button type="button" variant={type === 'GROUP' ? 'default' : 'outline'}
+              onClick={() => changeType('GROUP')} className="min-h-11 gap-2">
+              <UsersRound className="h-4 w-4" /> Group
+            </Button>
           </div>
 
-          <ScrollArea className="h-48 border rounded-md">
-            <div className="p-2 space-y-1">
-              {filteredContacts.map((contact) => {
-                const isSelected = selectedIds.includes(contact.id);
-                return (
-                  <button
-                    key={contact.id}
-                    onClick={() => toggleContact(contact.id)}
-                    className={cn(
-                      'w-full flex items-center gap-3 p-2 rounded-md transition-colors',
-                      isSelected ? 'bg-primary/10' : 'hover:bg-muted'
-                    )}
-                  >
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                        {contact.name
-                          .split(' ')
-                          .map((n) => n[0])
-                          .join('')}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 text-left">
-                      <p className="font-medium text-sm">{contact.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {'unit' in contact ? contact.unit : contact.department || contact.role}
-                      </p>
-                    </div>
-                    <Badge
-                      variant="outline"
-                      className={cn('text-xs', roleColors[contact.role as keyof typeof roleColors])}
-                    >
-                      {contact.role}
-                    </Badge>
-                    {isSelected && (
-                      <Check className="h-4 w-4 text-primary" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </ScrollArea>
-
-          {selectedIds.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {selectedIds.map((id) => {
-                const contact = mockContacts.find((c) => c.id === id);
-                return (
-                  <Badge key={id} variant="secondary" className="gap-1">
-                    {contact?.name}
-                    <button
-                      onClick={() => toggleContact(id)}
-                      className="ml-1 hover:text-destructive"
-                    >
-                      ×
-                    </button>
-                  </Badge>
-                );
-              })}
+          {type === 'GROUP' && (
+            <div className="grid gap-2">
+              <Label htmlFor="chat-group-name">Group name *</Label>
+              <Input id="chat-group-name" maxLength={120} value={title}
+                onChange={event => setTitle(event.target.value)}
+                placeholder="e.g. Building A Management" />
+              <Textarea maxLength={500} value={description} rows={2}
+                onChange={event => setDescription(event.target.value)}
+                placeholder="Group description (optional)" />
             </div>
           )}
 
-          <div>
-            <Label>{t('messages.subject')}</Label>
-            <Input
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder={t('messages.subjectPlaceholder')}
-              className="mt-2"
-            />
+          <div className="space-y-2">
+            <Label htmlFor="chat-contact-search">
+              {type === 'DIRECT' ? 'Choose a person' : 'Add group members'} *
+            </Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input id="chat-contact-search" className="pl-9" value={search}
+                onChange={event => setSearch(event.target.value)}
+                placeholder="Search by name or email…" />
+            </div>
           </div>
 
-          <div>
-            <Label>{t('messages.message')}</Label>
-            <Textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder={t('messages.messagePlaceholder')}
-              className="mt-2"
-              rows={3}
-            />
+          {selected.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {selected.map(contact => (
+                <Badge key={contact.id} variant="secondary" className="max-w-full gap-1.5 py-1.5">
+                  <span className="max-w-48 truncate">{contact.name}</span>
+                  <button type="button" aria-label={`Remove ${contact.name}`}
+                    onClick={() => setSelected(previous => previous.filter(x => x.id !== contact.id))}>
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          )}
+
+          <div className="min-h-24 flex-1 overflow-y-auto rounded-md border">
+            {loadingContacts && <p className="p-3 text-sm text-muted-foreground">Searching contacts…</p>}
+            {!loadingContacts && visibleContacts.length === 0 && (
+              <p className="p-3 text-sm text-muted-foreground">No eligible contacts found.</p>
+            )}
+            {!loadingContacts && visibleContacts.map(contact => (
+              <button type="button" key={contact.id}
+                onClick={() => choose(contact)}
+                className="flex min-h-12 w-full items-center justify-between gap-2 border-b px-3 py-2 text-left last:border-0 hover:bg-muted/60">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{contact.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">{contact.role.replaceAll('_', ' ').toLowerCase()} · {contact.email}</p>
+                </div>
+                <Check className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </button>
+            ))}
+          </div>
+
+          {type === 'GROUP' && (
+            <p className="text-xs text-muted-foreground">
+              Members must belong to one company. Group admins can manage membership and permissions.
+            </p>
+          )}
+
+          <div className="space-y-1">
+            <Label htmlFor="chat-first-message">First message (optional)</Label>
+            <Textarea id="chat-first-message" maxLength={4000} rows={2}
+              value={initialMessage} onChange={event => setInitialMessage(event.target.value)}
+              placeholder="Say hello…" />
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              {t('common.cancel')}
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={working}>
+              Cancel
             </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={selectedIds.length === 0 || !message.trim()}
-            >
-              {t('messages.send')}
+            <Button type="submit" disabled={working || !selected.length || (type === 'GROUP' && (!title.trim() || selectedCompany == null))}>
+              {working && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {type === 'GROUP' ? 'Create group' : 'Start chat'}
             </Button>
           </div>
-        </div>
+        </form>
       </DialogContent>
     </Dialog>
   );
