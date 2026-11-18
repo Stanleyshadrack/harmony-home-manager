@@ -8,6 +8,7 @@ export interface ChatContact {
   email: string;
   role: ChatRole;
   companyId: number | null;
+  avatarUrl?: string | null;
 }
 
 export interface ChatMember {
@@ -16,6 +17,14 @@ export interface ChatMember {
   role: ChatRole;
   admin: boolean;
   joinedAt: string;
+  avatarUrl?: string | null;
+}
+
+export interface MessageAttachment {
+  id: number;
+  filename: string;
+  contentType: string;
+  size: number;
 }
 
 export interface Message {
@@ -28,6 +37,9 @@ export interface Message {
   deleted: boolean;
   readBy: number[];
   createdAt: string;
+  forwarded?: boolean;
+  attachment?: MessageAttachment | null;
+  senderAvatarUrl?: string | null;
 }
 
 export interface Conversation {
