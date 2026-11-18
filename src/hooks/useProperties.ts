@@ -248,6 +248,7 @@ export function mapUnitFromApi(api: PropertyUnitApiResponse): Unit {
 export function useUnits() {
   const [units, setUnits] = useState<Unit[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   /* =========================
      📄 FETCH ALL UNITS
@@ -255,9 +256,22 @@ export function useUnits() {
   useEffect(() => {
     setIsLoading(true);
 
+    let active = true;
     PropertyUnitsApi.fetchAll()
-      .then((res) => setUnits(res.map(mapUnitFromApi)))
-      .finally(() => setIsLoading(false));
+      .then((res) => {
+        if (active) {
+          setUnits(res.map(mapUnitFromApi));
+          setLoadError(null);
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setUnits([]);
+          setLoadError(error instanceof Error ? error.message : 'Unable to load units');
+        }
+      })
+      .finally(() => { if (active) setIsLoading(false); });
+    return () => { active = false; };
   }, []);
 
   /* =========================
@@ -315,6 +329,7 @@ export function useUnits() {
   return {
     units,
     isLoading,
+    loadError,
     addUnit,
     updateUnit,
     deleteUnit,
