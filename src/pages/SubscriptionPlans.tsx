@@ -7,6 +7,7 @@ import { Building2, CalendarClock, ShieldCheck, CheckCircle, RefreshCw } from 'l
 import { apiRequest } from '@/api/https';
 import { useAuth } from '@/contexts/AuthContext';
 import { SUBSCRIPTION_PLANS } from '@/components/Plans';
+import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
 
 type CompanySubscription = {
   companyId: number;
@@ -26,6 +27,8 @@ type CompanySubscription = {
 export default function SubscriptionPlans() {
   const { user } = useAuth();
   const [subscription, setSubscription] = useState<CompanySubscription | null>(null);
+  const [allCompanies, setAllCompanies] = useState<CompanySubscription[]>([]);
+  const [mode, setMode] = useViewMode('company-subscriptions', 'list');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const load = async () => {
@@ -45,14 +48,56 @@ export default function SubscriptionPlans() {
   };
   useEffect(() => {
     if (user?.role === 'landlord') void load();
-    else setLoading(false);
+    else if (user?.role === 'super_admin') {
+      setLoading(true);
+      apiRequest<null, CompanySubscription[]>({path:'/api/subscriptions', method:'GET'})
+        .then(data => {setAllCompanies(data); setError('');})
+        .catch(e => setError(e instanceof Error ? e.message : 'Unable to list company subscriptions'))
+        .finally(() => setLoading(false));
+    } else setLoading(false);
   }, [user?.id, user?.role]);
+  if (user?.role === 'super_admin') {
+    return <DashboardLayout title="Company Subscriptions"
+      breadcrumbs={[{label:'Dashboard',href:'/dashboard'},{label:'Company Subscriptions'}]}>
+      <div className="space-y-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold">Company subscription overview</h2>
+            <p className="text-sm text-muted-foreground">Each company owns one subscription; capacity and expiry are tracked at company level.</p>
+          </div>
+          <ViewModeToggle value={mode} onChange={setMode}/>
+        </div>
+        {loading && <p role="status">Loading company subscriptions…</p>}
+        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        {!loading && !error && allCompanies.length===0 &&
+          <p className="text-sm text-muted-foreground">No company subscriptions recorded.</p>}
+        <div className={mode === 'grid' ? 'grid gap-3 lg:grid-cols-2' : 'space-y-3'}>
+          {allCompanies.map(company => <Card key={company.companyId}>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between gap-3">
+                <span className="truncate">{company.companyName}</span>
+                <Badge variant={company.status === 'ACTIVE' ? 'secondary':'destructive'}>{company.status}</Badge>
+              </CardTitle>
+              <CardDescription>Company #{company.companyId} · {company.plan} · {company.billingCycle ?? 'Unspecified cycle'}</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-2 text-sm sm:grid-cols-2">
+              <div>Properties: <strong>{company.currentProperties ?? 0} / {company.maxProperties}</strong></div>
+              <div>Units: <strong>{company.currentUnits ?? 0} / {company.maxUnits}</strong></div>
+              <div>Expires: <strong>{company.endDate || 'Not set'}</strong></div>
+              <div>Days remaining: <strong>{company.daysRemaining ?? '—'}</strong></div>
+            </CardContent>
+          </Card>)}
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Paid upgrades and renewals are disabled until verified payments are linked to their company.
+          This overview does not create invoices or claim payments have been received.
+        </p>
+      </div>
+    </DashboardLayout>;
+  }
   if (user?.role !== 'landlord') {
     return <DashboardLayout title="Company Subscriptions">
-      <Card><CardContent className="p-6 text-muted-foreground">
-        Subscriptions are owned by companies. Company self-service is available to the associated landlord.
-        Administrators should manage subscriptions by company ID through the administrator workflow.
-      </CardContent></Card>
+      <p className="text-sm text-muted-foreground">Company subscription management requires a landlord or administrator account.</p>
     </DashboardLayout>;
   }
   return (
