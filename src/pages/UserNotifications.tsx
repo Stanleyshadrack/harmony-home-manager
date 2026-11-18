@@ -24,7 +24,7 @@ const categoryColors: Record<string, string> = {
 
 export default function UserNotifications() {
   const { user } = useAuth();
-  const { notifications, markAsRead, markAllAsRead, deleteNotification, getUnreadCount } = useInAppNotifications(user?.id);
+  const { notifications, markAsRead, markAllAsRead, deleteNotification, getUnreadCount, isLoading, error } = useInAppNotifications(user?.id);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -61,7 +61,7 @@ export default function UserNotifications() {
             </p>
           </div>
           {unreadCount > 0 && (
-            <Button onClick={markAllAsRead}>
+            <Button onClick={() => void markAllAsRead().catch(() => {})}>
               <Check className="h-4 w-4 mr-2" />
               Mark All as Read
             </Button>
@@ -107,8 +107,10 @@ export default function UserNotifications() {
           </Select>
         </div>
 
+        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        {isLoading && <p role="status" className="text-sm text-muted-foreground">Loading notifications…</p>}
         {/* Notifications List */}
-        {filteredNotifications.length === 0 ? (
+        {!isLoading && filteredNotifications.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Bell className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
@@ -152,7 +154,7 @@ export default function UserNotifications() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => markAsRead(notification.id)}
+                          onClick={() => void markAsRead(notification.id).catch(() => {})}
                         >
                           <Check className="h-4 w-4" />
                         </Button>
@@ -160,7 +162,7 @@ export default function UserNotifications() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => deleteNotification(notification.id)}
+                        onClick={() => void deleteNotification(notification.id).catch(() => {})}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
