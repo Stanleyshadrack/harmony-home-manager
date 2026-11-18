@@ -32,7 +32,6 @@ import { mapPropertyFormToCreateDTO } from '@/api/mapper/mapPropertyForm';
 import { apiRequest } from '@/api/https';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchMyLandlordProfile } from '@/api/service/landlords.service.api';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
 type CompanyOption = { id: number; name: string };
@@ -270,22 +269,22 @@ const handleFormSubmit = async (data: PropertyFormData) => {
             {isSuperAdmin && !property && (
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="property-company-trigger">Company *</Label>
-                <Popover open={companyPickerOpen} onOpenChange={setCompanyPickerOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      id="property-company-trigger"
-                      type="button"
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={companyPickerOpen}
-                      aria-label="Select company"
-                      className="min-h-11 w-full justify-between text-left font-normal"
-                    >
-                      <span className="truncate">{selectedCompany?.name ?? 'Search and select a company...'}</span>
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent align="start" className="w-[min(26rem,calc(100vw-3rem))] p-0">
+                <Button
+                  id="property-company-trigger"
+                  type="button"
+                  variant="outline"
+                  role="combobox"
+                  aria-controls="property-company-results"
+                  aria-expanded={companyPickerOpen}
+                  aria-label="Select company"
+                  className="min-h-11 w-full justify-between text-left font-normal"
+                  onClick={() => setCompanyPickerOpen(value => !value)}
+                >
+                  <span className="truncate">{selectedCompany?.name ?? 'Search and select a company...'}</span>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+                {companyPickerOpen && (
+                  <div className="mt-2 w-full rounded-md border bg-popover text-popover-foreground shadow-sm">
                     <Command shouldFilter={false}>
                       <CommandInput
                         value={companySearch}
@@ -293,7 +292,7 @@ const handleFormSubmit = async (data: PropertyFormData) => {
                         placeholder="Search by company name..."
                         aria-label="Search companies"
                       />
-                      <CommandList>
+                      <CommandList id="property-company-results" className="max-h-56">
                         {companyLoading && (
                           <div role="status" className="p-3 text-sm text-muted-foreground">Searching companies...</div>
                         )}
@@ -324,8 +323,8 @@ const handleFormSubmit = async (data: PropertyFormData) => {
                         )}
                       </CommandList>
                     </Command>
-                  </PopoverContent>
-                </Popover>
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground">Required for Super Admins. Search the company directory by name.</p>
               </div>
             )}
