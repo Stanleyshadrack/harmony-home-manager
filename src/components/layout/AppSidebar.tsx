@@ -51,6 +51,7 @@ import {
 import { toast } from 'sonner';
 import { lockSession } from '@/services/sessionLock';
 import { LucideIcon } from 'lucide-react';
+import { getRoleModuleLabel } from '@/lib/roleModuleLabels';
 
 interface NavItem {
   title: string;
@@ -170,11 +171,11 @@ export function AppSidebar() {
                   <SidebarMenuButton
                     asChild
                     isActive={location.pathname === item.url}
-                    tooltip={collapsed ? t(item.title) : undefined}
+                    tooltip={collapsed ? getRoleModuleLabel(item.url, userRole, t(item.title)) : undefined}
                   >
                     <NavLink to={item.url}>
                       <item.icon className="h-4 w-4" />
-                      <span>{t(item.title)}</span>
+                      <span>{getRoleModuleLabel(item.url, userRole, t(item.title))}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
