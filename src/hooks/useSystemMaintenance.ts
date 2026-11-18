@@ -21,6 +21,8 @@ export function announceMaintenanceChange() {
 export function useSystemMaintenance(userId?: string) {
   const [status, setStatus] = useState<SystemMaintenanceStatus>(DEFAULT_STATUS);
   const [loading, setLoading] = useState(true);
+  const [checkedIdentity, setCheckedIdentity] = useState<string | null>(null);
+  const identity = userId ?? "public";
   const [error, setError] = useState('');
   const refresh = useCallback(async () => {
     try {
@@ -28,13 +30,15 @@ export function useSystemMaintenance(userId?: string) {
         path: userId ? '/api/system-maintenance/me' : '/api/system-maintenance/status', method: 'GET', retry: false,
       });
       setStatus(next);
+      setCheckedIdentity(identity);
       setError('');
     } catch (e) {
+      setCheckedIdentity(identity);
       setError(e instanceof Error ? e.message : 'System maintenance status unavailable');
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, identity]);
 
   useEffect(() => {
     void refresh();
@@ -49,5 +53,5 @@ export function useSystemMaintenance(userId?: string) {
     };
   }, [refresh]);
 
-  return { status, loading, error, refresh };
+  return { status, loading: loading || checkedIdentity !== identity, error, refresh };
 }
