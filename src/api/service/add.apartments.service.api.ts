@@ -43,7 +43,7 @@ export const PropertyApi = Object.freeze({
      ✏️ Update property
   ========================= */
   update: (id: number, data: PropertyFormData) =>
-    apiRequest<PropertyFormData, PropertyApiResponse>({
+    apiRequest<Omit<PropertyFormData, "propertyType"> & { propertyType: string }, PropertyApiResponse>({
       path: API_PATHS.PROPERTY_BY_ID(id),
       method: "PUT",
       body: {
