@@ -36,7 +36,7 @@ export default function Units() {
   const propertyIdFromUrl = searchParams.get('property');
   
   const { properties } = useProperties();
-  const { units, isLoading, addUnit, updateUnit, deleteUnit } = useUnits();
+  const { units, isLoading, loadError, addUnit, updateUnit, deleteUnit } = useUnits();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [filterProperty, setFilterProperty] = useState<string>(propertyIdFromUrl || 'all');
@@ -65,7 +65,7 @@ export default function Units() {
       await addUnit(data);
       toast.success('Unit added successfully');
     } catch (error) {
-      toast.error('Failed to add unit');
+      toast.error(error instanceof Error ? error.message : 'Failed to add unit');
     }
   };
 
@@ -76,7 +76,7 @@ export default function Units() {
       toast.success('Unit updated successfully');
       setEditingUnit(null);
     } catch (error) {
-      toast.error('Failed to update unit');
+      toast.error(error instanceof Error ? error.message : 'Failed to update unit');
     }
   };
 
@@ -87,7 +87,7 @@ export default function Units() {
       toast.success('Unit deleted successfully');
       setDeletingUnit(null);
     } catch (error) {
-      toast.error('Failed to delete unit');
+      toast.error(error instanceof Error ? error.message : 'Failed to delete unit');
     }
   };
 
