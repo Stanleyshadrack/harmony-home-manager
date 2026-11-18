@@ -31,7 +31,7 @@ export function SessionLockManager() {
     function onOtherTab(event: StorageEvent) {
       if (!isLockBroadcastKey(event.key) || !event.newValue) return;
       // The other tab already removed shared localStorage tokens.
-      lockSession('other-tab');
+      lockSession('other-tab', false);
     }
     window.addEventListener(SESSION_LOCK_EVENT, onLock);
     window.addEventListener('storage', onOtherTab);
