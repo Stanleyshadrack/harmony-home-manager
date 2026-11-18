@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { User, Mail, Phone, Camera, Save, Loader2 } from 'lucide-react';
 import { NotificationPreferences } from '@/components/settings/NotificationPreferences';
+import { MaintenanceControl } from '@/components/settings/MaintenanceControl';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Bell, ShieldCheck, UserRound } from 'lucide-react';
 import { fileToBase64 } from '@/services/userManagementService';
@@ -128,6 +129,7 @@ export default function Settings() {
           <TabsTrigger value="account" className="gap-2"><UserRound className="h-4 w-4" />Profile & Account</TabsTrigger>
           <TabsTrigger value="security" className="gap-2"><ShieldCheck className="h-4 w-4" />Security</TabsTrigger>
           <TabsTrigger value="notifications" className="gap-2"><Bell className="h-4 w-4" />Notifications & Sounds</TabsTrigger>
+          {user?.role === 'super_admin' && <TabsTrigger value="maintenance">System Maintenance</TabsTrigger>}
         </TabsList>
         <TabsContent value="account" className="grid gap-6 lg:grid-cols-3">
         {/* Profile Card */}
@@ -288,6 +290,11 @@ export default function Settings() {
           <NotificationPreferences />
         </div>
         </TabsContent>
+        {user?.role === 'super_admin' && (
+          <TabsContent value="maintenance" className="max-w-4xl">
+            <MaintenanceControl />
+          </TabsContent>
+        )}
       </Tabs>
     </DashboardLayout>
   );
