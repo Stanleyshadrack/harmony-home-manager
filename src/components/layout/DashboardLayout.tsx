@@ -1,3 +1,4 @@
+import { readLockInfo } from '@/services/sessionLock';
 import { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,6 +25,8 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children, title, breadcrumbs }: DashboardLayoutProps) {
   const { isAuthenticated, isLoading } = useAuth();
+
+  if (readLockInfo()) return <Navigate to="/locked" replace />;
 
   if (isLoading) {
     return (
