@@ -47,6 +47,14 @@ export async function apiRequest<TReq, TRes>({
     "/api/auth/set-password", "/api/auth/force-password-change",
   ];
   const token = publicAuthPaths.includes(path) ? null : tokenService.getAccessToken();
+  // Do not hit business endpoints with an empty Bearer session. This prevents
+  // a cascade of 401s while protected components are unmounting after logout.
+  if (!publicAuthPaths.includes(path) && !token) {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("apartment:session-expired"));
+    }
+    throw new ApiHttpError(401, path, "Authentication required. Please sign in.");
+  }
 
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
@@ -113,6 +121,13 @@ export async function apiRequest<TReq, TRes>({
   /* =========================
      Error handling
   ========================= */
+  if (res.status === 401 && !publicAuthPaths.includes(path) && !retry &&
+      tokenService.getAccessToken() === token) {
+    tokenService.clearTokens();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("apartment:session-expired"));
+    }
+  }
   if (res.status === 423 && typeof window !== "undefined") {
     window.dispatchEvent(new Event("apartment:maintenance-status"));
   }
