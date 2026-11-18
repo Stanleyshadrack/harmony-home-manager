@@ -25,6 +25,7 @@ export type InviteUnitOption = {
 export type InviteOptions = {
   properties: InvitePropertyOption[];
   units: InviteUnitOption[];
+  companies: { id: number; name: string }[];
 };
 
 export type InviteSummary = {
