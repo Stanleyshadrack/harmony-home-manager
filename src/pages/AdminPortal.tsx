@@ -313,8 +313,11 @@ const [approvalLoading, setApprovalLoading] = useState(false);
     }).format(amount);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+  const formatDate = (dateString?: string | null) => {
+    if (!dateString) return 'Not available';
+    const parsed = new Date(dateString);
+    if (Number.isNaN(parsed.getTime())) return 'Not available';
+    return parsed.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -1014,11 +1017,11 @@ const [approvalLoading, setApprovalLoading] = useState(false);
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-3 bg-muted/50 rounded-lg">
                   <p className="text-sm text-muted-foreground">Properties</p>
-                  <p className="text-xl font-bold">{selectedLandlord.currentProperties}/{selectedLandlord.maxProperties}</p>
+                  <p className="text-xl font-bold">{selectedLandlord.currentProperties}/{selectedLandlord.maxProperties || "—"}</p>
                 </div>
                 <div className="p-3 bg-muted/50 rounded-lg">
                   <p className="text-sm text-muted-foreground">Units</p>
-                  <p className="text-xl font-bold">{selectedLandlord.currentUnits}/{selectedLandlord.maxUnits}</p>
+                  <p className="text-xl font-bold">{selectedLandlord.currentUnits}/{selectedLandlord.maxUnits || "—"}</p>
                 </div>
               </div>
 
