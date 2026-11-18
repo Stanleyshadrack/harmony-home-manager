@@ -28,6 +28,7 @@ import {
   Settings,
   HelpCircle,
   LogOut,
+  LockKeyhole,
   Bell,
   UserCircle,
   Shield,
@@ -48,6 +49,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
+import { lockSession } from '@/services/sessionLock';
 import { LucideIcon } from 'lucide-react';
 
 interface NavItem {
@@ -246,6 +248,10 @@ export function AppSidebar() {
                   </NavLink>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => lockSession('manual')} className="cursor-pointer">
+                  <LockKeyhole className="mr-2 h-4 w-4" />
+                  Lock screen
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleLogout} className="text-destructive cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />
                   {t('auth.logout')}
