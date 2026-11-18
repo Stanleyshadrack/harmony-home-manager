@@ -11,6 +11,9 @@ export const PropertyUnitsApi = Object.freeze({
       body: data,
     }),
 
+  fetchTenantVacant: () =>
+    apiRequest<null, PropertyUnitApiResponse[]>({ path: "/api/units/vacant/tenant", method: "GET" }),
+
   fetchAll: () =>
     apiRequest<null, PropertyUnitApiResponse[]>({
       path: API_PATHS.UNITS,
