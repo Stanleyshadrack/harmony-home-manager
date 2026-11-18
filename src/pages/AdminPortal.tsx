@@ -58,10 +58,8 @@ import {
   User,
   Lock,
   Key,
-  Edit,
   CreditCard,
   Mail,
-  RefreshCw,
 } from 'lucide-react';
 import { useProperties, useUnits } from '@/hooks/useProperties';
 import { useTenants } from '@/hooks/useTenants';
@@ -71,17 +69,13 @@ import { useLandlords } from '@/hooks/useLandlords';
 import { getAuditLogs, getActivitySummary } from '@/services/auditService';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { LandlordForm } from '@/components/admin/LandlordForm';
 import { SystemLockControl } from '@/components/admin/SystemLockControl';
 import { CompanyManagement } from '@/components/admin/CompanyManagement';
 import { UserPasswordReset } from '@/components/admin/UserPasswordReset';
 import { BulkEmailForm } from '@/components/admin/BulkEmailForm';
-import { SubscriptionRenewalDialog } from '@/components/landlords/SubscriptionRenewalDialog';
-import { sendSubscriptionRenewalConfirmationEmail, sendUserInvitationEmail } from '@/services/adminEmailService';
 import { InviteUserDialog } from '@/components/admin/InviteUserDialog';
 import { AssignPropertiesDialog } from '@/components/properties/AssignPropertiesDialog';
 import { LandlordTypes } from '@/types/LandlordTypes';
-import { SubscriptionPlan } from '@/api/dto/SubscriptionResponse';
 
 export default function AdminPortal() {
   const [viewMode, setViewMode] = useViewMode('admin-portal', 'list');
@@ -103,14 +97,7 @@ export default function AdminPortal() {
   const {
     landlords,
     subscriptionPlans,
-    addLandlord,
-    updateLandlord,
-    suspendLandlord,
-    activateLandlord,
-    updateSubscription,
     isSubscriptionExpired,
-    renewSubscription,
-    getDaysUntilExpiration,
     getExpiredSubscriptions,
   } = useLandlords();
   
@@ -118,15 +105,12 @@ export default function AdminPortal() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLandlord, setSelectedLandlord] = useState<LandlordTypes  | null>(null);
   const [showLandlordDialog, setShowLandlordDialog] = useState(false);
-  const [showLandlordForm, setShowLandlordForm] = useState(false);
-  const [landlordFormMode, setLandlordFormMode] = useState<'add' | 'edit'>('add');
 const [selectedApproval, setSelectedApproval] = useState<Approval | null>(null);
 const [approvalLoading, setApprovalLoading] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
-  const [showRenewalDialog, setShowRenewalDialog] = useState(false);
-  const [renewalLandlord, setRenewalLandlord] = useState<LandlordTypes  | null>(null);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [inviteStartRole, setInviteStartRole] = useState<'TENANT' | 'LANDLORD'>('TENANT');
    const [showAssignPropertiesDialog, setShowAssignPropertiesDialog] = useState(false);
   const [assignPropertiesLandlord, setAssignPropertiesLandlord] = useState<LandlordTypes  | null>(null);
   // Track property assignments per landlord (landlordId -> propertyId[])
@@ -155,7 +139,12 @@ const [approvalLoading, setApprovalLoading] = useState(false);
   const activeLandlords = landlords.filter((l) => l.status === 'active').length;
   const totalProperties = properties.length;
   const totalUnits = units.length;
-  const expiredSubscriptions = getExpiredSubscriptions();
+  // A subscription belongs to a company, so do not count it once per landlord.
+  const expiredSubscriptions = getExpiredSubscriptions().filter(
+    (landlord, index, all) => all.findIndex(other =>
+      (other.companyId ?? other.company ?? other.id) === (landlord.companyId ?? landlord.company ?? landlord.id)
+    ) === index
+  );
 
   const filteredLandlords = landlords.filter(
     (l) =>
@@ -168,96 +157,12 @@ const [approvalLoading, setApprovalLoading] = useState(false);
     setShowLandlordDialog(true);
   };
 
-  const handleEditLandlord = (landlord: LandlordTypes ) => {
-    setSelectedLandlord(landlord);
-    setLandlordFormMode('edit');
-    setShowLandlordForm(true);
-  };
-
+  // New landlords must be invited with an existing company.
   const handleAddLandlord = () => {
-    setSelectedLandlord(null);
-    setLandlordFormMode('add');
-    setShowLandlordForm(true);
+    setInviteStartRole('LANDLORD');
+    setShowInviteDialog(true);
   };
 
-  const handleLandlordFormSubmit = (data: any) => {
-    if (landlordFormMode === 'add') {
-      addLandlord({
-        ...data,
-        status: 'active',
-        subscriptionStartDate: new Date().toISOString(),
-      });
-      toast({
-        title: 'Landlord Added',
-        description: `${data.firstName} ${data.lastName} has been added successfully.`,
-      });
-    } else if (selectedLandlord) {
-      updateLandlord(selectedLandlord.id, data);
-      toast({
-        title: 'Landlord Updated',
-        description: `${data.firstName} ${data.lastName}'s profile has been updated.`,
-      });
-    }
-    setShowLandlordForm(false);
-  };
-
-  const handleSuspendLandlord = (id: number) => {
-    suspendLandlord(Number(id));
-    toast({
-      title: 'Landlord Suspended',
-      description: 'The landlord account has been suspended.',
-    });
-  };
-
-  const handleActivateLandlord = (id: number) => {
-    activateLandlord(Number(id));
-    toast({
-      title: 'Landlord Activated',
-      description: 'The landlord account has been activated.',
-    });
-  };
-
-  const handleOpenRenewalDialog = (landlord: LandlordTypes ) => {
-    setRenewalLandlord(landlord);
-    setShowRenewalDialog(true);
-  };
-
- const handleRenewSubscription = async (
-  plan: string,
-  paymentData: any
-) => {
-  if (!renewalLandlord) return;
-
-  const landlordId = renewalLandlord.id;
-
-  const landlord = landlords.find(l => l.id === landlordId);
-  if (!landlord) return;
-
-  const planDetails = subscriptionPlans.find(p => p.id === plan);
-
-  // Process renewal
- await updateSubscription(
-  landlordId,
-  plan as SubscriptionPlan,
-  "MONTHLY"
-);
-
-  // Send confirmation email
-  await sendSubscriptionRenewalConfirmationEmail({
-    landlordName: `${landlord.firstName} ${landlord.lastName}`,
-    landlordEmail: landlord.email,
-    planName: planDetails?.name || plan,
-    amount: (planDetails?.price || 0) * 12,
-    newExpirationDate: new Date(
-      Date.now() + 365 * 24 * 60 * 60 * 1000
-    ).toISOString(),
-    transactionId: `TXN-${Date.now()}`,
-  });
-
-  setShowRenewalDialog(false);
-  setRenewalLandlord(null);
-};
-  
   // Handle property assignment
   const handleOpenAssignProperties = (landlord: LandlordTypes ) => {
     setAssignPropertiesLandlord(landlord);
@@ -362,7 +267,7 @@ const [approvalLoading, setApprovalLoading] = useState(false);
           <div className="flex items-center gap-2">
 
 
-            <Button onClick={() => setShowInviteDialog(true)}>
+            <Button onClick={() => { setInviteStartRole('TENANT'); setShowInviteDialog(true); }}>
               <UserPlus className="h-4 w-4 mr-2" />
               Invite User
             </Button>
@@ -613,7 +518,7 @@ const [approvalLoading, setApprovalLoading] = useState(false);
                       <div className="flex items-center gap-3 p-3 bg-warning/5 border border-warning/20 rounded-lg">
                         <CreditCard className="h-5 w-5 text-warning" />
                         <div>
-                          <p className="font-medium">Expired Subscriptions</p>
+                          <p className="font-medium">Expired Company Subscriptions</p>
                           <p className="text-sm text-muted-foreground">
                             {expiredSubscriptions.length} subscription(s) have expired
                           </p>
@@ -750,7 +655,7 @@ const [approvalLoading, setApprovalLoading] = useState(false);
               </div>
               <Button onClick={handleAddLandlord}>
                 <UserPlus className="h-4 w-4 mr-2" />
-                Add Landlord
+                Invite Landlord
               </Button>
             </div>
 
@@ -762,9 +667,9 @@ const [approvalLoading, setApprovalLoading] = useState(false);
                     <TableHead>Landlord</TableHead>
                     <TableHead>Contact</TableHead>
                     <TableHead>Properties</TableHead>
-                    <TableHead>Subscription</TableHead>
+                    <TableHead>Company Plan</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Expires</TableHead>
+                    <TableHead>Company Plan Expires</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -840,32 +745,14 @@ const [approvalLoading, setApprovalLoading] = useState(false);
                               <Eye className="h-4 w-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleEditLandlord(landlord)}>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleOpenAssignProperties(landlord)}>
                               <Building2 className="h-4 w-4 mr-2" />
                               Assign Properties
                             </DropdownMenuItem>
-                           <DropdownMenuItem onClick={() => handleOpenRenewalDialog(landlord)}>
-  <RefreshCw className="h-4 w-4 mr-2" />
-  Renew Subscription
-</DropdownMenuItem>
-                            {landlord.status === 'active' ? (
-                              <DropdownMenuItem
-                                onClick={() => handleSuspendLandlord(landlord.id)}
-                                className="text-destructive"
-                              >
-                                <Ban className="h-4 w-4 mr-2" />
-                                Suspend Account
-                              </DropdownMenuItem>
-                            ) : (
-                              <DropdownMenuItem onClick={() => handleActivateLandlord(landlord.id)}>
-                                <CheckCircle className="h-4 w-4 mr-2" />
-                                Activate Account
-                              </DropdownMenuItem>
-                            )}
+                            <DropdownMenuItem onClick={() => setActiveTab('companies')}>
+                              <CreditCard className="h-4 w-4 mr-2" />
+                              Manage Company Subscription
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -986,7 +873,7 @@ const [approvalLoading, setApprovalLoading] = useState(false);
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Subscription Plans</CardTitle>
+                  <CardTitle>Company Subscription Plans</CardTitle>
                   <CardDescription>Available subscription tiers</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -1071,7 +958,7 @@ const [approvalLoading, setApprovalLoading] = useState(false);
                   <span>{selectedLandlord.company || 'N/A'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subscription</span>
+                  <span className="text-muted-foreground">Company Plan</span>
                   <Badge variant="secondary" className="capitalize">
                     {selectedLandlord.subscription}
                   </Badge>
@@ -1094,7 +981,7 @@ const [approvalLoading, setApprovalLoading] = useState(false);
                   <span>{formatDate(selectedLandlord.createdAt)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subscription Expires</span>
+                  <span className="text-muted-foreground">Company Plan Expires</span>
                   <span className={isSubscriptionExpired(selectedLandlord) ? 'text-destructive' : ''}>
                     {formatDate(selectedLandlord.subscriptionEndDate)}
                   </span>
@@ -1109,16 +996,6 @@ const [approvalLoading, setApprovalLoading] = useState(false);
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Landlord Form Dialog */}
-      <LandlordForm
-        open={showLandlordForm}
-        onOpenChange={setShowLandlordForm}
-        onSubmit={handleLandlordFormSubmit}
-        landlord={selectedLandlord}
-        subscriptionPlans={subscriptionPlans}
-        mode={landlordFormMode}
-      />
 
       {/* Rejection Dialog */}
       <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
@@ -1197,22 +1074,12 @@ const [approvalLoading, setApprovalLoading] = useState(false);
       </Dialog>
 
 
-      {/* Subscription Renewal Dialog */}
-      {renewalLandlord && (
-        <SubscriptionRenewalDialog
-  open={showRenewalDialog}
-  onOpenChange={setShowRenewalDialog}
-  landlord={renewalLandlord}
-  subscriptionPlans={subscriptionPlans}
-  onRenew={handleRenewSubscription}
-/>
-      )}
-
       {/* Invite User Dialog */}
       <InviteUserDialog
   open={showInviteDialog}
   onOpenChange={setShowInviteDialog}
   inviterRole={user?.role || 'super_admin'}
+  initialRole={inviteStartRole}
 />
 
 <Dialog
