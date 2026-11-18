@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface ConfirmActionDialogProps {
   open: boolean;
@@ -16,7 +17,7 @@ interface ConfirmActionDialogProps {
   title: string;
   description: string;
   confirmLabel?: string;
-  onConfirm: () => Promise<void> | void;
+  onConfirm: () => Promise<void | boolean> | void | boolean;
   destructive?: boolean;
 }
 
@@ -36,8 +37,10 @@ export function ConfirmActionDialog({
     if (busy) return;
     setBusy(true);
     try {
-      await onConfirm();
-      onOpenChange(false);
+      const success = await onConfirm();
+      if (success !== false) onOpenChange(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not complete this action');
     } finally {
       setBusy(false);
     }
