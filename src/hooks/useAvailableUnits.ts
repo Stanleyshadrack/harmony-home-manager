@@ -15,3 +15,16 @@ export function useAvailableUnits(propertyId?: string | number) {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
+
+/** Tenant-owned vacancies: never call landlord-only /api/units endpoints. */
+export function useTenantAvailableUnits() {
+  return useQuery<Unit[]>({
+    queryKey: ["tenant-available-units"],
+    queryFn: async () => {
+      const units = await PropertyUnitsApi.fetchTenantVacant();
+      return units.map(mapUnitFromApi);
+    },
+    retry: false,
+    staleTime: 60_000,
+  });
+}
