@@ -1,11 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { isLockBroadcastKey, lockSession, readLockInfo, SESSION_IDLE_MINUTES, SESSION_LOCK_EVENT } from '@/services/sessionLock';
+import { getIdleLockMinutes, isIdleLockPreferenceKey, isLockBroadcastKey, lockSession, readLockInfo, SESSION_LOCK_PREFERENCE_EVENT, SESSION_LOCK_EVENT } from '@/services/sessionLock';
 import { tokenService } from '@/services/tokenService';
 import { useQueryClient } from '@tanstack/react-query';
 
-const IDLE_MS = SESSION_IDLE_MINUTES * 60 * 1000;
 
 /** Global guard for manual lock, cross-tab lock, and inactivity lock. */
 export function SessionLockManager() {
@@ -14,6 +13,7 @@ export function SessionLockManager() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const lastActivity = useRef(Date.now());
+  const activeUser = useRef<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && readLockInfo() && location.pathname !== '/locked' &&
@@ -42,21 +42,48 @@ export function SessionLockManager() {
   }, [logout, navigate, queryClient]);
 
   useEffect(() => {
-    if (!user || isLoading || location.pathname === '/auth' || location.pathname === '/locked')
+    if (!user || isLoading || location.pathname === '/auth' || location.pathname === '/locked') {
+      activeUser.current = null;
       return;
+    }
     if (!tokenService.getAccessToken()) {
       lockSession('other-tab');
       return;
     }
-    lastActivity.current = Date.now();
-    const activity = () => { lastActivity.current = Date.now(); };
+
+    const account = String(user.id);
+    // Route changes must not restart an existing idle window.
+    if (activeUser.current !== account) {
+      lastActivity.current = Date.now();
+      activeUser.current = account;
+    }
+
+    function checkIdle() {
+      if (!tokenService.getAccessToken() || readLockInfo()) return;
+      const minutes = getIdleLockMinutes(account);
+      if (Date.now() - lastActivity.current >= minutes * 60_000) {
+        lockSession('idle', true, minutes);
+      }
+    }
+
+    const onActivity = () => { lastActivity.current = Date.now(); };
+    const onVisibility = () => { if (document.visibilityState === 'visible') checkIdle(); };
+    const onPreference = () => { checkIdle(); };
+    const onStorage = (event: StorageEvent) => {
+      if (isIdleLockPreferenceKey(event.key)) checkIdle();
+    };
     const events = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const;
-    events.forEach(name => window.addEventListener(name, activity, { passive: true }));
-    const interval = window.setInterval(() => {
-      if (Date.now() - lastActivity.current >= IDLE_MS) lockSession('idle');
-    }, 15_000);
+    events.forEach(name => window.addEventListener(name, onActivity, {passive: true}));
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener(SESSION_LOCK_PREFERENCE_EVENT, onPreference);
+    window.addEventListener('storage', onStorage);
+    const interval = window.setInterval(checkIdle, 1000);
+    checkIdle();
     return () => {
-      events.forEach(name => window.removeEventListener(name, activity));
+      events.forEach(name => window.removeEventListener(name, onActivity));
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener(SESSION_LOCK_PREFERENCE_EVENT, onPreference);
+      window.removeEventListener('storage', onStorage);
       window.clearInterval(interval);
     };
   }, [user?.id, isLoading, location.pathname]);
