@@ -1,0 +1,44 @@
+.responsive-table-grid table,
+.responsive-table-grid tbody { display: block; width: 100%; }
+.responsive-table-grid thead { display: none; }
+.responsive-table-grid tbody {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 1rem;
+  padding: .5rem;
+}
+.responsive-table-grid tbody tr {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: auto;
+  border: 1px solid hsl(var(--border));
+  border-radius: .75rem;
+  background: hsl(var(--card));
+  padding: .75rem;
+  overflow-wrap: anywhere;
+}
+.responsive-table-grid tbody td {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  max-width: none;
+  min-height: 2rem;
+  padding: .45rem .25rem;
+  border-bottom: 1px solid hsl(var(--border) / .5);
+  white-space: normal;
+  text-align: right;
+}
+.responsive-table-grid tbody td:last-child { border-bottom: 0; }
+.responsive-table-grid tbody td::before {
+  content: attr(data-column-label);
+  flex: 0 0 38%;
+  text-align: left;
+  font-size: .75rem;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+}
+.responsive-table-grid tbody td[colspan] { justify-content: center; text-align: center; }
+.responsive-table-grid tbody td[colspan]::before { display: none; }
