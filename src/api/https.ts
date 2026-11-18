@@ -33,7 +33,7 @@ interface ApiRequestOptions<T> {
  */
 function resolveApiBaseUrl(): string {
   const configured = process.env.NEXT_PUBLIC_API_URL?.trim();
-  if (configured) return configured.replace(/\\/+$/, "");
+  if (configured) return configured.replace(/\/+$/, "");
   if (typeof window !== "undefined") {
     return `${window.location.protocol}//${window.location.hostname}:8080`;
   }
