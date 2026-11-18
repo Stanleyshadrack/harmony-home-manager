@@ -1,3 +1,5 @@
+import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
+import { ResponsiveTableView } from '@/components/ui/responsive-table-view';
 import { useEffect, useMemo, useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +17,7 @@ function safeCsv(value: string | number | null | undefined) {
 }
 
 export default function NotificationLogs() {
+  const [viewMode, setViewMode] = useViewMode('notificationlogs', 'list');
   const [logs, setLogs] = useState<DeliveryHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -120,7 +123,9 @@ export default function NotificationLogs() {
           {!loading && !error && !filtered.length && <p className="py-8 text-center text-muted-foreground">No recorded notifications match your filters.</p>}
           {!loading && !error && filtered.length > 0 && (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <div className="flex justify-end mb-3"><ViewModeToggle value={viewMode} onChange={setViewMode} /></div>
+              <ResponsiveTableView mode={viewMode}>
+                <table className="w-full text-sm">
                 <thead><tr className="border-b text-left"><th className="py-3 pr-3">Date</th><th className="pr-3">Recipient</th>
                   <th className="pr-3">Channel</th><th className="pr-3">Subject / message</th><th>Status</th></tr></thead>
                 <tbody>{filtered.map(log => <tr key={log.id} className="border-b last:border-0">
@@ -132,6 +137,7 @@ export default function NotificationLogs() {
                   <td className="capitalize">{log.status === "accepted" ? "SMTP accepted" : log.status === "recorded" ? "Legacy / unverified" : log.status.replace("_", " ")}</td>
                 </tr>)}</tbody>
               </table>
+                </ResponsiveTableView>
             </div>
           )}
           {!loading && !error && <p className="text-xs text-muted-foreground">Showing up to 500 recent records. Export uses the current filtered rows.</p>}
