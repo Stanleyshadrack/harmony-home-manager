@@ -88,7 +88,7 @@ export function DashboardLayout({ children, title, breadcrumbs }: DashboardLayou
           <main className="flex-1 overflow-auto">
             <div className="container py-6">
               {displayTitle && (
-                <h1 className="text-2xl font-bold mb-6">{title}</h1>
+                <h1 className="text-2xl font-bold mb-6">{displayTitle}</h1>
               )}
               {children}
             </div>
