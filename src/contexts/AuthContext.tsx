@@ -111,7 +111,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             actual.role.toLowerCase() !== claims.role) {
           throw new Error("Session identity mismatch");
         }
-        if (active) setUser(claims);
+        if (active) {
+          localStorage.setItem('apartment:active-email', claims.email);
+          setUser(claims);
+        }
       } catch {
         tokenService.clearTokens();
         if (active) setUser(null);
@@ -142,7 +145,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!accessToken || typeof accessToken !== "string") {
         throw new Error("Missing access token");
       }
-      setUser(userFromAccessToken(accessToken));
+      const restored = userFromAccessToken(accessToken);
+      localStorage.setItem('apartment:active-email', restored.email);
+      setUser(restored);
     } catch {
       tokenService.clearTokens();
       setUser(null);
@@ -153,10 +158,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
      Logout
   ========================= */
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setUser(null);
     tokenService.clearTokens();
-  };
+  }, []);
 
   /* =========================
      Provider
