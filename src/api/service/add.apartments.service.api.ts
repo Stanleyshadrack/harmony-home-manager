@@ -98,9 +98,9 @@ export const PropertyApi = Object.freeze({
   /* =========================
      ❌ Unassign landlord
   ========================= */
-  unassignLandlord: (propertyId: number) =>
+  unassignLandlord: (propertyId: number, landlordId: number) =>
     apiRequest<null, PropertyApiResponse>({
-      path: API_PATHS.UNASSIGN_PROPERTY(propertyId),
+      path: API_PATHS.UNASSIGN_PROPERTY(propertyId, landlordId),
       method: "DELETE",
     }),
 });
