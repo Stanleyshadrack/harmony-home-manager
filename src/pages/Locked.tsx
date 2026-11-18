@@ -15,10 +15,10 @@ export default function Locked() {
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
           <LockKeyhole className="h-8 w-8 text-primary"/>
         </div>
-        <CardTitle className="text-2xl">System locked</CardTitle>
+        <CardTitle className="text-2xl">Screen locked</CardTitle>
         <CardDescription>
           {info?.reason === 'idle'
-            ? 'Your session was locked after 15 minutes of inactivity.'
+            ? `Your session was locked after ${info.idleMinutes ?? 30} minute${(info.idleMinutes ?? 30) === 1 ? '' : 's'} of inactivity.`
             : 'Your session has been secured. Sign in again to continue.'}
         </CardDescription>
       </CardHeader>
