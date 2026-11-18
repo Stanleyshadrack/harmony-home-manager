@@ -101,7 +101,7 @@ DELETE_PROPERTY: (id: number) => `/api/properties/${id}`,
 
 ASSIGN_PROPERTY: "/api/properties/assign",
 
-UNASSIGN_PROPERTY: (id: number) => `/api/properties/${id}/unassign`,
+UNASSIGN_PROPERTY: (propertyId: number, landlordId: number) => `/api/properties/${propertyId}/landlords/${landlordId}`,
 
 
   // -----------------------------------------------------------
