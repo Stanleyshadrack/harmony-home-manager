@@ -1,157 +1,89 @@
-import { useRef, useEffect } from 'react';
-import { Message } from '@/types/message';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
+import { useEffect, useRef } from 'react';
+import type { Message } from '@/types/message';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { MoreVertical, Forward, Copy } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { TypingIndicator } from './TypingIndicator';
-import { ReadReceipt } from './ReadReceipt';
+import { Check, CheckCheck, Trash2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface MessageThreadProps {
   messages: Message[];
   isLoading?: boolean;
-  onForward?: (message: Message) => void;
-  typingUsers?: string[];
+  onDelete?: (message: Message) => Promise<void>;
+  canDeleteOthers?: boolean;
   totalParticipants?: number;
 }
 
-const roleColors = {
-  tenant: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-  employee: 'bg-green-500/10 text-green-600 border-green-500/20',
-  landlord: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
-};
-
-export function MessageThread({ messages, isLoading, onForward, typingUsers = [], totalParticipants = 2 }: MessageThreadProps) {
-  const { toast } = useToast();
-  const scrollRef = useRef<HTMLDivElement>(null);
+export function MessageThread({
+  messages,
+  isLoading,
+  onDelete,
+  canDeleteOthers = false,
+  totalParticipants = 2,
+}: MessageThreadProps) {
+  const { user } = useAuth();
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [messages.length]);
 
-  const handleCopy = (content: string) => {
-    navigator.clipboard.writeText(content);
-    toast({
-      title: 'Copied',
-      description: 'Message copied to clipboard',
-    });
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
+  if (isLoading && !messages.length) {
+    return <div role="status" className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+      Loading messages…
+    </div>;
   }
 
   return (
-    <ScrollArea className="h-[calc(100vh-24rem)] px-4" ref={scrollRef}>
-      <div className="space-y-4 py-4">
-        {messages.map((message) => {
-          const isOwn = message.senderId === 'current-user';
-
+    <div className="min-h-0 flex-1 overflow-y-auto bg-muted/20 px-3 py-4 sm:px-5">
+      <div className="mx-auto max-w-3xl space-y-3">
+        {messages.length === 0 && (
+          <p className="py-10 text-center text-sm text-muted-foreground">
+            No messages yet. Say hello to get started.
+          </p>
+        )}
+        {messages.map(message => {
+          const own = message.senderId === Number(user?.id);
+          const canDelete = !message.deleted && !!onDelete && (own || canDeleteOthers);
           return (
-            <div
-              key={message.id}
-              className={cn('flex gap-3', isOwn ? 'flex-row-reverse justify-start' : 'justify-start')}
-            >
-              <Avatar className="h-8 w-8 flex-shrink-0">
-                <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                  {message.senderName
-                    .split(' ')
-                    .map((n) => n[0])
-                    .join('')}
-                </AvatarFallback>
-              </Avatar>
-
-              <div className={cn('max-w-[70%] flex flex-col', isOwn ? 'items-end' : 'items-start')}>
-                <div className={cn('flex items-center gap-2 mb-1', isOwn && 'flex-row-reverse')}>
-                  <span className="text-sm font-medium">{message.senderName}</span>
-                  <Badge variant="outline" className={cn('text-xs', roleColors[message.senderRole])}>
-                    {message.senderRole}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {format(new Date(message.createdAt), 'HH:mm')}
-                  </span>
-                </div>
-
-                <div
-                  className={cn(
-                    'rounded-lg p-3 relative group',
-                    isOwn ? 'bg-primary text-primary-foreground' : 'bg-muted'
-                  )}
-                >
-                  {message.isForwarded && (
-                    <div
-                      className={cn(
-                        'flex items-center gap-1 text-xs mb-1',
-                        isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'
-                      )}
+            <div key={message.id} className={cn('flex', own ? 'justify-end' : 'justify-start')}>
+              <div className={cn(
+                'group relative max-w-[88%] rounded-xl px-3 py-2 shadow-sm sm:max-w-[75%]',
+                own ? 'bg-primary text-primary-foreground' : 'border bg-background'
+              )}>
+                {!own && <p className="mb-1 text-xs font-semibold text-primary">{message.senderName}</p>}
+                <p className={cn('whitespace-pre-wrap break-words text-sm', message.deleted && 'italic opacity-75')}>
+                  {message.content}
+                </p>
+                <div className={cn('mt-1 flex items-center justify-end gap-2 text-[11px]', own ? 'text-primary-foreground/80' : 'text-muted-foreground')}>
+                  {canDelete && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      title="Delete message for everyone"
+                      aria-label="Delete message for everyone"
+                      className="h-6 w-6 opacity-70 hover:opacity-100"
+                      onClick={() => { if (window.confirm('Delete this message for everyone?')) void onDelete?.(message); }}
                     >
-                      <Forward className="h-3 w-3" />
-                      <span>Forwarded from {message.forwardedFrom}</span>
-                    </div>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
                   )}
-
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={cn(
-                          'absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity',
-                          isOwn
-                            ? 'text-primary-foreground hover:bg-primary-foreground/10'
-                            : 'hover:bg-background'
-                        )}
-                      >
-                        <MoreVertical className="h-3 w-3" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align={isOwn ? 'start' : 'end'}>
-                      <DropdownMenuItem onClick={() => handleCopy(message.content)}>
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copy
-                      </DropdownMenuItem>
-                      {onForward && (
-                        <DropdownMenuItem onClick={() => onForward(message)}>
-                          <Forward className="h-4 w-4 mr-2" />
-                          Forward
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <span>{format(new Date(message.createdAt), 'HH:mm')}</span>
+                  {own && (
+                    message.readBy.length >= Math.max(1, totalParticipants - 1)
+                      ? <CheckCheck className="h-3.5 w-3.5" aria-label="Read by all" />
+                      : message.readBy.length > 0
+                        ? <CheckCheck className="h-3.5 w-3.5" aria-label="Read by some" />
+                        : <Check className="h-3.5 w-3.5" aria-label="Sent" />
+                  )}
                 </div>
-
-                {isOwn && (
-                  <ReadReceipt
-                    readBy={message.readBy}
-                    isOwn={isOwn}
-                    totalParticipants={totalParticipants}
-                    className="mt-1"
-                  />
-                )}
               </div>
             </div>
           );
         })}
+        <div ref={bottomRef} aria-hidden="true" />
       </div>
-      <TypingIndicator typingUsers={typingUsers} />
-    </ScrollArea>
+    </div>
   );
 }
