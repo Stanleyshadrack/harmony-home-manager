@@ -86,52 +86,35 @@ export default function Billing() {
     );
   });
 
-  const handleCreateInvoice = (data: any) => {
-    const invoice = createInvoice(data);
-    logAuditEvent(
-      'user1', 'Current User', 'landlord',
-      'create_invoice', 'Invoice',
-      `Created invoice ${invoice.invoiceNumber}`,
-      invoice.id
-    );
-    setShowInvoiceForm(false);
-    toast({
-      title: 'Invoice Created',
-      description: 'The invoice has been created successfully.',
-    });
+  const handleCreateInvoice = async (data: any) => {
+    try {
+      await createInvoice(data);
+      setShowInvoiceForm(false);
+      toast({ title: 'Invoice Created', description: 'The invoice was saved to PostgreSQL.' });
+    } catch (error) {
+      toast({ title: 'Invoice Failed', description: error instanceof Error ? error.message : 'Unable to create invoice', variant: 'destructive' });
+    }
   };
 
-  const handleUpdateInvoice = (data: any) => {
+  const handleUpdateInvoice = async (data: any) => {
     if (!editingInvoice) return;
-    updateInvoice(editingInvoice.id, data);
-    logAuditEvent(
-      'user1', 'Current User', 'landlord',
-      'update_invoice', 'Invoice',
-      `Updated invoice ${editingInvoice.invoiceNumber}: amount=${data.amount}, type=${data.type}`,
-      editingInvoice.id,
-      { previousAmount: editingInvoice.amount, newAmount: data.amount }
-    );
-    setEditingInvoice(null);
-    toast({
-      title: 'Invoice Updated',
-      description: 'The invoice has been updated successfully.',
-    });
+    try {
+      await updateInvoice(editingInvoice.id, data);
+      setEditingInvoice(null);
+      toast({ title: 'Invoice Updated', description: 'Changes saved successfully.' });
+    } catch (error) {
+      toast({ title: 'Update Failed', description: error instanceof Error ? error.message : 'Unable to update invoice', variant: 'destructive' });
+    }
   };
 
-  const handleCancelInvoice = (invoice: Invoice, reason: string) => {
-    cancelInvoice(invoice.id, reason);
-    logAuditEvent(
-      'user1', 'Current User', 'landlord',
-      'delete_invoice', 'Invoice',
-      `Cancelled invoice ${invoice.invoiceNumber}. Reason: ${reason || 'No reason provided'}`,
-      invoice.id,
-      { cancellationReason: reason }
-    );
-    setViewingInvoice(null);
-    toast({
-      title: 'Invoice Cancelled',
-      description: `Invoice ${invoice.invoiceNumber} has been cancelled.`,
-    });
+  const handleCancelInvoice = async (invoice: Invoice, reason: string) => {
+    try {
+      await cancelInvoice(invoice.id, reason);
+      setViewingInvoice(null);
+      toast({ title: 'Invoice Cancelled', description: 'The invoice was cancelled in PostgreSQL.' });
+    } catch (error) {
+      toast({ title: 'Cancellation Failed', description: error instanceof Error ? error.message : 'Unable to cancel invoice', variant: 'destructive' });
+    }
   };
 
   const handleEditInvoice = (invoice: Invoice) => {
@@ -139,88 +122,77 @@ export default function Billing() {
     setEditingInvoice(invoice);
   };
 
-  const handleRecordPayment = (data: any) => {
-    const payment = recordPayment(data);
-    const invoice = selectedInvoice;
-    setShowPaymentForm(false);
-    setSelectedInvoice(undefined);
-    
-    if (invoice && payment) {
-      setLastPayment({ payment, invoice });
-      setShowReceiptDialog(true);
+  const handleRecordPayment = async (data: any) => {
+    try {
+      const invoice = selectedInvoice;
+      const payment = await recordPayment(data);
+      setShowPaymentForm(false);
+      setSelectedInvoice(undefined);
+      if (invoice) {
+        setLastPayment({ payment, invoice });
+        setShowReceiptDialog(true);
+      }
+      toast({ title: 'Payment Recorded', description: 'Payment saved to PostgreSQL.' });
+    } catch (error) {
+      toast({ title: 'Payment Failed', description: error instanceof Error ? error.message : 'Unable to record payment', variant: 'destructive' });
     }
-    
-    toast({
-      title: 'Payment Recorded',
-      description: 'The payment has been recorded successfully.',
-    });
   };
 
   const handleDownloadReceipt = () => {
     if (!lastPayment) return;
-    
     downloadPaymentReceiptPDF({
       payment: lastPayment.payment,
       invoice: lastPayment.invoice,
       propertyName: lastPayment.invoice.propertyName,
-      propertyAddress: '123 Main Street, Nairobi', // Mock address
-      landlordName: 'Property Management Co.',
-      landlordPhone: '+254 700 123 456',
-      landlordEmail: 'billing@property.co.ke',
+      propertyAddress: lastPayment.invoice.propertyName,
+      landlordName: lastPayment.invoice.propertyName,
+      landlordPhone: '',
+      landlordEmail: '',
     });
-    
-    toast({
-      title: 'Receipt Downloaded',
-      description: 'Your payment receipt has been downloaded.',
-    });
+    toast({ title: 'Receipt Downloaded', description: 'Receipt generated from a recorded payment.' });
   };
 
   const handleSendReceiptEmail = async () => {
     if (!lastPayment) return;
-    
+    const email = lastPayment.invoice.tenantEmail;
+    if (!email) {
+      toast({ title: 'Tenant Email Missing', description: 'Cannot send a receipt without a verified tenant email.', variant: 'destructive' });
+      return;
+    }
     setIsSendingEmail(true);
     try {
       await sendPaymentReceiptEmail({
         payment: lastPayment.payment,
         invoice: lastPayment.invoice,
-        recipient: {
-          name: lastPayment.payment.tenantName,
-          email: `${lastPayment.payment.tenantName.toLowerCase().replace(' ', '.')}@email.com`,
-        },
+        recipient: { name: lastPayment.payment.tenantName, email },
         propertyName: lastPayment.invoice.propertyName,
-        landlordName: 'Property Management Co.',
+        landlordName: lastPayment.invoice.propertyName,
       });
-      
-      toast({
-        title: 'Email Sent',
-        description: `Receipt emailed to ${lastPayment.payment.tenantName}.`,
-      });
+      toast({ title: 'Email Sent', description: `Receipt sent to ${email}.` });
     } catch (error) {
-      toast({
-        title: 'Email Failed',
-        description: 'Could not send receipt email. Please try again.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Email Failed', description: 'Could not send receipt email.', variant: 'destructive' });
     } finally {
       setIsSendingEmail(false);
     }
   };
 
-  const handleCreateWaterBill = (data: any) => {
-    createWaterInvoice(data, 't1', 'John Doe', 'Sunrise Apartments', 'A101');
-    setShowWaterForm(false);
-    toast({
-      title: 'Water Bill Generated',
-      description: 'The water bill has been generated successfully.',
-    });
+  const handleCreateWaterBill = async (data: any) => {
+    try {
+      await createWaterInvoice(data);
+      setShowWaterForm(false);
+      toast({ title: 'Water Reading Saved', description: 'An approved reading will be included in the relevant billing cycle.' });
+    } catch (error) {
+      toast({ title: 'Reading Failed', description: error instanceof Error ? error.message : 'Unable to save reading', variant: 'destructive' });
+    }
   };
 
-  const handleAutoGenerateInvoices = () => {
-    const { generated, skipped } = generateMonthlyRentInvoices();
-    toast({
-      title: 'Auto-Generate Complete',
-      description: `Generated ${generated} invoice(s). Skipped ${skipped} (already billed or no active lease).`,
-    });
+  const handleAutoGenerateInvoices = async () => {
+    try {
+      const { generated, skipped } = await generateMonthlyRentInvoices();
+      toast({ title: 'Generation Complete', description: `Generated ${generated} invoice(s); skipped ${skipped}.` });
+    } catch (error) {
+      toast({ title: 'Generation Failed', description: error instanceof Error ? error.message : 'Unable to generate invoices', variant: 'destructive' });
+    }
   };
 
   const handleViewInvoice = (invoice: Invoice) => {
