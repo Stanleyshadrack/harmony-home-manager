@@ -117,6 +117,7 @@ export default function Units() {
         { label: t('units.title') },
       ]}
     >
+      {loadError && <div role="alert" className="rounded-lg border border-destructive/50 p-3 mb-4 text-sm text-destructive">Units could not be loaded: {loadError}</div>}
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         <div className="p-4 bg-card border rounded-lg">
