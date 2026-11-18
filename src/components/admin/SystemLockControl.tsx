@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -22,9 +23,10 @@ export function SystemLockControl() {
   const {status, error, loading, refresh} = useSystemMaintenance();
   const [users, setUsers] = useState<LockUser[]>([]);
   const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState<number[]>([]);
   const [reason, setReason] = useState('Scheduled maintenance. Please try again later.');
   const [busy, setBusy] = useState(false);
-  const [confirm, setConfirm] = useState<{kind:'global'|'user'; enabled:boolean; user?:LockUser} | null>(null);
+  const [confirm, setConfirm] = useState<{kind:'global'|'user'|'bulk'; enabled:boolean; user?:LockUser} | null>(null);
   const [usersError, setUsersError] = useState('');
 
   async function loadUsers() {
@@ -54,6 +56,13 @@ export function SystemLockControl() {
         queued = result.emailsQueued;
         await refresh();
         announceMaintenanceChange();
+      } else if (confirm.kind === 'bulk') {
+        const result = await apiRequest<{userIds:number[]; enabled:boolean;message:string},LockResult>({
+          path:'/api/system-maintenance/users/bulk', method:'PUT',
+          body:{userIds:selected,enabled:confirm.enabled,message:reason.trim()}
+        });
+        queued = result.emailsQueued;
+        setSelected([]);
       } else {
         const result = await apiRequest<{enabled:boolean;message:string}, LockResult>({
           path:`/api/system-maintenance/users/${confirm.user!.id}`, method:'PUT',
@@ -125,9 +134,23 @@ export function SystemLockControl() {
             onChange={e=>setSearch(e.target.value)}/>
         </div>
         {usersError && <p role="alert" className="text-destructive text-sm">{usersError}</p>}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="outline" onClick={()=>setSelected(visible.map(u=>u.id))}>
+            Select matching ({visible.length})
+          </Button>
+          <Button size="sm" variant="ghost" onClick={()=>setSelected([])}>Clear selection</Button>
+          <span className="text-xs text-muted-foreground">{selected.length} selected</span>
+          <Button size="sm" variant="destructive" disabled={!selected.length||busy||!reason.trim()}
+            onClick={()=>setConfirm({kind:'bulk',enabled:true})}>Lock selected</Button>
+          <Button size="sm" variant="outline" disabled={!selected.length||busy||!reason.trim()}
+            onClick={()=>setConfirm({kind:'bulk',enabled:false})}>Unlock selected</Button>
+        </div>
         <div className="max-h-[450px] space-y-2 overflow-y-auto">
           {visible.map(u=><div key={u.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
-            <div className="min-w-0">
+            <Checkbox aria-label={`Select ${u.email}`} checked={selected.includes(u.id)}
+              onCheckedChange={checked=>setSelected(prev=>checked
+                ? [...prev.filter(id=>id!==u.id),u.id] : prev.filter(id=>id!==u.id))}/>
+            <div className="min-w-0 flex-1">
               <p className="font-medium">{u.name||u.email}</p>
               <p className="text-xs text-muted-foreground break-all">{u.email} · {u.role}</p>
               {u.locked && <p className="text-xs text-destructive">{u.reason}</p>}
@@ -151,6 +174,7 @@ export function SystemLockControl() {
           <AlertDialogTitle>{confirm?.enabled?'Confirm access lock':'Confirm access restoration'}</AlertDialogTitle>
           <AlertDialogDescription>
             {confirm?.kind==='global'?'This changes access for every non-admin account.':
+              confirm?.kind==='bulk' ? `This changes access for ${selected.length} selected accounts.` :
               `This changes access only for ${confirm?.user?.email || 'the selected user'}.`}
             {' '}A notification will be queued for each affected user.
           </AlertDialogDescription>
