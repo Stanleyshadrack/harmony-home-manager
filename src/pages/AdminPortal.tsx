@@ -453,47 +453,47 @@ const [approvalLoading, setApprovalLoading] = useState(false);
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <div className="w-full overflow-x-auto pb-1" role="region" aria-label="Admin portal sections" tabIndex={0}>
-           <TabsList className="grid h-auto min-h-10 w-full min-w-[900px] grid-cols-9 gap-1 p-1">
-            <TabsTrigger value="dashboard" className="flex items-center gap-2">
+           <TabsList className="flex h-auto min-h-11 w-max min-w-full items-center justify-start gap-1 p-1 lg:grid lg:w-full lg:min-w-[900px] lg:grid-cols-9">
+            <TabsTrigger value="dashboard" className="flex min-h-11 shrink-0 items-center gap-2 px-3">
               <LayoutDashboard className="h-4 w-4" />
-              <span className="hidden sm:inline">Overview</span>
+              <span className="inline">Overview</span>
             </TabsTrigger>
-            <TabsTrigger value="approvals" className="flex items-center gap-2 relative">
+            <TabsTrigger value="approvals" className="relative flex min-h-11 shrink-0 items-center gap-2 px-3">
               <UserCheck className="h-4 w-4" />
-              <span className="hidden sm:inline">Approvals</span>
+              <span className="inline">Approvals</span>
               {pendingCount > 0 && (
                 <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center">
                   {pendingCount}
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="companies" className="flex items-center gap-2">
+            <TabsTrigger value="companies" className="flex min-h-11 shrink-0 items-center gap-2 px-3">
               <Building2 className="h-4 w-4" />
-              <span className="hidden sm:inline">Companies</span>
+              <span className="inline">Companies</span>
             </TabsTrigger>
-            <TabsTrigger value="landlords" className="flex items-center gap-2">
+            <TabsTrigger value="landlords" className="flex min-h-11 shrink-0 items-center gap-2 px-3">
               <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">Landlords</span>
+              <span className="inline">Landlords</span>
             </TabsTrigger>
-            <TabsTrigger value="users" className="flex items-center gap-2">
+            <TabsTrigger value="users" className="flex min-h-11 shrink-0 items-center gap-2 px-3">
               <Key className="h-4 w-4" />
-              <span className="hidden sm:inline">Users</span>
+              <span className="inline">Users</span>
             </TabsTrigger>
-            <TabsTrigger value="announcements" className="flex items-center gap-2">
+            <TabsTrigger value="announcements" className="flex min-h-11 shrink-0 items-center gap-2 px-3">
               <Mail className="h-4 w-4" />
-              <span className="hidden sm:inline">Emails</span>
+              <span className="inline">Emails</span>
             </TabsTrigger>
-            <TabsTrigger value="system" className="flex items-center gap-2">
+            <TabsTrigger value="system" className="flex min-h-11 shrink-0 items-center gap-2 px-3">
               <Lock className="h-4 w-4" />
-              <span className="hidden sm:inline">System</span>
+              <span className="inline">System</span>
             </TabsTrigger>
-            <TabsTrigger value="audit" className="flex items-center gap-2">
+            <TabsTrigger value="audit" className="flex min-h-11 shrink-0 items-center gap-2 px-3">
               <Shield className="h-4 w-4" />
-              <span className="hidden sm:inline">Audit</span>
+              <span className="inline">Audit</span>
             </TabsTrigger>
-            <TabsTrigger value="settings" className="flex items-center gap-2">
+            <TabsTrigger value="settings" className="flex min-h-11 shrink-0 items-center gap-2 px-3">
               <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline">Settings</span>
+              <span className="inline">Settings</span>
             </TabsTrigger>
           </TabsList>
           </div>
