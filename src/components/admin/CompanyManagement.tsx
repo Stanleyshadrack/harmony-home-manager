@@ -23,7 +23,7 @@ type Company = {
   createdAt: string | null;
 };
 
-const COMPANY_API = '/v1/api/companies';
+const COMPANY_API = '/api/companies';
 
 export function CompanyManagement() {
   const { toast } = useToast();
