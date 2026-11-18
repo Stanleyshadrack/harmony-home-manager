@@ -1,6 +1,8 @@
 import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
 import { ResponsiveTableView } from '@/components/ui/responsive-table-view';
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { PropertyApi } from '@/api/service/add.apartments.service.api';
 import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -81,6 +83,7 @@ export default function AdminPortal() {
   const [viewMode, setViewMode] = useViewMode('admin-portal', 'list');
   const { t } = useTranslation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { properties, loadError: propertyLoadError } = useProperties();
   const { units, loadError: unitsLoadError } = useUnits();
   const { tenants } = useTenants();
@@ -114,20 +117,6 @@ const [approvalLoading, setApprovalLoading] = useState(false);
   const [inviteStartRole, setInviteStartRole] = useState<'TENANT' | 'LANDLORD'>('TENANT');
    const [showAssignPropertiesDialog, setShowAssignPropertiesDialog] = useState(false);
   const [assignPropertiesLandlord, setAssignPropertiesLandlord] = useState<LandlordTypes  | null>(null);
-  // Track property assignments per landlord (landlordId -> propertyId[])
-  const [propertyAssignments, setPropertyAssignments] = useState<Record<string, string[]>>(() => {
-    try {
-      const stored = localStorage.getItem('property_assignments');
-      return stored ? JSON.parse(stored) : {
-        '1': ['1', '2'],
-        '2': ['3'],
-      };
-    } catch {
-      return {};
-    }
-  });
-
-
   const auditLogs = getAuditLogs();
   const activitySummary = getActivitySummary();
 
@@ -169,22 +158,42 @@ const [approvalLoading, setApprovalLoading] = useState(false);
     setAssignPropertiesLandlord(landlord);
     setShowAssignPropertiesDialog(true);
   };
-  const handleSavePropertyAssignment = (landlordId: string, propertyIds: string[]) => {
-    const updated = { ...propertyAssignments, [landlordId]: propertyIds };
-    setPropertyAssignments(updated);
-    localStorage.setItem('property_assignments', JSON.stringify(updated));
-    
-    // Update landlord's currentProperties count
-    updateLandlord(Number(landlordId), {
-  currentProperties: propertyIds.length
-});
-    toast({
-      title: 'Properties Assigned',
-      description: `${propertyIds.length} property(ies) assigned successfully.`,
-    });
-  };
+  // Persist assignments in PostgreSQL through the property API,
+  // never browser storage. The company is authoritative.
   const getAssignedPropertyIds = (landlordId: string): string[] => {
-    return propertyAssignments[landlordId] || [];
+    const id = Number(landlordId);
+    return properties.filter(p => (p.landlordIds ?? []).includes(id)).map(p => p.id);
+  };
+
+  const handleSavePropertyAssignment = async (landlordId: string, propertyIds: string[]): Promise<void> => {
+    const landlord = landlords.find(l => String(l.id) === landlordId);
+    if (!landlord || landlord.companyId == null) {
+      throw new Error('This landlord must be attached to a company before assigning properties.');
+    }
+    const owned = properties.filter(p => p.companyId === landlord.companyId);
+    const allowedIds = new Set(owned.map(p => p.id));
+    if (propertyIds.some(id => !allowedIds.has(id))) {
+      throw new Error('You can only assign properties belonging to the landlord company.');
+    }
+
+    const previousIds = new Set(getAssignedPropertyIds(landlordId));
+    const selectedIds = new Set(propertyIds);
+    const additions = [...selectedIds].filter(id => !previousIds.has(id));
+    const removals = [...previousIds].filter(id => !selectedIds.has(id));
+
+    try {
+      for (const id of additions) {
+        await PropertyApi.assignLandlord(Number(id), Number(landlordId));
+      }
+      for (const id of removals) {
+        await PropertyApi.unassignLandlord(Number(id), Number(landlordId));
+      }
+      updateLandlord(Number(landlordId), { currentProperties: propertyIds.length });
+      toast({ title: 'Properties Assigned', description: 'Company-scoped assignments saved successfully.' });
+    } finally {
+      // Refresh after success or a partial API failure; browser state is not authoritative.
+      await queryClient.invalidateQueries({ queryKey: ['properties'] });
+    }
   };
 
   // Recipient groups for bulk email
@@ -1174,7 +1183,7 @@ const [approvalLoading, setApprovalLoading] = useState(false);
         open={showAssignPropertiesDialog}
         onOpenChange={setShowAssignPropertiesDialog}
         landlord={assignPropertiesLandlord}
-        properties={properties}
+        properties={properties.filter(p => assignPropertiesLandlord?.companyId != null && p.companyId === assignPropertiesLandlord.companyId)}
         assignedPropertyIds={assignPropertiesLandlord ? getAssignedPropertyIds(assignPropertiesLandlord.id.toString()) : []}
         onSave={handleSavePropertyAssignment}
       />
