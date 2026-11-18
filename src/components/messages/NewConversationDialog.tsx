@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { UsersRound, UserRound, Search, Check, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { EmojiPicker } from './EmojiPicker';
 
 interface Props {
   open: boolean;
@@ -102,14 +103,15 @@ export function NewConversationDialog({ open, onOpenChange, onSubmit }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={value => { if (!working) onOpenChange(value); }}>
-      <DialogContent className="flex max-h-[90dvh] w-[calc(100vw-2rem)] max-w-lg flex-col overflow-hidden p-4 sm:p-6">
-        <DialogHeader>
+      <DialogContent className="flex h-[min(760px,calc(100dvh-2rem))] max-h-[calc(100dvh-2rem)] min-h-0 w-[calc(100vw-2rem)] max-w-lg flex-col gap-3 overflow-hidden p-4 sm:p-6">
+        <DialogHeader className="shrink-0 pr-5">
           <DialogTitle>New conversation</DialogTitle>
           <DialogDescription>
             Message another person or create a company group. Group creator becomes an admin.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={event => void submit(event)} className="flex min-h-0 flex-1 flex-col gap-3">
+        <form onSubmit={event => void submit(event)} className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain pr-1 pb-4">
           <div className="grid grid-cols-2 gap-2">
             <Button type="button" variant={type === 'DIRECT' ? 'default' : 'outline'}
               onClick={() => changeType('DIRECT')} className="min-h-11 gap-2">
@@ -159,7 +161,7 @@ export function NewConversationDialog({ open, onOpenChange, onSubmit }: Props) {
             </div>
           )}
 
-          <div className="min-h-24 flex-1 overflow-y-auto rounded-md border">
+          <div className="min-h-24 max-h-40 overflow-y-auto rounded-md border">
             {loadingContacts && <p className="p-3 text-sm text-muted-foreground">Searching contacts…</p>}
             {!loadingContacts && visibleContacts.length === 0 && (
               <p className="p-3 text-sm text-muted-foreground">No eligible contacts found.</p>
@@ -184,13 +186,18 @@ export function NewConversationDialog({ open, onOpenChange, onSubmit }: Props) {
           )}
 
           <div className="space-y-1">
-            <Label htmlFor="chat-first-message">First message (optional)</Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="chat-first-message">First message (optional)</Label>
+              <EmojiPicker label="Add emoji to first message" onSelect={emoji =>
+                setInitialMessage(previous => (previous + emoji).slice(0, 4000))} />
+            </div>
             <Textarea id="chat-first-message" maxLength={4000} rows={2}
               value={initialMessage} onChange={event => setInitialMessage(event.target.value)}
               placeholder="Say hello…" />
           </div>
 
-          <div className="flex justify-end gap-2">
+          </div>
+          <div className="flex shrink-0 justify-end gap-2 border-t bg-background pt-3">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={working}>
               Cancel
             </Button>
