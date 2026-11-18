@@ -193,6 +193,7 @@ export function useProperties() {
   return {
     properties: propertiesQuery.data ?? [],
     isLoading: propertiesQuery.isLoading,
+    loadError: propertiesQuery.isError ? (propertiesQuery.error instanceof Error ? propertiesQuery.error.message : 'Unable to load properties') : null,
 
     /* CRUD */
     addProperty: createMutation.mutateAsync,
