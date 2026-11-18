@@ -1,3 +1,5 @@
+import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
+import { ResponsiveTableView } from '@/components/ui/responsive-table-view';
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
@@ -29,6 +31,7 @@ const severityConfig: Record<AuditSeverity, { icon: React.ElementType; color: st
 };
 
 const AuditLogs = () => {
+  const [viewMode, setViewMode] = useViewMode('auditlogs', 'list');
   const { t } = useTranslation();
   const { toast } = useToast();
   const [logs, setLogs] = useState<AuditLog[]>(() => getAuditLogs());
@@ -202,7 +205,8 @@ const AuditLogs = () => {
         <Card>
           <CardContent className="p-0">
             <ScrollArea className="h-[500px]">
-              <Table>
+              <div className="flex justify-end mb-3"><ViewModeToggle value={viewMode} onChange={setViewMode} /></div>
+              <ResponsiveTableView mode={viewMode}><Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[180px]">Timestamp</TableHead>
@@ -256,7 +260,7 @@ const AuditLogs = () => {
                     })
                   )}
                 </TableBody>
-              </Table>
+              </Table></ResponsiveTableView>
             </ScrollArea>
           </CardContent>
         </Card>
