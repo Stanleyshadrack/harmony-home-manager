@@ -29,6 +29,26 @@ interface ApiRequestOptions<T> {
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
+/**
+ * A 401 on an individual module is not proof that the entire session expired.
+ * Only /api/auth/me can independently confirm that the active Bearer token
+ * has been rejected. Never erase valid credentials on an unrelated 401.
+ */
+async function checkCurrentSession(accessToken: string): Promise<"valid" | "invalid" | "unavailable"> {
+  try {
+    const response = await fetch(`${BASE_URL}/api/auth/me`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(7000),
+    });
+    if (response.ok) return "valid";
+    if (response.status === 401 || response.status === 403) return "invalid";
+    return "unavailable";
+  } catch {
+    return "unavailable";
+  }
+}
+
 export async function apiRequest<TReq, TRes>({
   path,
   method = "POST",
@@ -115,9 +135,23 @@ export async function apiRequest<TReq, TRes>({
       throw new Error("Unable to reach authentication service. Your session has been preserved; retry once the backend is running.");
     }
 
-    // Only the original session owner can expire it. Other requests must not
-    // erase a newer login from another tab.
-    if (tokenService.getAccessToken() === token) {
+    // Refresh was rejected. Before logging out, confirm the *current*
+    // access token is also rejected by the authentication endpoint.
+    // A module-specific 401 (or a misconfigured refresh endpoint) must not
+    // unmount every other module if /auth/me still accepts the session.
+    const sessionToken = tokenService.getAccessToken();
+    if (sessionToken !== token && sessionToken) {
+      return apiRequest<TReq, TRes>({ path, method, body, retry: false, timeout });
+    }
+    if (sessionToken === token && token) {
+      const sessionState = await checkCurrentSession(token);
+      if (sessionState === "valid") {
+        throw new ApiHttpError(401, path,
+          `[HTTP 401] ${method} ${path}: Request rejected, but your login is still valid.`);
+      }
+      if (sessionState === "unavailable") {
+        throw new Error("Unable to verify your session. Your login has been preserved.");
+      }
       tokenService.clearTokens();
       if (typeof window !== "undefined")
         window.dispatchEvent(new Event("apartment:session-expired"));
@@ -126,10 +160,15 @@ export async function apiRequest<TReq, TRes>({
   }
 
   if (res.status === 401 && !publicAuthPaths.includes(path) && !retry &&
-      tokenService.getAccessToken() === token) {
-    tokenService.clearTokens();
-    if (typeof window !== "undefined")
-      window.dispatchEvent(new Event("apartment:session-expired"));
+      tokenService.getAccessToken() === token && token) {
+    // /me is authoritative; avoid recursive /me checks here.
+    const sessionState = path === "/api/auth/me"
+      ? "invalid" : await checkCurrentSession(token);
+    if (sessionState === "invalid" && tokenService.getAccessToken() === token) {
+      tokenService.clearTokens();
+      if (typeof window !== "undefined")
+        window.dispatchEvent(new Event("apartment:session-expired"));
+    }
   }
   if (res.status === 423 && typeof window !== "undefined") {
     window.dispatchEvent(new Event("apartment:maintenance-status"));
