@@ -11,6 +11,13 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserPlus, Shield, UserMinus, DoorOpen, Search } from 'lucide-react';
 import { toast } from 'sonner';
+import { ConfirmActionDialog } from './ConfirmActionDialog';
+import { EmojiPicker } from './EmojiPicker';
+
+type PendingAction =
+  | { kind: 'remove'; userId: number; name: string }
+  | { kind: 'role'; userId: number; name: string; grant: boolean }
+  | { kind: 'leave' };
 
 interface Props {
   open: boolean;
@@ -29,6 +36,7 @@ export function GroupManagementDialog({ open, onOpenChange, conversation, onChan
   const [contacts, setContacts] = useState<ChatContact[]>([]);
   const [search, setSearch] = useState('');
   const [busy, setBusy] = useState(false);
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
 
   useEffect(() => {
     if (!open || !conversation) return;
@@ -37,7 +45,7 @@ export function GroupManagementDialog({ open, onOpenChange, conversation, onChan
     setAdminsOnlySend(conversation.adminsOnlySend);
     setAdminsOnlyEditInfo(conversation.adminsOnlyEditInfo);
     setSearch('');
-  }, [open, conversation?.id]);
+  }, [open, conversation?.id, conversation?.updatedAt]);
 
   useEffect(() => {
     if (!open || !conversation?.currentUserAdmin) return;
@@ -63,15 +71,17 @@ export function GroupManagementDialog({ open, onOpenChange, conversation, onChan
     (contact.role === 'SUPER_ADMIN' || contact.companyId === group.companyId)
   );
 
-  const execute = async (action: () => Promise<Conversation>, success: string) => {
-    if (busy) return;
+  const execute = async (action: () => Promise<Conversation>, success: string): Promise<boolean> => {
+    if (busy) return false;
     setBusy(true);
     try {
       const changed = await action();
       onChanged(changed);
       toast.success(success);
+      return true;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Group operation failed');
+      return false;
     } finally {
       setBusy(false);
     }
@@ -85,33 +95,73 @@ export function GroupManagementDialog({ open, onOpenChange, conversation, onChan
     'Group settings updated'
   );
 
-  const leave = async () => {
-    if (!window.confirm('Leave this group? You will lose access to its messages.')) return;
+  const leave = async (): Promise<boolean> => {
+    if (busy) return false;
     setBusy(true);
     try {
       await chatApi.leave(group.id);
       toast.success('You left the group');
       onOpenChange(false);
       onLeft();
+      return true;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not leave group');
+      return false;
     } finally {
       setBusy(false);
     }
   };
 
+  const confirmPending = async (): Promise<boolean> => {
+    if (!pendingAction) return false;
+    if (pendingAction.kind === 'leave') return leave();
+    if (pendingAction.kind === 'remove') {
+      return execute(
+        () => chatApi.removeMember(group.id, pendingAction.userId),
+        'Member removed'
+      );
+    }
+    return execute(
+      () => chatApi.setAdmin(group.id, pendingAction.userId, pendingAction.grant),
+      pendingAction.grant ? 'Group admin added' : 'Group admin removed'
+    );
+  };
+
+  const confirmationTitle = pendingAction?.kind === 'leave' ? 'Leave this group?'
+    : pendingAction?.kind === 'remove' ? 'Remove group member?'
+    : pendingAction?.grant ? 'Make group admin?' : 'Remove admin privileges?';
+
+  const confirmationDescription = pendingAction?.kind === 'leave'
+    ? 'You will lose access to this group and its messages. If you are the last admin, promote another member first.'
+    : pendingAction?.kind === 'remove'
+      ? `${pendingAction.name} will no longer be able to read or send messages in this group.`
+      : pendingAction?.kind === 'role'
+        ? pendingAction.grant
+          ? `${pendingAction.name} will be able to manage participants, permissions and group settings.`
+          : `${pendingAction.name} will lose group administrator privileges.`
+        : '';
+
+  const confirmationLabel = pendingAction?.kind === 'leave' ? 'Leave group'
+    : pendingAction?.kind === 'remove' ? 'Remove member'
+    : pendingAction?.grant ? 'Make admin' : 'Remove admin';
+
   return (
+    <>
     <Dialog open={open} onOpenChange={value => { if (!busy) onOpenChange(value); }}>
-      <DialogContent className="flex max-h-[90dvh] w-[calc(100vw-2rem)] max-w-lg flex-col overflow-hidden p-4 sm:p-6">
-        <DialogHeader>
+      <DialogContent className="flex h-[min(760px,calc(100dvh-2rem))] max-h-[calc(100dvh-2rem)] min-h-0 w-[calc(100vw-2rem)] max-w-lg flex-col gap-3 overflow-hidden p-4 sm:p-6">
+        <DialogHeader className="shrink-0 pr-5">
           <DialogTitle>Group details</DialogTitle>
           <DialogDescription>
             {members.length} members · {isAdmin ? 'You are a group admin' : 'Group participant'}
           </DialogDescription>
         </DialogHeader>
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-1">
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain pb-3 pr-1">
           <div className="space-y-2">
-            <Label htmlFor="chat-info-title">Group name</Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="chat-info-title">Group name</Label>
+              {canEditInfo && <EmojiPicker disabled={busy} label="Add emoji to group name"
+                onSelect={emoji => setTitle(previous => (previous + emoji).slice(0, 120))} />}
+            </div>
             <Input id="chat-info-title" value={title} maxLength={120}
               disabled={!canEditInfo || busy} onChange={event => setTitle(event.target.value)} />
             <Label htmlFor="chat-info-description">Description</Label>
@@ -163,21 +213,15 @@ export function GroupManagementDialog({ open, onOpenChange, conversation, onChan
                   {member.admin && <Badge variant="secondary">Group admin</Badge>}
                   {isAdmin && !self && (
                     <div className="flex flex-wrap gap-1">
-                      <Button size="sm" variant="outline" disabled={busy}
-                        onClick={() => void execute(
-                          () => chatApi.setAdmin(group.id, member.userId, !member.admin),
-                          member.admin ? 'Group admin removed' : 'Group admin added'
-                        )}>
+                      <Button type="button" size="sm" variant="outline" disabled={busy}
+                        onClick={() => setPendingAction({
+                          kind: 'role', userId: member.userId, name: member.name, grant: !member.admin,
+                        })}>
                         {member.admin ? 'Demote' : 'Make admin'}
                       </Button>
                       <Button size="sm" variant="ghost" disabled={busy}
                         className="text-destructive" aria-label={`Remove ${member.name}`}
-                        onClick={() => {
-                          if (window.confirm(`Remove ${member.name} from this group?`)) {
-                            void execute(() => chatApi.removeMember(group.id, member.userId),
-                              'Member removed');
-                          }
-                        }}>
+                        onClick={() => setPendingAction({ kind: 'remove', userId: member.userId, name: member.name })}>
                         <UserMinus className="h-4 w-4" />
                       </Button>
                     </div>
@@ -215,11 +259,21 @@ export function GroupManagementDialog({ open, onOpenChange, conversation, onChan
           )}
 
           <Button type="button" variant="outline" className="w-full text-destructive"
-            disabled={busy} onClick={() => void leave()}>
+            disabled={busy} onClick={() => setPendingAction({ kind: 'leave' })}>
             <DoorOpen className="mr-2 h-4 w-4" /> Leave group
           </Button>
         </div>
       </DialogContent>
     </Dialog>
+    <ConfirmActionDialog
+      open={pendingAction !== null}
+      onOpenChange={next => { if (!next) setPendingAction(null); }}
+      title={confirmationTitle}
+      description={confirmationDescription}
+      confirmLabel={confirmationLabel}
+      destructive={pendingAction?.kind !== 'role' || !pendingAction.grant}
+      onConfirm={confirmPending}
+    />
+    </>
   );
 }
