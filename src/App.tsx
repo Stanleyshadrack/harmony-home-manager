@@ -13,6 +13,7 @@ import "@/i18n";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
+import RecentActivities from "./pages/RecentActivities";
 import Properties from "./pages/Properties";
 import Units from "./pages/Units";
 import Tenants from "./pages/Tenants";
@@ -75,6 +76,7 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
+                <Route path="/recent-activities" element={<ProtectedRoute allowedRoles={["super_admin","landlord"]}><RecentActivities /></ProtectedRoute>} />
                 <Route
                   path="/properties"
                   element={
