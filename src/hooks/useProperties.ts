@@ -28,6 +28,8 @@ const mapApiProperty = (p: any): Property => ({
   occupiedUnits: p.occupiedUnits ?? 0,
   amenities: p.amenities ?? [],
   photos: [],
+  companyId: p.companyId ?? null,
+  companyName: p.companyName ?? null,
   landlordId: String(p.landlordId ?? ''),
   createdAt: p.createdAt,
   updatedAt: p.updatedAt,
