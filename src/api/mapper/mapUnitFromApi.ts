@@ -27,7 +27,7 @@ export function mapUnitFormToApi(
 ): CreatePropertyUnitFormData {
 
   return {
-    propertyId: form.propertyId,
+    propertyId: Number(form.propertyId),
 
     unitNumber: form.unitNumber,
 
@@ -37,9 +37,6 @@ export function mapUnitFormToApi(
 
     bedrooms: form.bedrooms,
     bathrooms: form.bathrooms,
-
-     lastReading: form.lastReading,
-    lastReadingDate: form.lastReadingDate,
 
     squareFeet: form.squareFeet ?? 0,
 

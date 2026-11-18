@@ -66,7 +66,7 @@ export function TenantPaymentForm({ invoices, onSubmit, isLoading }: TenantPayme
   });
 
   const selectedInvoice = unpaidInvoices.find(
-    (inv) => inv.id === form.watch('invoiceId')
+    (inv) => String(inv.id) === form.watch('invoiceId')
   );
 
   const formatCurrency = (amount: number) => {
@@ -77,7 +77,7 @@ export function TenantPaymentForm({ invoices, onSubmit, isLoading }: TenantPayme
   };
 
   const handleInvoiceChange = (invoiceId: string) => {
-    const invoice = unpaidInvoices.find((inv) => inv.id === invoiceId);
+    const invoice = unpaidInvoices.find((inv) => String(inv.id) === invoiceId);
     if (invoice) {
       form.setValue('amount', invoice.balance);
     }
@@ -111,7 +111,7 @@ export function TenantPaymentForm({ invoices, onSubmit, isLoading }: TenantPayme
                     </SelectItem>
                   ) : (
                     unpaidInvoices.map((invoice) => (
-                      <SelectItem key={invoice.id} value={invoice.id}>
+                      <SelectItem key={invoice.id} value={String(invoice.id)}>
                         {invoice.invoiceNumber} - {formatCurrency(invoice.balance)} ({invoice.type})
                       </SelectItem>
                     ))

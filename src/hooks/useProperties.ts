@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PropertyApi } from '@/api/service/add.apartments.service.api';
 import { Property, PropertyFormData, Unit, UnitFormData } from '@/types/property';
@@ -35,12 +36,14 @@ const mapApiProperty = (p: any): Property => ({
 
 export function useProperties() {
   const queryClient = useQueryClient();
+  const { user, isLoading: authLoading } = useAuth();
 
   /* =========================
      FETCH PROPERTIES
   ========================= */
   const propertiesQuery = useQuery({
-    queryKey: ['properties'],
+    queryKey: ['properties', user?.id],
+    enabled: !authLoading && !!user,
     queryFn: PropertyApi.fetchAll,
     select: (data) => data.map(mapApiProperty),
     retry: false,
@@ -190,6 +193,7 @@ export function useProperties() {
   return {
     properties: propertiesQuery.data ?? [],
     isLoading: propertiesQuery.isLoading,
+    loadError: propertiesQuery.isError ? (propertiesQuery.error instanceof Error ? propertiesQuery.error.message : 'Unable to load properties') : null,
 
     /* CRUD */
     addProperty: createMutation.mutateAsync,
@@ -246,19 +250,41 @@ export function mapUnitFromApi(api: PropertyUnitApiResponse): Unit {
 ====================================================== */
 
 export function useUnits() {
+  const { user, isLoading: authLoading } = useAuth();
   const [units, setUnits] = useState<Unit[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   /* =========================
      📄 FETCH ALL UNITS
   ========================= */
   useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      setUnits([]);
+      setLoadError(null);
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
 
+    let active = true;
     PropertyUnitsApi.fetchAll()
-      .then((res) => setUnits(res.map(mapUnitFromApi)))
-      .finally(() => setIsLoading(false));
-  }, []);
+      .then((res) => {
+        if (active) {
+          setUnits(res.map(mapUnitFromApi));
+          setLoadError(null);
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setUnits([]);
+          setLoadError(error instanceof Error ? error.message : 'Unable to load units');
+        }
+      })
+      .finally(() => { if (active) setIsLoading(false); });
+    return () => { active = false; };
+  }, [authLoading, user?.id]);
 
   /* =========================
      ➕ ADD UNIT
@@ -315,6 +341,7 @@ export function useUnits() {
   return {
     units,
     isLoading,
+    loadError,
     addUnit,
     updateUnit,
     deleteUnit,

@@ -10,13 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Loader2, LogIn, UserCheck, Lock } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Eye, EyeOff, Loader2, LogIn, Lock } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   isAccountLocked,
@@ -26,13 +20,10 @@ import {
   getMaxAttempts,
 } from '@/services/loginSecurityService';
 import { loginService } from '@/api/service/login.service';
-
-const demoAccounts = [
-  { label: 'Super Admin', email: 'admin@demo.com', password: 'admin123' },
-  { label: 'Landlord', email: 'landlord@demo.com', password: 'landlord123' },
-  { label: 'Employee', email: 'employee@demo.com', password: 'employee123' },
-  { label: 'Tenant', email: 'tenant@demo.com', password: 'tenant123' },
-];
+import { tokenService } from '@/services/tokenService';
+import { consumeUnlockDestination } from '@/services/sessionLock';
+import { jwtDecode } from 'jwt-decode';
+import type { JwtPayload } from '@/types/auth';
 
 const loginSchema = z.object({
   email: z.string().email('auth.emailInvalid'),
@@ -47,13 +38,14 @@ interface LoginFormProps {
   onForgotPassword: () => void;
  onRequireOTP?: (email: string, redirect: string | null) => void;
   onAwaitingApproval?: (email: string, role: string) => void;
+  onForcePasswordChange?: (email: string) => void;
 }
 
 
 
-export function LoginForm({ onSwitchToRegister, onForgotPassword, onRequireOTP, onAwaitingApproval }: LoginFormProps) {
+export function LoginForm({ onSwitchToRegister, onForgotPassword, onRequireOTP, onAwaitingApproval, onForcePasswordChange }: LoginFormProps) {
   const { t } = useTranslation();
-  const { login, isLoading } = useAuth();
+  const { completeLogin, isLoading } = useAuth();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [lockoutInfo, setLockoutInfo] = useState<{ locked: boolean; remainingMs: number }>({ locked: false, remainingMs: 0 });
@@ -98,13 +90,6 @@ export function LoginForm({ onSwitchToRegister, onForgotPassword, onRequireOTP, 
     }
   }, [lockoutInfo.locked, emailValue]);
 
-  const fillDemoCredentials = (email: string, password: string) => {
-    setValue('email', email);
-    setValue('password', password);
-    setAttemptsWarning(null);
-    toast.success('Demo credentials filled');
-  };
-
   const onSubmit = async (data: LoginFormData) => {
   const lockStatus = isAccountLocked(data.email);
   if (lockStatus.locked) {
@@ -123,10 +108,9 @@ export function LoginForm({ onSwitchToRegister, onForgotPassword, onRequireOTP, 
   password: data.password,
 });
 
-console.log(res)
-
 // 🔐 MFA REQUIRED → STOP here
 if (res.mfaRequired) {
+  resetAttempts(data.email);
   toast.info("Verification required", {
     description: "A verification code has been sent to your email.",
   });
@@ -135,15 +119,43 @@ if (res.mfaRequired) {
   return; // DO NOT continue
 }
 
-// 🚀 Normal login (TypeScript knows tokens exist here)
-localStorage.setItem("access_token", res.accessToken);
-localStorage.setItem("refresh_token", res.refreshToken);
+// Non-MFA users must use the same token store and auth context as MFA users.
+tokenService.setTokens({
+  accessToken: res.accessToken,
+  refreshToken: res.refreshToken,
+});
+completeLogin(res.accessToken);
+resetAttempts(data.email);
 
+const jwt = jwtDecode<JwtPayload>(res.accessToken);
+const homeByRole: Record<string, string> = {
+  super_admin: "/admin-portal",
+  landlord: "/dashboard",
+  employee: "/employee-portal",
+  tenant: "/tenant-portal",
+};
+const destination = homeByRole[String(jwt.role).toLowerCase()];
+if (!destination) {
+  tokenService.clearTokens();
+  throw new Error("Unrecognized user role");
+}
+
+const restoredPath = consumeUnlockDestination(data.email, destination);
 toast.success(t("auth.loginSuccess"));
-navigate("/dashboard");
+navigate(restoredPath, { replace: true });
 
 
   } catch (err: any) {
+    const message = String(err?.message || "");
+    if (message.includes("Password change required")) {
+      onForcePasswordChange?.(data.email);
+      return;
+    }
+    // A mail service outage or access-policy denial is not a wrong password.
+    if (!message.includes("[HTTP 401]")) {
+      toast.error(message || "Unable to sign in");
+      return;
+    }
     const result = recordFailedAttempt(data.email);
 
     if (result.locked) {
@@ -260,23 +272,7 @@ navigate("/dashboard");
             </>
           )}
         </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button type="button" variant="outline" size="icon" title="Demo Login">
-              <UserCheck className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {demoAccounts.map((account) => (
-              <DropdownMenuItem
-                key={account.email}
-                onClick={() => fillDemoCredentials(account.email, account.password)}
-              >
-                {account.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+
       </div>
 
       <p className="text-center text-sm text-muted-foreground">

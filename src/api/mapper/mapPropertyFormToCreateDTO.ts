@@ -30,19 +30,16 @@ export function mapUnitFormToApi(
 ): CreatePropertyUnitFormData {
 
   return {
-    propertyId: form.propertyId,
+    propertyId: Number(form.propertyId),
 
     unitNumber: form.unitNumber,
 
     type: UNIT_TYPE_MAP[form.unitType],
 
-    status: form.status ? STATUS_MAP[form.status] : null,
+    status: form.status ? STATUS_MAP[form.status] : "VACANT",
 
     bedrooms: form.bedrooms,
     bathrooms: form.bathrooms,
-
-    lastReading: form.lastReading,
-    lastReadingDate:form.lastReadingDate,
 
     squareFeet: form.squareFeet,
 

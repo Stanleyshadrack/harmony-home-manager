@@ -1,3 +1,4 @@
+import { readLockInfo } from '@/services/sessionLock';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth, UserRole } from '@/contexts/AuthContext';
 
@@ -17,6 +18,8 @@ const roleDefaultPaths: Record<UserRole, string> = {
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
+
+  if (readLockInfo()) return <Navigate to="/locked" replace />;
 
   // Show nothing while loading auth state
   if (isLoading) {

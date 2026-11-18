@@ -1,111 +1,53 @@
 import { useCallback } from 'react';
-import { useTenants, useLeases } from '@/hooks/useTenants';
+import { useTenants } from '@/hooks/useTenants';
 import { useBilling } from '@/hooks/useBilling';
-import { useToast } from '@/hooks/use-toast';
+import { apiRequest } from '@/api/https';
 
+// Server-side invoice generation handles duplicate invoices and property
+// ownership. Do not create or count invoices optimistically in browser state.
 export function useAutoInvoice() {
   const { tenants } = useTenants();
-  const { leases } = useLeases();
-  const { invoices, createInvoice } = useBilling();
-  const { toast } = useToast();
+  const { invoices, reload } = useBilling();
 
-  const generateMonthlyRentInvoices = useCallback(() => {
+  const generateMonthlyRentInvoices = useCallback(async () => {
     const now = new Date();
-    const currentMonth = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
-    const dueDate = new Date(now.getFullYear(), now.getMonth(), 5).toISOString().split('T')[0];
-    
-    // Get active tenants with active leases
-    const activeTenants = tenants.filter(t => t.status === 'active');
-    let generated = 0;
-    let skipped = 0;
-
-    activeTenants.forEach(tenant => {
-      const lease = leases.find(l => l.tenantId === tenant.id && l.status === 'active');
-      
-      if (!lease) {
-        skipped++;
-        return;
-      }
-
-      // Check if invoice already exists for this month
-      const existingInvoice = invoices.find(
-        inv => inv.tenantId === tenant.id && 
-               inv.type === 'rent' && 
-               inv.description.includes(currentMonth)
-      );
-
-      if (existingInvoice) {
-        skipped++;
-        return;
-      }
-
-      // Create rent invoice
-      createInvoice({
-        tenantId: tenant.id,
-        unitId: tenant.unitId,
-        type: 'rent',
-        description: `Monthly Rent - ${currentMonth}`,
-        amount: lease.monthlyRent,
-        dueDate,
-      });
-      generated++;
+    const result = await apiRequest<object, { generated: number; skipped: number }>({
+      path: '/api/billing/invoice/generate',
+      method: 'POST',
+      body: { type: 'RENT', year: now.getFullYear(), month: now.getMonth() + 1 },
     });
+    await reload();
+    return result;
+  }, [reload]);
 
-    return { generated, skipped };
-  }, [tenants, leases, invoices, createInvoice]);
-
-  const generateInvoicesForTenant = useCallback((tenantId: string) => {
-    const tenant = tenants.find(t => t.id === tenantId);
-    const lease = leases.find(l => l.tenantId === tenantId && l.status === 'active');
-
-    if (!tenant || !lease) {
-      toast({
-        title: 'Cannot generate invoice',
-        description: 'Tenant or active lease not found',
-        variant: 'destructive',
-      });
-      return null;
-    }
-
+  const generateInvoicesForTenant = useCallback(async (tenantId: string) => {
     const now = new Date();
-    const currentMonth = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
-    const dueDate = new Date(now.getFullYear(), now.getMonth(), 5).toISOString().split('T')[0];
-
-    const invoice = createInvoice({
-      tenantId: tenant.id,
-      unitId: tenant.unitId,
-      type: 'rent',
-      description: `Monthly Rent - ${currentMonth}`,
-      amount: lease.monthlyRent,
-      dueDate,
+    const tenant = tenants.find(t => String(t.id) === tenantId);
+    if (!tenant || !tenant.unitId) throw new Error('Tenant must be assigned to an active unit');
+    const result = await apiRequest<object, { generated: number; skipped: number }>({
+      path: '/api/billing/invoice/generate',
+      method: 'POST',
+      body: {
+        type: 'RENT', year: now.getFullYear(), month: now.getMonth() + 1,
+        unitIds: [Number(tenant.unitId)],
+      },
     });
-
-    toast({
-      title: 'Invoice generated',
-      description: `Rent invoice created for ${tenant.firstName} ${tenant.lastName}`,
-    });
-
-    return invoice;
-  }, [tenants, leases, createInvoice, toast]);
+    await reload();
+    return result;
+  }, [tenants, reload]);
 
   const getTenantsWithoutInvoice = useCallback(() => {
     const now = new Date();
-    const currentMonth = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
-
-    return tenants.filter(tenant => {
-      const hasLease = leases.some(l => l.tenantId === tenant.id && l.status === 'active');
-      const hasInvoice = invoices.some(
-        inv => inv.tenantId === tenant.id && 
-               inv.type === 'rent' && 
-               inv.description.includes(currentMonth)
-      );
-      return hasLease && !hasInvoice && tenant.status === 'active';
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+    return tenants.filter(t => {
+      if (String(t.status).toLowerCase() !== 'active' || !t.unitId) return false;
+      return !invoices.some(i =>
+        i.tenantId === Number(t.id) && i.type === 'rent' &&
+        new Date(i.dueDate).getFullYear() === currentYear &&
+        new Date(i.dueDate).getMonth() + 1 === currentMonth);
     });
-  }, [tenants, leases, invoices]);
+  }, [tenants, invoices]);
 
-  return {
-    generateMonthlyRentInvoices,
-    generateInvoicesForTenant,
-    getTenantsWithoutInvoice,
-  };
+  return { generateMonthlyRentInvoices, generateInvoicesForTenant, getTenantsWithoutInvoice };
 }

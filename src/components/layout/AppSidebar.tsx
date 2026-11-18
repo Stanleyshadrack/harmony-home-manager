@@ -28,6 +28,7 @@ import {
   Settings,
   HelpCircle,
   LogOut,
+  LockKeyhole,
   Bell,
   UserCircle,
   Shield,
@@ -48,7 +49,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
+import { lockSession } from '@/services/sessionLock';
 import { LucideIcon } from 'lucide-react';
+import { getRoleModuleLabel } from '@/lib/roleModuleLabels';
 
 interface NavItem {
   title: string;
@@ -156,7 +159,7 @@ export function AppSidebar() {
               <span className="flex items-center gap-2">
                 {t('navigation.dashboard')}
                 <span className={`text-[10px] px-1.5 py-0.5 rounded ${getRoleBadgeColor()}`}>
-                  {t(`roles.${userRole}`)}
+                  {({ super_admin: 'Super Admin', landlord: 'Landlord', employee: 'Employee', tenant: 'Tenant' } as Record<UserRole, string>)[userRole]}
                 </span>
               </span>
             )}
@@ -168,11 +171,11 @@ export function AppSidebar() {
                   <SidebarMenuButton
                     asChild
                     isActive={location.pathname === item.url}
-                    tooltip={collapsed ? t(item.title) : undefined}
+                    tooltip={collapsed ? getRoleModuleLabel(item.url, userRole, t(item.title)) : undefined}
                   >
                     <NavLink to={item.url}>
                       <item.icon className="h-4 w-4" />
-                      <span>{t(item.title)}</span>
+                      <span>{getRoleModuleLabel(item.url, userRole, t(item.title))}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -191,11 +194,11 @@ export function AppSidebar() {
                     <SidebarMenuButton
                       asChild
                       isActive={location.pathname === item.url}
-                      tooltip={collapsed ? t(item.title) : undefined}
+                      tooltip={collapsed ? getRoleModuleLabel(item.url, userRole, t(item.title)) : undefined}
                     >
                       <NavLink to={item.url}>
                         <item.icon className="h-4 w-4" />
-                        <span>{t(item.title)}</span>
+                        <span>{getRoleModuleLabel(item.url, userRole, t(item.title))}</span>
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -227,7 +230,7 @@ export function AppSidebar() {
                         {user?.firstName ? `${user.firstName} ${user.lastName}` : user?.email}
                       </span>
                       <span className="truncate text-xs text-sidebar-foreground/70">
-                        {t(`roles.${user?.role}`)}
+                        {user?.role ? ({ super_admin: 'Super Admin', landlord: 'Landlord', employee: 'Employee', tenant: 'Tenant' } as Record<UserRole, string>)[user.role] : ''}
                       </span>
                     </div>
                   )}
@@ -246,6 +249,10 @@ export function AppSidebar() {
                   </NavLink>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => lockSession('manual')} className="cursor-pointer">
+                  <LockKeyhole className="mr-2 h-4 w-4" />
+                  Lock screen
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleLogout} className="text-destructive cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />
                   {t('auth.logout')}

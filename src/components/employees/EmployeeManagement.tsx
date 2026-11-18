@@ -64,9 +64,12 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useAllEmployeesData } from '@/hooks/use.employees.hook';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/api/https';
 
 export function EmployeeManagement() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
   const { properties } = useProperties();
   const { requests, assignRequest } = useMaintenance();
   const { sendQuickNotification } = useNotifications();
@@ -109,31 +112,55 @@ export function EmployeeManagement() {
   );
 
   const handleActivate = async (employee: Employee) => {
-    // await activateEmployee(employee.id);
-    toast.success(`${employee.firstName} ${employee.lastName} has been activated`);
+    try {
+      await apiRequest<null, unknown>({ path: `/api/employees/${employee.id}/activate`, method: 'PATCH' });
+      await queryClient.invalidateQueries({ queryKey: ['employees'] });
+      toast.success('Employee activated');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Activation failed');
+    }
   };
 
   const handleDeactivate = async (employee: Employee) => {
-    // await deactivateEmployee(employee.id);
-    toast.success(`${employee.firstName} ${employee.lastName} has been deactivated`);
+    try {
+      await apiRequest<null, unknown>({ path: `/api/employees/${employee.id}/deactivate`, method: 'PATCH' });
+      await queryClient.invalidateQueries({ queryKey: ['employees'] });
+      toast.success('Employee deactivated');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Deactivation failed');
+    }
   };
 
   const handleAssignProperty = async () => {
     if (!selectedEmployee || !selectedPropertyId) return;
-    
-    const property = properties.find(p => p.id === selectedPropertyId);
-    if (property) {
-      // await assignToProperty(selectedEmployee.id, property.id, property.name);
-      toast.success(`${selectedEmployee.firstName} assigned to ${property.name}`);
+    try {
+      await apiRequest<number[], unknown>({
+        path: `/api/employees/${selectedEmployee.id}/properties`,
+        method: 'PATCH',
+        body: [Number(selectedPropertyId)],
+      });
+      await queryClient.invalidateQueries({ queryKey: ['employees'] });
+      toast.success('Employee property assignment saved');
       setShowAssignDialog(false);
       setSelectedEmployee(null);
       setSelectedPropertyId('');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Property assignment failed');
     }
   };
 
   const handleRemove = async (employee: Employee) => {
-    // await removeEmployee(employee.id);
-    toast.success(`${employee.firstName} ${employee.lastName} has been removed`);
+    if (user?.role !== 'super_admin') {
+      toast.error('Only a Super Admin can permanently delete employees. Deactivate the employee instead.');
+      return;
+    }
+    try {
+      await apiRequest<null, void>({path: `/api/employees/${employee.id}`, method: 'DELETE'});
+      await queryClient.invalidateQueries({ queryKey: ['employees'] });
+      toast.success('Employee removed');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Employee removal failed');
+    }
   };
 
   const handleAssignTask = async () => {
@@ -176,7 +203,10 @@ export function EmployeeManagement() {
   const handleApproveRegistration = async (registration: Employee) => {
     setIsProcessing(true);
     try {
-      // await approveRegistration(registration.id, user?.email || 'Landlord');
+      await apiRequest<null, unknown>({
+        path: `/api/landlords/employees/${registration.id}/approve`, method: 'POST',
+      });
+      await queryClient.invalidateQueries({ queryKey: ['employees'] });
       
       // In-app notification
       // addNotification({
@@ -216,7 +246,10 @@ export function EmployeeManagement() {
 
     setIsProcessing(true);
     try {
-      // await rejectRegistration(selectedRegistration.id, user?.email || 'Landlord', rejectionReason);
+      await apiRequest<null, unknown>({
+        path: `/api/landlords/employees/${selectedRegistration.id}/reject`, method: 'POST',
+      });
+      await queryClient.invalidateQueries({ queryKey: ['employees'] });
       
       // In-app notification
       // addNotification({

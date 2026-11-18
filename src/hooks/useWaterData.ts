@@ -11,7 +11,7 @@ import {
 import { waterReadingsApi } from "@/api/service/water.readings.service";
 
 export function useWaterData() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
 
   const [readings, setReadings] = useState<WaterReadingResponse[]>([]);
   const [stats, setStats] = useState<WaterStatsResponse | null>(null);
@@ -213,11 +213,21 @@ export function useWaterData() {
   ================================= */
 
   useEffect(() => {
-    loadReadings();
-    loadStats();
-    loadMonthlyStats();
-    loadHighUsage();
-  }, [loadReadings, loadStats, loadMonthlyStats, loadHighUsage]);
+    // Never request protected endpoints before AuthProvider verifies/restores the session.
+    if (authLoading) return;
+    if (!user) {
+      setReadings([]);
+      setStats(null);
+      setMonthlyStats([]);
+      setHighUsage([]);
+      setIsLoading(false);
+      return;
+    }
+    void loadReadings();
+    void loadStats();
+    void loadMonthlyStats();
+    void loadHighUsage();
+  }, [authLoading, user?.id, loadReadings, loadStats, loadMonthlyStats, loadHighUsage]);
 
   return {
     readings,

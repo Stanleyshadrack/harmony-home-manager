@@ -12,7 +12,11 @@ import "@/i18n";
 
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import Locked from "./pages/Locked";
+import { SessionLockManager } from "@/components/auth/SessionLockManager";
+import { SystemMaintenanceGate } from "@/components/auth/SystemMaintenanceGate";
 import Dashboard from "./pages/Dashboard";
+import RecentActivities from "./pages/RecentActivities";
 import Properties from "./pages/Properties";
 import Units from "./pages/Units";
 import Tenants from "./pages/Tenants";
@@ -49,12 +53,14 @@ const App = () => (
             <Toaster />
             <Sonner />
             <BrowserRouter>
+              <SessionLockManager />
+              <SystemMaintenanceGate>
               <Routes>
                 {/* Public routes */}
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/locked" element={<Locked />} />
                 <Route path="/onboarding" element={<Onboarding />} />
-                <Route path="/auth" element={<Auth />} />
                 <Route path="/set-password" element={<SetPasswordPage />} />
 
                 {/* Super Admin only routes */}
@@ -76,6 +82,8 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
+                <Route path="/recent-activities" element={<ProtectedRoute allowedRoles={["super_admin","landlord"]}><RecentActivities /></ProtectedRoute>} />
+                <Route path="/subscription-plans" element={<ProtectedRoute allowedRoles={["super_admin","landlord"]}><SubscriptionPlans /></ProtectedRoute>} />
                 <Route
                   path="/properties"
                   element={
@@ -284,6 +292,7 @@ const App = () => (
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </SystemMaintenanceGate>
             </BrowserRouter>
           </TooltipProvider>
         </RBACProvider>

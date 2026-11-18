@@ -29,7 +29,7 @@ const landlordSchema = z.object({
   email: z.string().email('Invalid email address'),
   phone: z.string().min(10, 'Phone number must be at least 10 digits'),
   company: z.string().optional(),
-  subscription: z.enum(['basic', 'premium', 'enterprise']),
+  subscription: z.enum(['BASIC', 'PREMIUM', 'ENTERPRISE']),
   subscriptionEndDate: z.string().min(1, 'Subscription end date is required'),
 });
 
@@ -53,7 +53,7 @@ export function LandlordForm({
   mode,
 }: LandlordFormProps) {
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>(
-    landlord?.subscription || 'basic'
+    landlord?.subscription || 'BASIC'
   );
 
   const {
@@ -77,7 +77,7 @@ export function LandlordForm({
   : "",
         }
       : {
-          subscription: 'basic',
+          subscription: 'BASIC',
           subscriptionEndDate: new Date(
             Date.now() + 365 * 24 * 60 * 60 * 1000
           ).toISOString().split('T')[0],

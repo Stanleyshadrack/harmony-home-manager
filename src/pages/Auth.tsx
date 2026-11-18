@@ -3,35 +3,36 @@ import { useTranslation } from 'react-i18next';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoginForm } from '@/components/auth/LoginForm';
+import { ForcePasswordChangeForm } from '@/components/auth/ForcePasswordChangeForm';
 import { RegisterForm } from '@/components/auth/RegisterForm';
 import { ForgotPasswordForm } from '@/components/auth/ForgotPasswordForm';
 import { ResetPasswordForm } from '@/components/auth/ResetPasswordForm';
-import { EmailVerificationForm } from '@/components/auth/EmailVerificationForm';
 import { EmailOTPVerification } from '@/components/auth/EmailOTPVerification';
 import { AwaitingApproval } from '@/components/auth/AwaitingApproval';
-import { TestSimulator } from '@/components/auth/TestSimulator';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Button } from '@/components/ui/button';
-import { Building2, FlaskConical } from 'lucide-react';
+import { Building2 } from 'lucide-react';
 import { AuthTokens } from '@/services/tokenService';
+import { consumeUnlockDestination } from '@/services/sessionLock';
+import { jwtDecode } from 'jwt-decode';
+import type { JwtPayload } from '@/types/auth';
 import { useNavigate } from 'react-router-dom';
 
 
 
-type AuthView = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'email-verification' | 'email-otp' | 'awaiting-approval';
+type AuthView = 'login' | 'register' | 'force-password' | 'forgot-password' | 'reset-password' | 'email-otp' | 'awaiting-approval';
 
 export default function Auth() {
   const { t } = useTranslation();
-  const { isAuthenticated, completeLogin, isLoading } = useAuth();
+  const { user, isAuthenticated, completeLogin, isLoading } = useAuth();
   const [authView, setAuthView] = useState<AuthView>('login');
   const [resetEmail, setResetEmail] = useState('');
-  const [verificationEmail, setVerificationEmail] = useState('');
+  const [forcePasswordEmail, setForcePasswordEmail] = useState('');
   const [otpEmail, setOtpEmail] = useState('');
   const [otpUserId, setOtpUserId] = useState('');
   const [pendingLoginRedirect, setPendingLoginRedirect] = useState<string | null>(null);
   const [pendingApprovalData, setPendingApprovalData] = useState<{ email: string; role: string } | null>(null);
-  const [showTestSimulator, setShowTestSimulator] = useState(false);
   const navigate = useNavigate();
 
 
@@ -44,10 +45,16 @@ if (isLoading) {
 }
 
 
-// if (isAuthenticated && authView !== 'email-otp') {
-//   return <Navigate to="/dashboard" replace />
-// }
+const homeByRole: Record<string, string> = {
+    super_admin: '/admin-portal',
+    landlord: '/dashboard',
+    employee: '/employee-portal',
+    tenant: '/tenant-portal',
+  };
 
+  if (isAuthenticated && user && authView !== 'email-otp') {
+    return <Navigate to={homeByRole[user.role] || '/'} replace />;
+  }
 
 
   return (
@@ -104,15 +111,6 @@ if (isLoading) {
             <span className="font-bold text-lg">{t('common.appName')}</span>
           </div>
           <div className="flex items-center gap-2 ml-auto">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowTestSimulator(!showTestSimulator)}
-              className="text-warning border-warning/50 hover:bg-warning/10"
-            >
-              <FlaskConical className="h-4 w-4 mr-1" />
-              Test
-            </Button>
             <LanguageSwitcher />
             <ThemeSwitcher />
           </div>
@@ -121,11 +119,6 @@ if (isLoading) {
         {/* Form Container */}
         <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8">
           <div className="w-full max-w-md space-y-6">
-            {/* Test Simulator */}
-            {showTestSimulator && (
-              <TestSimulator onClose={() => setShowTestSimulator(false)} />
-            )}
-
             {(authView === 'login' || authView === 'register') && (
               <div className="text-center">
                 <h2 className="text-2xl font-bold tracking-tight">
@@ -147,6 +140,10 @@ if (isLoading) {
                     setPendingLoginRedirect(redirect);
                     setAuthView('email-otp');
                   }}
+                  onForcePasswordChange={(email) => {
+                    setForcePasswordEmail(email);
+                    setAuthView('force-password');
+                  }}
                   onAwaitingApproval={(email, role) => {
                     setPendingApprovalData({ email, role });
                     setAuthView('awaiting-approval');
@@ -156,10 +153,13 @@ if (isLoading) {
               {authView === 'register' && (
                 <RegisterForm 
                   onSwitchToLogin={() => setAuthView('login')}
-                  onEmailVerification={(email) => {
-                    setVerificationEmail(email);
-                    setAuthView('email-verification');
-                  }}
+                />
+              )}
+              {authView === 'force-password' && (
+                <ForcePasswordChangeForm
+                  email={forcePasswordEmail}
+                  onBack={() => setAuthView('login')}
+                  onSuccess={() => setAuthView('login')}
                 />
               )}
               {authView === 'forgot-password' && (
@@ -178,29 +178,21 @@ if (isLoading) {
                   onSuccess={() => setAuthView('login')}
                 />
               )}
-              {authView === 'email-verification' && (
-                <EmailVerificationForm
-                  email={verificationEmail}
-                  onBack={() => setAuthView('login')}
-                  onSuccess={() => setAuthView('login')}
-                />
-              )}
               {authView === 'email-otp' && (
                 <EmailOTPVerification
                   email={otpEmail}
                 
                   onBack={() => setAuthView('login')}
                   onSuccess={(tokens: AuthTokens) => {
-                    console.log('Login successful with tokens:', {
-                      accessToken: tokens.accessToken.substring(0, 20) + '...',
-                      refreshToken: tokens.refreshToken.substring(0, 20) + '...',
-    
-                    });
-                    // Complete the login to set the user in context
-                   completeLogin(tokens.accessToken);
-                   // navigate AFTER state update
-                   navigate(pendingLoginRedirect || '/dashboard', { replace: true });
-
+                    // Only an authenticated matching account can return to the locked page.
+                    const payload = jwtDecode<JwtPayload>(tokens.accessToken);
+                    const role = String(payload.role || '').toLowerCase();
+                    const destination = consumeUnlockDestination(
+                      String(payload.sub || otpEmail),
+                      pendingLoginRedirect || homeByRole[role] || '/auth'
+                    );
+                    completeLogin(tokens.accessToken);
+                    navigate(destination, { replace: true });
                   }}
                 />
               )}

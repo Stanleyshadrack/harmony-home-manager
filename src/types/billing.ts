@@ -33,6 +33,7 @@ export interface Invoice {
 
   tenantId: number;
   tenantName: string;
+  tenantEmail?: string;
 
   unitId: number;
   unitNumber: string;

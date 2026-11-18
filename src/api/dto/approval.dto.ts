@@ -5,6 +5,10 @@ export interface Approval {
   id: number;
 
   type: ApprovalType;
+  documentType?: 'ID' | 'LEASE' | null;
+  targetName?: string | null;
+  targetExtra?: string | null;
+  propertyNames?: string[];
 
   targetId: number;
   propertyId?: number | null;

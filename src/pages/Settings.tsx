@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,10 +10,13 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { User, Mail, Phone, Camera, Save, Loader2 } from 'lucide-react';
-import { SessionManager } from '@/components/settings/SessionManager';
-import { TwoFactorSetup } from '@/components/auth/TwoFactorSetup';
 import { NotificationPreferences } from '@/components/settings/NotificationPreferences';
-import { updateUserProfile, fileToBase64 } from '@/services/userManagementService';
+import { MaintenanceControl } from '@/components/settings/MaintenanceControl';
+import { IdleLockPreferences } from '@/components/settings/IdleLockPreferences';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Bell, ShieldCheck, UserRound } from 'lucide-react';
+import { fileToBase64 } from '@/services/userManagementService';
+import { apiRequest } from '@/api/https';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Settings() {
@@ -31,6 +34,15 @@ export default function Settings() {
     avatarUrl: user?.avatarUrl || '',
   });
   const [previewAvatar, setPreviewAvatar] = useState<string | null>(null);
+  const [savedProfile, setSavedProfile] = useState<typeof formData | null>(null);
+  const [profileError, setProfileError] = useState('');
+  useEffect(() => {
+    let active = true;
+    apiRequest<null, {firstName?:string;lastName?:string;phone?:string;avatarUrl?:string}>({ path:'/api/users/me', method:'GET' })
+      .then(profile => { if (active) { const next = { firstName:profile.firstName || '', lastName:profile.lastName || '', phone:profile.phone || '', avatarUrl:profile.avatarUrl || '' }; setFormData(next); setSavedProfile(next); } })
+      .catch(e => { if (active) setProfileError(e instanceof Error ? e.message : 'Profile could not be loaded'); });
+    return () => { active = false; };
+  }, [user?.id]);
 
   const getInitials = () => {
     if (formData.firstName && formData.lastName) {
@@ -77,59 +89,27 @@ export default function Settings() {
   };
 
   const handleSave = async () => {
-    if (!user?.id) return;
-
+    if (!user?.id || isSaving) return;
     setIsSaving(true);
     try {
-      const result = updateUserProfile(user.id, {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        phone: formData.phone,
-        avatarUrl: formData.avatarUrl,
+      const saved = await apiRequest<typeof formData, typeof formData>({
+        path: '/api/users/me', method: 'PUT', body: formData,
       });
-
-      if (result.success) {
-        // Update the auth user in localStorage to reflect changes immediately
-        const authUser = localStorage.getItem('auth_user');
-        if (authUser) {
-          const parsed = JSON.parse(authUser);
-          const updated = {
-            ...parsed,
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-            phone: formData.phone,
-            avatarUrl: formData.avatarUrl,
-          };
-          localStorage.setItem('auth_user', JSON.stringify(updated));
-        }
-
-        toast({
-          title: 'Profile Updated',
-          description: 'Your profile has been updated successfully.',
-        });
-        setIsEditing(false);
-        setPreviewAvatar(null);
-        // Reload to reflect changes
-        window.location.reload();
-      } else {
-        toast({
-          title: 'Update Failed',
-          description: result.message,
-          variant: 'destructive',
-        });
-      }
+      setFormData({ firstName:saved.firstName || '', lastName:saved.lastName || '', phone:saved.phone || '', avatarUrl:saved.avatarUrl || '' });
+      setSavedProfile({ firstName:saved.firstName || '', lastName:saved.lastName || '', phone:saved.phone || '', avatarUrl:saved.avatarUrl || '' });
+      setIsEditing(false);
+      setPreviewAvatar(null);
+      setProfileError('');
+      toast({ title: 'Profile Updated', description: 'Your profile was saved to the server.' });
+    } catch (error) {
+      toast({ title: 'Update Failed', description: error instanceof Error ? error.message : 'Unable to save profile', variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleCancel = () => {
-    setFormData({
-      firstName: user?.firstName || '',
-      lastName: user?.lastName || '',
-      phone: user?.phone || '',
-      avatarUrl: user?.avatarUrl || '',
-    });
+    if (savedProfile) setFormData(savedProfile);
     setPreviewAvatar(null);
     setIsEditing(false);
   };
@@ -144,7 +124,15 @@ export default function Settings() {
         { label: t('settings.title') },
       ]}
     >
-      <div className="grid gap-6 lg:grid-cols-3">
+      {profileError && <p role="alert" className="text-destructive mb-4">{profileError}</p>}
+      <Tabs defaultValue="account" className="space-y-5">
+        <TabsList className="h-auto flex flex-wrap justify-start gap-1">
+          <TabsTrigger value="account" className="gap-2"><UserRound className="h-4 w-4" />Profile & Account</TabsTrigger>
+          <TabsTrigger value="security" className="gap-2"><ShieldCheck className="h-4 w-4" />Security</TabsTrigger>
+          <TabsTrigger value="notifications" className="gap-2"><Bell className="h-4 w-4" />Notifications & Sounds</TabsTrigger>
+          {user?.role === 'super_admin' && <TabsTrigger value="maintenance">System Maintenance</TabsTrigger>}
+        </TabsList>
+        <TabsContent value="account" className="grid gap-6 lg:grid-cols-3">
         {/* Profile Card */}
         <Card className="lg:col-span-1">
           <CardHeader>
@@ -177,7 +165,7 @@ export default function Settings() {
               />
             </div>
             <h3 className="text-xl font-semibold">
-              {formData.firstName ? `${formData.firstName} ${formData.lastName}` : 'Demo User'}
+              {formData.firstName ? `${formData.firstName} ${formData.lastName}` : 'Account'}
             </h3>
             <p className="text-sm text-muted-foreground">{user?.email}</p>
             <Badge className="mt-2">{t(`roles.${user?.role}`)}</Badge>
@@ -290,19 +278,26 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        {/* Security - 2FA Setup */}
-        <TwoFactorSetup />
+        </TabsContent>
+        <TabsContent value="security" className="space-y-5">
+        <IdleLockPreferences />
+        <Card><CardHeader><CardTitle>Account security</CardTitle>
+          <CardDescription>Security is enforced by the server. Super Admin sign-in requires the configured email verification flow. This screen does not create or revoke login sessions or enable an authenticator app.</CardDescription>
+          </CardHeader><CardContent className="text-sm text-muted-foreground">Use Sign Out to end your current browser session. Contact your administrator for account access and verification changes.</CardContent></Card>
 
-        {/* Session Management */}
-        <div className="lg:col-span-2">
-          <SessionManager />
-        </div>
-
+        </TabsContent>
+        <TabsContent value="notifications" className="space-y-5">
         {/* Notification Preferences */}
-        <div className="lg:col-span-2">
+        <div className="max-w-4xl">
           <NotificationPreferences />
         </div>
-      </div>
+        </TabsContent>
+        {user?.role === 'super_admin' && (
+          <TabsContent value="maintenance" className="max-w-4xl">
+            <MaintenanceControl />
+          </TabsContent>
+        )}
+      </Tabs>
     </DashboardLayout>
   );
 }

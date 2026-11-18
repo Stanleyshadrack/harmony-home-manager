@@ -1,432 +1,176 @@
-import { useState, useCallback } from 'react';
-import type { Invoice, Payment, WaterReading, InvoiceFormData, PaymentFormData, WaterReadingFormData } from '@/types/billing';
+import { useState, useCallback, useEffect } from 'react';
+import { apiRequest } from '@/api/https';
+import { useAuth } from '@/contexts/AuthContext';
+import type { Invoice, Payment, InvoiceFormData, PaymentFormData, WaterReadingFormData, InvoiceType, PaymentMethod } from '@/types/billing';
 
-// Mock data for development
-const mockInvoices: Invoice[] = [
-  {
-    id: '1',
-    invoiceNumber: 'INV-2024-001',
-    tenantId: 't1',
-    tenantName: 'John Doe',
-    unitId: 'u1',
-    unitNumber: 'A101',
-    propertyId: 'p1',
-    propertyName: 'Sunrise Apartments',
-    type: 'rent',
-    description: 'Monthly Rent - January 2024',
-    amount: 1200,
-    amountPaid: 1200,
-    balance: 0,
-    status: 'paid',
-    dueDate: '2024-01-05',
-    issuedDate: '2024-01-01',
-    paidDate: '2024-01-03',
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-03T00:00:00Z',
-  },
-  {
-    id: '2',
-    invoiceNumber: 'INV-2024-002',
-    tenantId: 't1',
-    tenantName: 'John Doe',
-    unitId: 'u1',
-    unitNumber: 'A101',
-    propertyId: 'p1',
-    propertyName: 'Sunrise Apartments',
-    type: 'water',
-    description: 'Water Bill - January 2024',
-    amount: 45.50,
-    amountPaid: 0,
-    balance: 45.50,
-    status: 'pending',
-    dueDate: '2024-01-15',
-    issuedDate: '2024-01-10',
-    waterReading: {
-      id: 'wr1',
-      unitId: 'u1',
-      meterId: 'WM-001',
-      previousReading: 1250,
-      currentReading: 1295,
-      consumption: 45,
-      ratePerUnit: 1.01,
-      readingDate: '2024-01-08',
-      billingPeriod: 'January 2024',
-    },
-    createdAt: '2024-01-10T00:00:00Z',
-    updatedAt: '2024-01-10T00:00:00Z',
-  },
-  {
-    id: '3',
-    invoiceNumber: 'INV-2024-003',
-    tenantId: 't2',
-    tenantName: 'Jane Smith',
-    unitId: 'u2',
-    unitNumber: 'B202',
-    propertyId: 'p1',
-    propertyName: 'Sunrise Apartments',
-    type: 'rent',
-    description: 'Monthly Rent - January 2024',
-    amount: 1500,
-    amountPaid: 750,
-    balance: 750,
-    status: 'partial',
-    dueDate: '2024-01-05',
-    issuedDate: '2024-01-01',
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-06T00:00:00Z',
-  },
-  {
-    id: '4',
-    invoiceNumber: 'INV-2024-004',
-    tenantId: 't3',
-    tenantName: 'Mike Johnson',
-    unitId: 'u3',
-    unitNumber: 'C303',
-    propertyId: 'p2',
-    propertyName: 'Ocean View Towers',
-    type: 'rent',
-    description: 'Monthly Rent - January 2024',
-    amount: 1800,
-    amountPaid: 0,
-    balance: 1800,
-    status: 'overdue',
-    dueDate: '2024-01-05',
-    issuedDate: '2024-01-01',
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-  // Additional sample invoices for payment testing
-  {
-    id: '5',
-    invoiceNumber: 'INV-2024-005',
-    tenantId: 't1',
-    tenantName: 'John Doe',
-    unitId: 'u1',
-    unitNumber: 'A101',
-    propertyId: 'p1',
-    propertyName: 'Sunrise Apartments',
-    type: 'rent',
-    description: 'Monthly Rent - February 2024',
-    amount: 1200,
-    amountPaid: 0,
-    balance: 1200,
-    status: 'pending',
-    dueDate: '2024-02-05',
-    issuedDate: '2024-02-01',
-    createdAt: '2024-02-01T00:00:00Z',
-    updatedAt: '2024-02-01T00:00:00Z',
-  },
-  {
-    id: '6',
-    invoiceNumber: 'INV-2024-006',
-    tenantId: 't2',
-    tenantName: 'Jane Smith',
-    unitId: 'u2',
-    unitNumber: 'B202',
-    propertyId: 'p1',
-    propertyName: 'Sunrise Apartments',
-    type: 'utilities',
-    description: 'Electricity Bill - January 2024',
-    amount: 85.00,
-    amountPaid: 0,
-    balance: 85.00,
-    status: 'pending',
-    dueDate: '2024-01-20',
-    issuedDate: '2024-01-12',
-    createdAt: '2024-01-12T00:00:00Z',
-    updatedAt: '2024-01-12T00:00:00Z',
-  },
-  {
-    id: '7',
-    invoiceNumber: 'INV-2024-007',
-    tenantId: 't3',
-    tenantName: 'Mike Johnson',
-    unitId: 'u3',
-    unitNumber: 'C303',
-    propertyId: 'p2',
-    propertyName: 'Ocean View Towers',
-    type: 'water',
-    description: 'Water Bill - December 2023',
-    amount: 62.30,
-    amountPaid: 30,
-    balance: 32.30,
-    status: 'partial',
-    dueDate: '2024-01-10',
-    issuedDate: '2023-12-28',
-    waterReading: {
-      id: 'wr2',
-      unitId: 'u3',
-      meterId: 'WM-003',
-      previousReading: 890,
-      currentReading: 952,
-      consumption: 62,
-      ratePerUnit: 1.00,
-      readingDate: '2023-12-26',
-      billingPeriod: 'December 2023',
-    },
-    createdAt: '2023-12-28T00:00:00Z',
-    updatedAt: '2024-01-08T00:00:00Z',
-  },
-  {
-    id: '8',
-    invoiceNumber: 'INV-2024-008',
-    tenantId: 't1',
-    tenantName: 'John Doe',
-    unitId: 'u1',
-    unitNumber: 'A101',
-    propertyId: 'p1',
-    propertyName: 'Sunrise Apartments',
-    type: 'late_fee',
-    description: 'Late Payment Fee - January 2024',
-    amount: 50.00,
-    amountPaid: 0,
-    balance: 50.00,
-    status: 'overdue',
-    dueDate: '2024-01-15',
-    issuedDate: '2024-01-10',
-    createdAt: '2024-01-10T00:00:00Z',
-    updatedAt: '2024-01-10T00:00:00Z',
-  },
-];
+type ApiPayment = {
+  id: number; invoiceId: number; invoiceNumber?: string; amount: number;
+  method: string; transactionRef?: string; paymentDate?: string; notes?: string;
+};
+type ApiInvoice = {
+  id: number; invoiceNumber?: string; tenantId: number; tenantName?: string;
+  tenantEmail?: string; propertyName?: string; unitId: number; unitNumber?: string;
+  type: string; description?: string; amount: number; amountPaid: number;
+  balance: number; status: string; dueDate?: string; issuedDate?: string;
+  paidDate?: string; payments?: ApiPayment[];
+};
+type UnitRow = { id: number; propertyId: number };
 
-const mockPayments: Payment[] = [
-  {
-    id: 'pay1',
-    invoiceId: '1',
-    invoiceNumber: 'INV-2024-001',
-    tenantId: 't1',
-    tenantName: 'John Doe',
-    amount: 1200,
-    paymentMethod: 'mpesa',
-    transactionRef: 'MPE123456789',
-    paymentDate: '2024-01-03',
-    createdAt: '2024-01-03T10:30:00Z',
-  },
-  {
-    id: 'pay2',
-    invoiceId: '3',
-    invoiceNumber: 'INV-2024-003',
-    tenantId: 't2',
-    tenantName: 'Jane Smith',
-    amount: 750,
-    paymentMethod: 'bank',
-    transactionRef: 'BNK987654321',
-    paymentDate: '2024-01-06',
-    notes: 'Partial payment - balance to follow',
-    createdAt: '2024-01-06T14:00:00Z',
-  },
-];
+function mapInvoice(i: ApiInvoice, propertyIds: Map<number, number>): Invoice {
+  return {
+    id: i.id, invoiceNumber: i.invoiceNumber || `INV-${i.id}`,
+    tenantId: i.tenantId, tenantName: i.tenantName || '',
+    tenantEmail: i.tenantEmail || undefined,
+    unitId: i.unitId, unitNumber: i.unitNumber || '',
+    propertyId: propertyIds.get(i.unitId) ?? 0, propertyName: i.propertyName || '',
+    type: (i.type || 'other').toLowerCase() as InvoiceType,
+    description: i.description || '', amount: Number(i.amount || 0),
+    amountPaid: Number(i.amountPaid || 0), balance: Number(i.balance || 0),
+    status: (i.status || 'pending').toLowerCase() as Invoice['status'],
+    dueDate: i.dueDate || '', issuedDate: i.issuedDate || '',
+    paidDate: i.paidDate || undefined,
+    createdAt: i.issuedDate || '', updatedAt: i.issuedDate || '',
+  };
+}
+
+function mapPayment(p: ApiPayment, invoice: Invoice): Payment {
+  return {
+    id: p.id, invoiceId: p.invoiceId,
+    invoiceNumber: p.invoiceNumber || invoice.invoiceNumber,
+    tenantId: invoice.tenantId, tenantName: invoice.tenantName,
+    amount: Number(p.amount || 0),
+    paymentMethod: (p.method || 'bank').toLowerCase() as PaymentMethod,
+    transactionRef: p.transactionRef || '',
+    paymentDate: p.paymentDate || '',
+    notes: p.notes, createdAt: p.paymentDate || '',
+  };
+}
 
 export function useBilling() {
-  const [invoices, setInvoices] = useState<Invoice[]>(mockInvoices);
-  const [payments, setPayments] = useState<Payment[]>(mockPayments);
-  const [isLoading, setIsLoading] = useState(false);
+  const { user, isLoading: authLoading } = useAuth();
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const createInvoice = useCallback((data: InvoiceFormData) => {
+  const reload = useCallback(async () => {
+    if (!user) return;
     setIsLoading(true);
-    const newInvoice: Invoice = {
-      id: `inv-${Date.now()}`,
-      invoiceNumber: `INV-2024-${String(invoices.length + 1).padStart(3, '0')}`,
-      tenantId: data.tenantId,
-      tenantName: 'New Tenant',
-      unitId: data.unitId,
-      unitNumber: 'A101',
-      propertyId: 'p1',
-      propertyName: 'Sunrise Apartments',
-      type: data.type,
-      description: data.description,
-      amount: data.amount,
-      amountPaid: 0,
-      balance: data.amount,
-      status: 'pending',
-      dueDate: data.dueDate,
-      issuedDate: new Date().toISOString().split('T')[0],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setInvoices((prev) => [...prev, newInvoice]);
-    setIsLoading(false);
-    return newInvoice;
-  }, [invoices.length]);
-
-  const createWaterInvoice = useCallback((reading: WaterReadingFormData, tenantId: string, tenantName: string, propertyName: string, unitNumber: string) => {
-    setIsLoading(true);
-    const consumption = reading.currentReading - reading.previousReading;
-    const amount = consumption * reading.ratePerUnit;
-    
-    const waterReading: WaterReading = {
-      id: `wr-${Date.now()}`,
-      unitId: reading.unitId,
-      meterId: reading.meterId,
-      previousReading: reading.previousReading,
-      currentReading: reading.currentReading,
-      consumption,
-      ratePerUnit: reading.ratePerUnit,
-      readingDate: reading.readingDate,
-      billingPeriod: reading.billingPeriod,
-    };
-
-    const newInvoice: Invoice = {
-      id: `inv-${Date.now()}`,
-      invoiceNumber: `INV-2024-${String(invoices.length + 1).padStart(3, '0')}`,
-      tenantId,
-      tenantName,
-      unitId: reading.unitId,
-      unitNumber,
-      propertyId: 'p1',
-      propertyName,
-      type: 'water',
-      description: `Water Bill - ${reading.billingPeriod}`,
-      amount,
-      amountPaid: 0,
-      balance: amount,
-      status: 'pending',
-      dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      issuedDate: new Date().toISOString().split('T')[0],
-      waterReading,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    
-    setInvoices((prev) => [...prev, newInvoice]);
-    setIsLoading(false);
-    return newInvoice;
-  }, [invoices.length]);
-
-  const recordPayment = useCallback((data: PaymentFormData) => {
-    setIsLoading(true);
-    const invoice = invoices.find((inv) => inv.id === data.invoiceId);
-    if (!invoice) {
+    try {
+      // Backend /invoice/my enforces tenant, employee, landlord and admin scope.
+      const [invoiceRows, units] = await Promise.all([
+        apiRequest<null, ApiInvoice[]>({ path: '/api/billing/invoice/my', method: 'GET' }),
+        apiRequest<null, UnitRow[]>({ path: '/api/units', method: 'GET' }),
+      ]);
+      const propertyIds = new Map(units.map(u => [u.id, u.propertyId]));
+      const mapped = invoiceRows.map(i => mapInvoice(i, propertyIds));
+      setInvoices(mapped);
+      setPayments(invoiceRows.flatMap((i, n) =>
+        (i.payments || []).map(p => mapPayment(p, mapped[n]))));
+      setLoadError(null);
+    } catch (error) {
+      setInvoices([]);
+      setPayments([]);
+      setLoadError(error instanceof Error ? error.message : 'Unable to load billing data');
+      throw error;
+    } finally {
       setIsLoading(false);
-      throw new Error('Invoice not found');
     }
+  }, [user?.id]);
 
-    const newPayment: Payment = {
-      id: `pay-${Date.now()}`,
-      invoiceId: data.invoiceId,
-      invoiceNumber: invoice.invoiceNumber,
-      tenantId: invoice.tenantId,
-      tenantName: invoice.tenantName,
-      amount: data.amount,
-      paymentMethod: data.paymentMethod,
-      transactionRef: data.transactionRef,
-      paymentDate: data.paymentDate,
-      notes: data.notes,
-      createdAt: new Date().toISOString(),
-    };
-
-    setPayments((prev) => [...prev, newPayment]);
-
-    // Update invoice
-    const newAmountPaid = invoice.amountPaid + data.amount;
-    const newBalance = invoice.amount - newAmountPaid;
-    const newStatus = newBalance <= 0 ? 'paid' : 'partial';
-
-    setInvoices((prev) =>
-      prev.map((inv) =>
-        inv.id === data.invoiceId
-          ? {
-              ...inv,
-              amountPaid: newAmountPaid,
-              balance: Math.max(0, newBalance),
-              status: newStatus,
-              paidDate: newStatus === 'paid' ? data.paymentDate : undefined,
-              updatedAt: new Date().toISOString(),
-            }
-          : inv
-      )
-    );
-
-    setIsLoading(false);
-    return newPayment;
-  }, [invoices]);
-
-  const getInvoicesByStatus = useCallback((status: Invoice['status']) => {
-    return invoices.filter((inv) => inv.status === status);
-  }, [invoices]);
-
-  const getPaymentsByInvoice = useCallback((invoiceId: string) => {
-    return payments.filter((pay) => pay.invoiceId === invoiceId);
-  }, [payments]);
-
-  const getTotalRevenue = useCallback(() => {
-    return payments.reduce((sum, pay) => sum + pay.amount, 0);
-  }, [payments]);
-
-  const getTotalOutstanding = useCallback(() => {
-    return invoices
-      .filter((inv) => inv.status !== 'paid' && inv.status !== 'cancelled')
-      .reduce((sum, inv) => sum + inv.balance, 0);
-  }, [invoices]);
-
-  const updateInvoice = useCallback((id: string, data: Partial<InvoiceFormData>) => {
-    setIsLoading(true);
-    const invoice = invoices.find((inv) => inv.id === id);
-    if (!invoice) {
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      setInvoices([]);
+      setPayments([]);
+      setLoadError(null);
       setIsLoading(false);
-      throw new Error('Invoice not found');
+      return;
     }
+    void reload().catch(() => { /* error exposed via loadError */ });
+  }, [authLoading, user?.id, reload]);
 
-    const updatedAmount = data.amount ?? invoice.amount;
-    const newBalance = updatedAmount - invoice.amountPaid;
+  const createInvoice = useCallback(async (data: InvoiceFormData): Promise<Invoice> => {
+    const dto = await apiRequest<object, ApiInvoice>({
+      path: '/api/billing/invoice', method: 'POST',
+      body: {
+        tenantId: Number(data.tenantId), unitId: Number(data.unitId),
+        type: data.type.toUpperCase(), amount: data.amount,
+        dueDate: data.dueDate, notes: data.description,
+      },
+    });
+    await reload();
+    const unit = await apiRequest<null, UnitRow[]>({ path: '/api/units', method: 'GET' });
+    return mapInvoice(dto, new Map(unit.map(u => [u.id, u.propertyId])));
+  }, [reload]);
 
-    setInvoices((prev) =>
-      prev.map((inv) =>
-        inv.id === id
-          ? {
-              ...inv,
-              type: data.type ?? inv.type,
-              description: data.description ?? inv.description,
-              amount: updatedAmount,
-              balance: Math.max(0, newBalance),
-              dueDate: data.dueDate ?? inv.dueDate,
-              status: newBalance <= 0 ? 'paid' : inv.amountPaid > 0 ? 'partial' : inv.status,
-              updatedAt: new Date().toISOString(),
-            }
-          : inv
-      )
-    );
-    setIsLoading(false);
-    return invoices.find((inv) => inv.id === id);
-  }, [invoices]);
+  const createWaterInvoice = useCallback(async (reading: WaterReadingFormData) => {
+    // This records a water reading; billing is generated from approved readings
+    // for the configured billing period. Do not create fake local invoices.
+    const result = await apiRequest<object, unknown>({
+      path: '/api/water-readings', method: 'POST',
+      body: {
+        unitId: Number(reading.unitId),
+        meterId: String(reading.meterId),
+        previousReading: reading.previousReading,
+        currentReading: reading.currentReading,
+        ratePerUnit: reading.ratePerUnit,
+        readingDate: reading.readingDate,
+      },
+    });
+    await reload();
+    return result;
+  }, [reload]);
 
-  const cancelInvoice = useCallback((id: string, reason?: string) => {
-    setIsLoading(true);
-    const invoice = invoices.find((inv) => inv.id === id);
-    if (!invoice) {
-      setIsLoading(false);
-      throw new Error('Invoice not found');
-    }
+  const recordPayment = useCallback(async (data: PaymentFormData): Promise<Payment> => {
+    const invoice = invoices.find(i => i.id === Number(data.invoiceId));
+    if (!invoice) throw new Error('Invoice not found in the active landlord account');
+    const dto = await apiRequest<object, ApiPayment>({
+      path: '/api/billing/payment', method: 'POST',
+      body: {
+        invoiceId: Number(data.invoiceId), amount: data.amount,
+        method: data.paymentMethod.toUpperCase(), transactionRef: data.transactionRef,
+        notes: data.notes,
+      },
+    });
+    await reload();
+    return mapPayment(dto, invoice);
+  }, [invoices, reload]);
 
-    setInvoices((prev) =>
-      prev.map((inv) =>
-        inv.id === id
-          ? {
-              ...inv,
-              status: 'cancelled' as const,
-              cancelledDate: new Date().toISOString().split('T')[0],
-              cancellationReason: reason,
-              updatedAt: new Date().toISOString(),
-            }
-          : inv
-      )
-    );
-    setIsLoading(false);
-    return invoice;
-  }, [invoices]);
+  const updateInvoice = useCallback(async (id: number, data: Partial<InvoiceFormData>) => {
+    const dto = await apiRequest<object, ApiInvoice>({
+      path: `/api/billing/invoice/${id}`, method: 'PUT',
+      body: {
+        amount: data.amount, dueDate: data.dueDate,
+        type: data.type ? data.type.toUpperCase() : undefined,
+      },
+    });
+    await reload();
+    return dto;
+  }, [reload]);
+
+  const cancelInvoice = useCallback(async (id: number, _reason?: string) => {
+    await apiRequest<null, string>({
+      path: `/api/billing/invoice/${id}/cancel`, method: 'PATCH',
+    });
+    await reload();
+  }, [reload]);
+
+  const getInvoicesByStatus = useCallback((status: Invoice['status']) =>
+    invoices.filter(i => i.status === status), [invoices]);
+  const getPaymentsByInvoice = useCallback((invoiceId: number) =>
+    payments.filter(p => p.invoiceId === invoiceId), [payments]);
+  const getTotalRevenue = useCallback(() =>
+    payments.reduce((sum, p) => sum + p.amount, 0), [payments]);
+  const getTotalOutstanding = useCallback(() =>
+    invoices.filter(i => i.status !== 'paid' && i.status !== 'cancelled')
+      .reduce((sum, i) => sum + i.balance, 0), [invoices]);
 
   return {
-    invoices,
-    payments,
-    isLoading,
-    createInvoice,
-    createWaterInvoice,
-    recordPayment,
-    updateInvoice,
-    cancelInvoice,
-    getInvoicesByStatus,
-    getPaymentsByInvoice,
-    getTotalRevenue,
-    getTotalOutstanding,
+    invoices, payments, isLoading, loadError, reload,
+    createInvoice, createWaterInvoice, recordPayment,
+    updateInvoice, cancelInvoice,
+    getInvoicesByStatus, getPaymentsByInvoice,
+    getTotalRevenue, getTotalOutstanding,
   };
 }

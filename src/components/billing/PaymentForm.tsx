@@ -23,7 +23,7 @@ import {
 import type { PaymentFormData, PaymentMethod, Invoice } from '@/types/billing';
 
 const paymentSchema = z.object({
-  invoiceId: z.string().min(1, 'Invoice is required'),
+  invoiceId: z.number().int().positive('Invoice is required'),
   amount: z.number({
     required_error: 'Amount is required',
     invalid_type_error: 'Please enter a valid amount',
@@ -51,7 +51,7 @@ export function PaymentForm({ invoice, onSubmit, onCancel, isLoading }: PaymentF
   const form = useForm<PaymentFormData>({
     resolver: zodResolver(paymentSchema),
     defaultValues: {
-      invoiceId: invoice?.id || '',
+      invoiceId: invoice?.id ?? 0,
       amount: invoice?.balance || 0,
       paymentMethod: 'mpesa',
       transactionRef: '',
@@ -81,7 +81,7 @@ export function PaymentForm({ invoice, onSubmit, onCancel, isLoading }: PaymentF
             <div className="flex justify-between mt-2 text-sm">
               <span className="text-muted-foreground">Outstanding Balance:</span>
               <span className="font-semibold text-destructive">
-                ${invoice.balance.toFixed(2)}
+                KES {invoice.balance.toFixed(2)}
               </span>
             </div>
           </div>

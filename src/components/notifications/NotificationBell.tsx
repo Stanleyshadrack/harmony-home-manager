@@ -32,14 +32,14 @@ const categoryColors: Record<string, string> = {
 export function NotificationBell() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { notifications, markAsRead, markAllAsRead, deleteNotification, getUnreadCount } = useInAppNotifications(user?.id);
+  const { notifications, markAsRead, markAllAsRead, deleteNotification, getUnreadCount, isLoading, error } = useInAppNotifications(user?.id);
   const [isOpen, setIsOpen] = useState(false);
 
   const unreadCount = getUnreadCount();
 
   const handleNotificationClick = (notification: InAppNotification) => {
     if (!notification.read) {
-      markAsRead(notification.id);
+      void markAsRead(notification.id).catch(() => {});
     }
     if (notification.link) {
       navigate(notification.link);
@@ -67,14 +67,15 @@ export function NotificationBell() {
         <div className="flex items-center justify-between p-4 border-b">
           <h4 className="font-semibold">Notifications</h4>
           {unreadCount > 0 && (
-            <Button variant="ghost" size="sm" onClick={markAllAsRead}>
+            <Button variant="ghost" size="sm" onClick={() => void markAllAsRead().catch(() => {})}>
               <Check className="h-4 w-4 mr-1" />
               Mark all read
             </Button>
           )}
         </div>
+        {error && <p role="alert" className="px-4 pt-2 text-xs text-destructive">{error}</p>}
         <ScrollArea className="h-[300px]">
-          {notifications.length === 0 ? (
+          {isLoading ? (<div className="p-4 text-sm text-muted-foreground">Loading notifications…</div>) : notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
               <Bell className="h-8 w-8 mb-2 opacity-50" />
               <p className="text-sm">No notifications yet</p>
@@ -116,7 +117,7 @@ export function NotificationBell() {
                         className="h-6 w-6"
                         onClick={(e) => {
                           e.stopPropagation();
-                          deleteNotification(notification.id);
+                          void deleteNotification(notification.id).catch(() => {});
                         }}
                       >
                         <Trash2 className="h-3 w-3" />

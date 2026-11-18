@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { LandlordTypes } from "@/types/LandlordTypes";
 import { createLandlord, fetchAllLandlords } from "@/api/service/landlords.service.api";
 import { mapLandlordDto } from "@/api/mapper/landlord.mapper";
@@ -9,10 +10,12 @@ import {
 } from "@/api/service/subscription.service";
 
 export type SubscriptionPlan = "BASIC" | "PREMIUM" | "ENTERPRISE";
+export type Landlord = LandlordTypes;
+export type SubscriptionPlanDetails = { id: SubscriptionPlan; name: string; price: number; maxProperties: number; maxUnits: number; features: string[] };
 export type LandlordStatus = "active" | "suspended" | "pending";
 
 
-const subscriptionPlans = [
+const subscriptionPlans: SubscriptionPlanDetails[] = [
   {
     id: "BASIC",
     name: "Basic Plan",
@@ -58,23 +61,37 @@ const getDaysUntilExpiration = (date: string) => {
 };
 
 export function useLandlords() {
+  const { user, isLoading: authLoading } = useAuth();
   const [landlords, setLandlords] = useState<LandlordTypes[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // /api/landlords is restricted to SUPER_ADMIN; other roles must not call it.
+    if (authLoading) return;
+    if (user?.role !== 'super_admin') {
+      setLandlords([]);
+      setIsLoading(false);
+      return;
+    }
+    let active = true;
     const loadLandlords = async () => {
+      setIsLoading(true);
       try {
-        setIsLoading(true);
         const data = await fetchAllLandlords();
-        const mapped = data.map(mapLandlordDto);
-        setLandlords(mapped);
+        if (active) setLandlords(data.map(mapLandlordDto));
+      } catch (error) {
+        if (active) {
+          setLandlords([]);
+          // Keep unexpected errors visible without unhandled promise rejections.
+          console.warn("Could not load authorized landlord directory", error);
+        }
       } finally {
-        setIsLoading(false);
+        if (active) setIsLoading(false);
       }
     };
-
-    loadLandlords();
-  }, []);
+    void loadLandlords();
+    return () => { active = false; };
+  }, [authLoading, user?.id, user?.role]);
 
   const addLandlord = useCallback(
     async (data: { userId: number; companyName: string; phone: string }) => {

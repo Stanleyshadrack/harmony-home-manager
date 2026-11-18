@@ -1,3 +1,5 @@
+import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
+import { ResponsiveTableView } from '@/components/ui/responsive-table-view';
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
@@ -50,6 +52,7 @@ import { MeterForm } from '@/types/MeterForm';
 
 
 export default function WaterMeters() {
+  const [viewMode, setViewMode] = useViewMode('watermeters', 'list');
   const { t } = useTranslation();
   const { toast } = useToast();
  const { meters, stats, loading, createMeter, updateMeter, deleteMeter, assignMeter } = useMeters();
@@ -421,7 +424,9 @@ export default function WaterMeters() {
 
         {/* Meters Table */}
         <Card>
-          <Table>
+          <div className="flex justify-end mb-3"><ViewModeToggle value={viewMode} onChange={setViewMode} /></div>
+              <ResponsiveTableView mode={viewMode}>
+              <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Meter ID</TableHead>
@@ -515,6 +520,7 @@ export default function WaterMeters() {
               )}
             </TableBody>
           </Table>
+              </ResponsiveTableView>
         </Card>
 
         {/* Add/Edit Dialog */}

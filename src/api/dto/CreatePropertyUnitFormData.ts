@@ -1,33 +1,15 @@
 export interface CreatePropertyUnitFormData {
-  propertyId: string
-
-  unitNumber: string
-
-  type:
-    | "STUDIO"
-    | "ONE_BEDROOM"
-    | "TWO_BEDROOM"
-    | "THREE_BEDROOM"
-    | "PENTHOUSE"
-
-  status: "VACANT" | "OCCUPIED" | "MAINTENANCE" | null
-
-  bedrooms: number
-  bathrooms: number
-
-  squareFeet: number
-
-   lastReading: string,
-    lastReadingDate: string,
-
-  monthlyRent: number
-  deposit: number
-
-  meterId?: number | null
+  propertyId: number;
+  unitNumber: string;
+  type: "STUDIO" | "ONE_BEDROOM" | "TWO_BEDROOM" | "THREE_BEDROOM" | "PENTHOUSE";
+  status: "VACANT" | "OCCUPIED" | "MAINTENANCE";
+  bedrooms: number;
+  bathrooms: number;
+  squareFeet: number;
+  monthlyRent: number;
+  deposit: number;
+  meterId?: number | null;
 }
-
-
-
 
 export interface PropertyUnitApiResponse {
   id: string;

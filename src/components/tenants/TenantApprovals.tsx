@@ -34,7 +34,6 @@ export function TenantApprovals() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { registrations, approveRegistration, rejectRegistration } = usePendingRegistrations();
-  const { addNotification } = useInAppNotifications();
   const { sendQuickNotification } = useNotifications();
   
   const [selectedRegistration, setSelectedRegistration] = useState<PendingRegistration | null>(null);
@@ -51,17 +50,8 @@ export function TenantApprovals() {
     try {
       await approveRegistration(registration.id, user?.email || 'Landlord');
       
-      // In-app notification
-      addNotification({
-        userId: registration.phone,
-        title: 'Registration Approved!',
-        message: 'Your tenant account has been approved by the landlord. You can now log in.',
-        category: 'registration_approved',
-        priority: 'high',
-        link: '/auth',
-      });
-
-      // Send SMS/WhatsApp notification
+      // Approval notifications must be persisted by the backend, not fabricated in browser state.
+// Send SMS/WhatsApp notification
       if (registration.phone) {
         await sendQuickNotification(
           registration.phone,
@@ -90,16 +80,8 @@ export function TenantApprovals() {
     try {
       await rejectRegistration(selectedRegistration.id, user?.email || 'Landlord', rejectionReason);
       
-      // In-app notification
-      addNotification({
-        userId: selectedRegistration.phone,
-        title: 'Registration Rejected',
-        message: `Your tenant registration was not approved. Reason: ${rejectionReason}`,
-        category: 'registration_rejected',
-        priority: 'high',
-      });
-
-      // Send SMS/WhatsApp notification
+      // Approval notifications must be persisted by the backend, not fabricated in browser state.
+// Send SMS/WhatsApp notification
       if (selectedRegistration.phone) {
         await sendQuickNotification(
           selectedRegistration.phone,

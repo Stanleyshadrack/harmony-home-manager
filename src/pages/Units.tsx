@@ -1,3 +1,4 @@
+import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
@@ -29,12 +30,13 @@ import { Plus, Search, Home } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Units() {
+  const [viewMode, setViewMode] = useViewMode('units');
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const propertyIdFromUrl = searchParams.get('property');
   
   const { properties } = useProperties();
-  const { units, isLoading, addUnit, updateUnit, deleteUnit } = useUnits();
+  const { units, isLoading, loadError, addUnit, updateUnit, deleteUnit } = useUnits();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [filterProperty, setFilterProperty] = useState<string>(propertyIdFromUrl || 'all');
@@ -63,7 +65,7 @@ export default function Units() {
       await addUnit(data);
       toast.success('Unit added successfully');
     } catch (error) {
-      toast.error('Failed to add unit');
+      toast.error(error instanceof Error ? error.message : 'Failed to add unit');
     }
   };
 
@@ -74,7 +76,7 @@ export default function Units() {
       toast.success('Unit updated successfully');
       setEditingUnit(null);
     } catch (error) {
-      toast.error('Failed to update unit');
+      toast.error(error instanceof Error ? error.message : 'Failed to update unit');
     }
   };
 
@@ -85,7 +87,7 @@ export default function Units() {
       toast.success('Unit deleted successfully');
       setDeletingUnit(null);
     } catch (error) {
-      toast.error('Failed to delete unit');
+      toast.error(error instanceof Error ? error.message : 'Failed to delete unit');
     }
   };
 
@@ -115,6 +117,7 @@ export default function Units() {
         { label: t('units.title') },
       ]}
     >
+      {loadError && <div role="alert" className="rounded-lg border border-destructive/50 p-3 mb-4 text-sm text-destructive">Units could not be loaded: {loadError}</div>}
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         <div className="p-4 bg-card border rounded-lg">
@@ -176,9 +179,10 @@ export default function Units() {
         </Button>
       </div>
 
+      <div className="flex justify-end mb-3"><ViewModeToggle value={viewMode} onChange={setViewMode} /></div>
       {/* Units Grid */}
       {filteredUnits.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className={viewMode === 'grid' ? "grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "grid grid-cols-1 gap-3"}>
           {filteredUnits.map((unit) => (
             <UnitCard
               key={unit.id}

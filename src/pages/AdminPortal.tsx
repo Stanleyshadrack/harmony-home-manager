@@ -1,9 +1,12 @@
+import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
+import { ResponsiveTableView } from '@/components/ui/responsive-table-view';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useApprovals } from "@/hooks/useApprovals";
+import { TenantWorkflowApprovals } from '@/components/tenants/TenantWorkflowApprovals';
 import { Approval } from "@/api/dto/approval.dto";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -60,7 +63,7 @@ import {
   Mail,
   RefreshCw,
 } from 'lucide-react';
-import { useProperties } from '@/hooks/useProperties';
+import { useProperties, useUnits } from '@/hooks/useProperties';
 import { useTenants } from '@/hooks/useTenants';
 import { useBilling } from '@/hooks/useBilling';
 import { useInAppNotifications } from '@/hooks/useInAppNotifications';
@@ -70,22 +73,24 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { LandlordForm } from '@/components/admin/LandlordForm';
 import { SystemLockControl } from '@/components/admin/SystemLockControl';
+import { CompanyManagement } from '@/components/admin/CompanyManagement';
 import { UserPasswordReset } from '@/components/admin/UserPasswordReset';
 import { BulkEmailForm } from '@/components/admin/BulkEmailForm';
 import { SubscriptionRenewalDialog } from '@/components/landlords/SubscriptionRenewalDialog';
 import { sendSubscriptionRenewalConfirmationEmail, sendUserInvitationEmail } from '@/services/adminEmailService';
 import { InviteUserDialog } from '@/components/admin/InviteUserDialog';
-import { useInvitations } from '@/hooks/useInvitations';
 import { AssignPropertiesDialog } from '@/components/properties/AssignPropertiesDialog';
 import { LandlordTypes } from '@/types/LandlordTypes';
 import { SubscriptionPlan } from '@/api/dto/SubscriptionResponse';
 
 export default function AdminPortal() {
+  const [viewMode, setViewMode] = useViewMode('admin-portal', 'list');
   const { t } = useTranslation();
   const { toast } = useToast();
-  const { properties } = useProperties();
+  const { properties, loadError: propertyLoadError } = useProperties();
+  const { units, loadError: unitsLoadError } = useUnits();
   const { tenants } = useTenants();
-  const { invoices, payments } = useBilling();
+  const { invoices, payments, loadError: billingLoadError } = useBilling();
   const { user } = useAuth();
   const [showApprovalDetails, setShowApprovalDetails] = useState(false);
   const {
@@ -137,7 +142,6 @@ const [approvalLoading, setApprovalLoading] = useState(false);
     }
   });
 
-  const { createInvitation, invitations, getPendingInvitations } = useInvitations();
 
   const auditLogs = getAuditLogs();
   const activitySummary = getActivitySummary();
@@ -150,7 +154,7 @@ const [approvalLoading, setApprovalLoading] = useState(false);
   const totalLandlords = landlords.length;
   const activeLandlords = landlords.filter((l) => l.status === 'active').length;
   const totalProperties = properties.length;
-  const totalUnits = landlords.reduce((sum, l) => sum + l.currentUnits, 0);
+  const totalUnits = units.length;
   const expiredSubscriptions = getExpiredSubscriptions();
 
   const filteredLandlords = landlords.filter(
@@ -285,7 +289,6 @@ const [approvalLoading, setApprovalLoading] = useState(false);
     { id: 'active_landlords', label: 'Active Landlords', icon: <CheckCircle className="h-4 w-4" />, count: activeLandlords },
   ];
 
-  const { addNotification } = useInAppNotifications();
 
   const handleRejectApproval = async () => {
   if (!selectedApproval || !rejectionReason.trim()) return;
@@ -310,8 +313,11 @@ const [approvalLoading, setApprovalLoading] = useState(false);
     }).format(amount);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+  const formatDate = (dateString?: string | null) => {
+    if (!dateString) return 'Not available';
+    const parsed = new Date(dateString);
+    if (Number.isNaN(parsed.getTime())) return 'Not available';
+    return parsed.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -334,13 +340,23 @@ const [approvalLoading, setApprovalLoading] = useState(false);
       breadcrumbs={[{ label: 'Super Admin Portal' }]}
       title="Super Admin Portal"
     >
-      <div className="space-y-6">
+      <div className="space-y-5">
+        {(propertyLoadError || unitsLoadError || billingLoadError) && (
+          <div role="alert" className="rounded-lg border border-destructive/50 p-3 text-sm text-destructive">
+            Platform totals are incomplete because some API requests failed.
+            {propertyLoadError && <p>Properties: {propertyLoadError}</p>}
+            {unitsLoadError && <p>Units: {unitsLoadError}</p>}
+            {billingLoadError && <p>Billing: {billingLoadError}</p>}
+          </div>
+        )}
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Platform Administration</h1>
-            <p className="text-muted-foreground">
-              Manage landlords, system settings, and user accounts
+            <h1 className="text-2xl font-bold">{activeTab === 'dashboard' ? 'Platform Overview' : 'Platform Administration'}</h1>
+            <p className="text-muted-foreground text-sm">
+              {activeTab === 'dashboard'
+                ? 'Portfolio performance and activity across the platform'
+                : 'Manage companies, people, access and platform settings'}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -358,7 +374,8 @@ const [approvalLoading, setApprovalLoading] = useState(false);
           </div>
         </div>
 
-        {/* Platform Stats */}
+        {/* Keep global KPIs on Overview only; each management tab owns its metrics. */}
+        {activeTab === 'dashboard' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <Card>
             <CardContent className="p-4">
@@ -431,10 +448,12 @@ const [approvalLoading, setApprovalLoading] = useState(false);
             </CardContent>
           </Card>
         </div>
+        )}
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-8">
+          <div className="w-full overflow-x-auto pb-1" role="region" aria-label="Admin portal sections" tabIndex={0}>
+           <TabsList className="grid h-auto min-h-10 w-full min-w-[900px] grid-cols-9 gap-1 p-1">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">Overview</span>
@@ -447,6 +466,10 @@ const [approvalLoading, setApprovalLoading] = useState(false);
                   {pendingCount}
                 </span>
               )}
+            </TabsTrigger>
+            <TabsTrigger value="companies" className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Companies</span>
             </TabsTrigger>
             <TabsTrigger value="landlords" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
@@ -473,6 +496,7 @@ const [approvalLoading, setApprovalLoading] = useState(false);
               <span className="hidden sm:inline">Settings</span>
             </TabsTrigger>
           </TabsList>
+          </div>
 
           {/* Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-4">
@@ -613,6 +637,7 @@ const [approvalLoading, setApprovalLoading] = useState(false);
 
           {/* Approvals Tab */}
           <TabsContent value="approvals" className="space-y-4">
+            <TenantWorkflowApprovals />
   <div className="flex items-center justify-between">
     <div>
       <h2 className="text-xl font-semibold">Approvals</h2>
@@ -628,9 +653,10 @@ const [approvalLoading, setApprovalLoading] = useState(false);
     )}
   </div>
 
-  {approvals.filter(a => a.status === "PENDING").length > 0 ? (
+  {approvals.filter(a => a.status === "PENDING" && !["TENANT", "LEASE", "DOCUMENT"].includes(a.type)).length > 0 ? (
     <Card>
-      <Table>
+      <div className="flex justify-end p-3"><ViewModeToggle value={viewMode} onChange={setViewMode} /></div>
+              <ResponsiveTableView mode={viewMode}><Table>
         <TableHeader>
           <TableRow>
             <TableHead>Type</TableHead>
@@ -643,7 +669,7 @@ const [approvalLoading, setApprovalLoading] = useState(false);
 
         <TableBody>
           {approvals
-            .filter(a => a.status === "PENDING")
+            .filter(a => a.status === "PENDING" && !["TENANT", "LEASE", "DOCUMENT"].includes(a.type))
             .map((approval) => (
               <TableRow key={approval.id}>
                 <TableCell>
@@ -693,7 +719,7 @@ const [approvalLoading, setApprovalLoading] = useState(false);
               </TableRow>
           ))}
         </TableBody>
-      </Table>
+      </Table></ResponsiveTableView>
     </Card>
   ) : (
     <Card>
@@ -704,6 +730,11 @@ const [approvalLoading, setApprovalLoading] = useState(false);
     </Card>
   )}
 </TabsContent>
+
+          {/* Company creation and management */}
+          <TabsContent value="companies" className="space-y-4">
+            <CompanyManagement />
+          </TabsContent>
 
           {/* Landlords Tab */}
           <TabsContent value="landlords" className="space-y-4">
@@ -724,7 +755,8 @@ const [approvalLoading, setApprovalLoading] = useState(false);
             </div>
 
             <Card>
-              <Table>
+              <div className="flex justify-end p-3"><ViewModeToggle value={viewMode} onChange={setViewMode} /></div>
+              <ResponsiveTableView mode={viewMode}><Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Landlord</TableHead>
@@ -840,7 +872,7 @@ const [approvalLoading, setApprovalLoading] = useState(false);
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
+              </Table></ResponsiveTableView>
             </Card>
           </TabsContent>
 
@@ -997,11 +1029,11 @@ const [approvalLoading, setApprovalLoading] = useState(false);
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-3 bg-muted/50 rounded-lg">
                   <p className="text-sm text-muted-foreground">Properties</p>
-                  <p className="text-xl font-bold">{selectedLandlord.currentProperties}/{selectedLandlord.maxProperties}</p>
+                  <p className="text-xl font-bold">{selectedLandlord.currentProperties}/{selectedLandlord.maxProperties || "—"}</p>
                 </div>
                 <div className="p-3 bg-muted/50 rounded-lg">
                   <p className="text-sm text-muted-foreground">Units</p>
-                  <p className="text-xl font-bold">{selectedLandlord.currentUnits}/{selectedLandlord.maxUnits}</p>
+                  <p className="text-xl font-bold">{selectedLandlord.currentUnits}/{selectedLandlord.maxUnits || "—"}</p>
                 </div>
               </div>
 

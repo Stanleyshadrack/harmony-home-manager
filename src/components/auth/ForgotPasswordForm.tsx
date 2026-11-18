@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Loader2, Mail, ArrowLeft } from 'lucide-react';
+import { apiRequest } from '@/api/https';
 
 const forgotPasswordSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -34,28 +35,19 @@ export const ForgotPasswordForm = ({ onBack, onCodeSent }: ForgotPasswordFormPro
 
   const onSubmit = async (data: ForgotPasswordData) => {
     setIsLoading(true);
-    
-    // Simulate sending reset code
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // Generate a mock verification code
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    
-    // Store in localStorage for demo purposes
-    const resetData = {
-      email: data.email,
-      code,
-      expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
-    };
-    localStorage.setItem('passwordResetRequest', JSON.stringify(resetData));
-    
-    setIsLoading(false);
-    toast.success(`Verification code sent to ${data.email}`, {
-      description: `Demo code: ${code} (in production, this would be sent via email)`,
-      duration: 10000,
-    });
-    
-    onCodeSent(data.email);
+    try {
+      await apiRequest<{email:string}, unknown>({
+        path: "/api/auth/password-reset/request",
+        method: "POST",
+        body: { email: data.email },
+      });
+      toast.success("If this account is eligible, a verification code will arrive by email.");
+      onCodeSent(data.email);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not request a reset code");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

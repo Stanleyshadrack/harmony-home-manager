@@ -54,7 +54,7 @@ export function AssignPropertiesDialog({
   };
   const handleSave = () => {
     if (landlord) {
-      onSave(landlord.id, selected);
+      onSave(String(landlord.id), selected);
       onOpenChange(false);
     }
   };
@@ -109,7 +109,7 @@ export function AssignPropertiesDialog({
                   const isSelected = selected.includes(property.id);
                   // Find if property is assigned to another landlord
                   const assignedToOther = property.landlordId && 
-                    property.landlordId !== landlord.id && 
+                    property.landlordId !== String(landlord.id) && 
                     property.landlordId !== 'current-user' &&
                     property.landlordId !== 'landlord-1';
                   return (

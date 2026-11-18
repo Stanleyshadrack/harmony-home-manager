@@ -53,6 +53,11 @@ interface EmployeeApiResponse {
   id: number;
   userId: number;
   email: string;
+  firstName?: string;
+  lastName?: string;
+  hireDate?: string;
+  propertyIds?: number[];
+  propertyNames?: string[];
   status: string;
   landlordId: number | null;
   landlordName: string | null;
@@ -76,13 +81,13 @@ export const getAllEmployees = async (): Promise<{
   const employees: Employee[] = resp.map((emp) => ({
     id: String(emp.id),
     email: emp.email,
-    firstName: "",
-    lastName: "",
+    firstName: emp.firstName ?? '',
+    lastName: emp.lastName ?? '',
     phone: emp.phone ?? undefined,
-    assignedPropertyId: emp.assignedPropertyId
-      ? String(emp.assignedPropertyId)
-      : undefined,
-    assignedPropertyName: emp.assignedPropertyName ?? undefined,
+    assignedPropertyId: emp.propertyIds?.[0] != null
+      ? String(emp.propertyIds[0])
+      : emp.assignedPropertyId != null ? String(emp.assignedPropertyId) : undefined,
+    assignedPropertyName: emp.propertyNames?.[0] ?? emp.assignedPropertyName ?? undefined,
     status:
       emp.status.toLowerCase() === "active"
         ? "active"
@@ -90,7 +95,7 @@ export const getAllEmployees = async (): Promise<{
         ? "pending"
         : "inactive",
     role: "employee",
-    hiredAt: new Date().toISOString(), 
+    hiredAt: emp.hireDate ?? '', 
     landlordId: emp.landlordId ? String(emp.landlordId) : "",
   }));
 

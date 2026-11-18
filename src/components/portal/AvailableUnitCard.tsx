@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Bed, Bath, Square, DollarSign } from 'lucide-react';
+import { Bed, Bath, Square } from 'lucide-react';
 import { Unit } from '@/types/property';
 
 interface AvailableUnitCardProps {
@@ -22,7 +22,7 @@ export function AvailableUnitCard({ unit, propertyName, onApply }: AvailableUnit
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'KES',
     }).format(amount);
   };
 
@@ -57,26 +57,10 @@ export function AvailableUnitCard({ unit, propertyName, onApply }: AvailableUnit
 
         <Badge variant="secondary">{unitTypeLabels[unit.unitType]}</Badge>
 
-        {unit.amenities.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {unit.amenities.slice(0, 3).map((amenity) => (
-              <Badge key={amenity} variant="outline" className="text-xs">
-                {amenity}
-              </Badge>
-            ))}
-            {unit.amenities.length > 3 && (
-              <Badge variant="outline" className="text-xs">
-                +{unit.amenities.length - 3} more
-              </Badge>
-            )}
-          </div>
-        )}
-
         <div className="pt-3 border-t flex items-center justify-between">
           <div>
             <div className="flex items-center gap-1 text-xl font-bold text-primary">
-              <DollarSign className="h-5 w-5" />
-              {formatCurrency(unit.monthlyRent).replace('$', '')}
+              {formatCurrency(unit.monthlyRent)}
               <span className="text-sm font-normal text-muted-foreground">/mo</span>
             </div>
             <p className="text-xs text-muted-foreground">

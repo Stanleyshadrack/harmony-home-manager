@@ -22,7 +22,6 @@ import {
   AlertCircle,
   CheckCircle2,
 } from 'lucide-react';
-import { useUnits } from '@/hooks/useProperties';
 import { useBilling } from '@/hooks/useBilling';
 import { useMaintenance } from '@/hooks/useMaintenance';
 import { useApplications } from '@/hooks/useApplications';
@@ -35,7 +34,7 @@ import { InvoiceCard } from '@/components/billing/InvoiceCard';
 import { MaintenanceForm } from '@/components/maintenance/MaintenanceForm';
 import { MaintenanceCard } from '@/components/maintenance/MaintenanceCard';
 import { Unit } from '@/types/property';
-import { useAvailableUnits } from '@/hooks/useAvailableUnits';
+import { useTenantAvailableUnits } from '@/hooks/useAvailableUnits';
 
 // Mock current tenant data - would come from auth context in real app
 const MOCK_TENANT = {
@@ -50,7 +49,6 @@ const MOCK_TENANT = {
 export default function TenantPortal() {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const { units } = useUnits();
   const { invoices, recordPayment } = useBilling();
   const { requests, createRequest } = useMaintenance();
   const { applications, submitApplication, withdrawApplication } = useApplications();
@@ -72,7 +70,8 @@ const tenantInvoices = invoices.filter(
   const {
   data: vacantUnits = [],
   isLoading: unitsLoading,
-} = useAvailableUnits(MOCK_TENANT.id);
+} = useTenantAvailableUnits();
+  const units = vacantUnits;
 
   // Stats
   const totalOutstanding = tenantInvoices

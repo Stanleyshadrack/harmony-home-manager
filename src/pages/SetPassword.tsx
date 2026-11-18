@@ -22,7 +22,7 @@ import { PasswordStrengthIndicator } from "@/components/auth/PasswordStrengthInd
 ========================= */
 const schema = z
   .object({
-    password: z.string().min(8, "Password must be at least 8 characters"),
+    password: z.string().min(12, "Password must be at least 12 characters"),
     confirmPassword: z.string(),
   })
   .refine((d) => d.password === d.confirmPassword, {

@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Mail, Loader2, ArrowLeft, RefreshCw } from "lucide-react";
 import { tokenService, AuthTokens } from "@/services/tokenService";
 import { verifyMfaService } from "@/api/service/verifyMfaService";
+import { apiRequest } from "@/api/https";
 import { resendOtpService } from "@/api/service/resendOtpService";
 
 interface EmailOTPVerificationProps {
@@ -57,8 +58,24 @@ export function EmailOTPVerification({
       refreshToken: res.refreshToken,
     };
 
-    // ✅ CORRECT storage method
+    // Confirm the issued Bearer token is accepted by Spring Security
+    // before mounting any protected dashboard hooks. Avoid a refresh attempt
+    // during the first validation: a newly issued token must already work.
     tokenService.setTokens(tokens);
+    try {
+      const identity = await apiRequest<null, { id: number; email: string; role: string }>({
+        path: "/api/auth/me", method: "GET", retry: false,
+      });
+      if (identity.email.toLowerCase() !== email.trim().toLowerCase()) {
+        throw new Error("Authenticated account does not match the requested login.");
+      }
+    } catch (validationError) {
+      tokenService.clearTokens();
+      throw new Error(
+        "MFA accepted, but the backend rejected the new access token: " +
+        (validationError instanceof Error ? validationError.message : "Unknown error")
+      );
+    }
 
     toast.success("Verification successful", {
       description: "You are now logged in.",

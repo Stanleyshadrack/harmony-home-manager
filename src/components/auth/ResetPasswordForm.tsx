@@ -10,10 +10,11 @@ import { toast } from 'sonner';
 import { Loader2, KeyRound, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { PasswordStrengthIndicator } from './PasswordStrengthIndicator';
+import { apiRequest } from '@/api/https';
 
 const resetPasswordSchema = z.object({
   code: z.string().length(6, 'Verification code must be 6 digits'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: z.string().min(12, 'Password must be at least 12 characters'),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
@@ -54,76 +55,35 @@ export const ResetPasswordForm = ({ email, onBack, onSuccess }: ResetPasswordFor
 
   const onSubmit = async (data: ResetPasswordData) => {
     setIsLoading(true);
-    
-    // Check the stored reset request
-    const storedData = localStorage.getItem('passwordResetRequest');
-    if (!storedData) {
+    try {
+      await apiRequest<{email:string;code:string;newPassword:string}, unknown>({
+        path: "/api/auth/password-reset/confirm",
+        method: "POST",
+        body: { email, code: data.code, newPassword: data.password },
+      });
+      toast.success("Password changed. Please sign in with your new password.");
+      onSuccess();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Password reset failed");
+    } finally {
       setIsLoading(false);
-      toast.error('No password reset request found. Please try again.');
-      onBack();
-      return;
     }
-
-    const resetRequest = JSON.parse(storedData);
-    
-    // Verify the code and email
-    if (resetRequest.email !== email) {
-      setIsLoading(false);
-      toast.error('Email mismatch. Please try again.');
-      return;
-    }
-
-    if (resetRequest.code !== data.code) {
-      setIsLoading(false);
-      toast.error('Invalid verification code');
-      return;
-    }
-
-    if (Date.now() > resetRequest.expiresAt) {
-      setIsLoading(false);
-      toast.error('Verification code has expired. Please request a new one.');
-      localStorage.removeItem('passwordResetRequest');
-      onBack();
-      return;
-    }
-
-    // Simulate password reset
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Update the demo user's password in localStorage
-    const registrations = JSON.parse(localStorage.getItem('pendingRegistrations') || '[]');
-    const updatedRegistrations = registrations.map((reg: any) => {
-      if (reg.email === email) {
-        return { ...reg, password: data.password };
-      }
-      return reg;
-    });
-    localStorage.setItem('pendingRegistrations', JSON.stringify(updatedRegistrations));
-    
-    // Clean up
-    localStorage.removeItem('passwordResetRequest');
-    
-    setIsLoading(false);
-    toast.success('Password reset successfully!', {
-      description: 'You can now log in with your new password.',
-    });
-    
-    onSuccess();
   };
 
   const handleResendCode = async () => {
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const resetData = {
-      email,
-      code,
-      expiresAt: Date.now() + 10 * 60 * 1000,
-    };
-    localStorage.setItem('passwordResetRequest', JSON.stringify(resetData));
-    
-    toast.success('New verification code sent!', {
-      description: `Demo code: ${code}`,
-      duration: 10000,
-    });
+    setIsLoading(true);
+    try {
+      await apiRequest<{email:string}, unknown>({
+        path: "/api/auth/password-reset/request",
+        method: "POST",
+        body: { email },
+      });
+      toast.success("If eligible, a reset code will be sent.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to request a new code");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

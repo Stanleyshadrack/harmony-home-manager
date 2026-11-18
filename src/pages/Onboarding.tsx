@@ -24,7 +24,8 @@ import {
 } from "lucide-react";
 
 import { validateInvite } from "@/api/service/validateInvite.service";
-import { completeOnboardingService } from "@/api/service/completeOnboardingService";
+import { completeOnboardingService, CompleteOnboardingPayload } from "@/api/service/completeOnboardingService";
+import type { InviteValidationResponse } from "@/api/service/validateInvite.service";
 
 /* =========================
    Schema
@@ -33,7 +34,7 @@ const schema = z.object({
   firstName: z.string().min(2),
   lastName: z.string().min(2),
   phone: z.string().min(10),
-  idNumber: z.string().min(5),
+  idNumber: z.string().optional(),
 
   emergencyContactName: z.string().optional(),
   emergencyContactPhone: z.string().optional(),
@@ -49,10 +50,20 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-type Invite = {
-  email: string;
-  role: string;
-};
+type Invite = InviteValidationResponse;
+
+function readDocument(file: File): Promise<string> {
+  const allowed = ["application/pdf", "image/jpeg", "image/png"];
+  if (!allowed.includes(file.type) || file.size > 10 * 1024 * 1024) {
+    throw new Error("Documents must be PDF, JPG or PNG and no larger than 10 MB");
+  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Unable to read selected file"));
+    reader.readAsDataURL(file);
+  });
+}
 
 export default function Onboarding() {
   const navigate = useNavigate();
@@ -65,6 +76,10 @@ export default function Onboarding() {
   const [error, setError] = useState<string | null>(null);
 
   const [invite, setInvite] = useState<Invite | null>(null);
+  const [leaseStart, setLeaseStart] = useState("");
+  const [leaseEnd, setLeaseEnd] = useState("");
+  const [idDocument, setIdDocument] = useState<File | null>(null);
+  const [leaseDocument, setLeaseDocument] = useState<File | null>(null);
 
   const {
     register,
@@ -86,42 +101,99 @@ export default function Onboarding() {
     }
 
     validateInvite(token)
-      .then(setInvite)
+      .then((details) => {
+        if (!details.valid) throw new Error('Invitation is not valid');
+        setInvite(details);
+        if (details.firstName) setValue('firstName', details.firstName);
+        if (details.lastName) setValue('lastName', details.lastName);
+        if (details.phone) setValue('phone', details.phone);
+      })
       .catch((err) =>
         setError(err?.message ?? "Invite expired or invalid")
       )
       .finally(() => setLoading(false));
-  }, [token]);
+  }, [token, setValue]);
 
   /* =========================
      Submit onboarding
   ========================= */
   const onSubmit = async (data: FormData) => {
-    if (!token) return;
+    if (!token || !invite) return;
 
     setSubmitting(true);
     try {
-     const res = await completeOnboardingService({
-  token,
-  ...data,
-});
+      const payload: CompleteOnboardingPayload = {
+        token,
+        user: {
+          firstName: data.firstName,
+          lastName: data.lastName,
+          phone: data.phone,
+        },
+        termsAccepted: data.termsAccepted,
+      };
 
+      if (invite.role === "TENANT") {
+        const unitId = invite.unit?.id;
+        const propertyId = invite.unit?.propertyId ?? invite.property?.id;
+        if (!unitId || !propertyId) {
+          throw new Error("This invitation is missing an assigned property or unit");
+        }
+        if (!data.idNumber || data.idNumber.length < 5) {
+          throw new Error("Enter your identification number");
+        }
+        if (!leaseStart || !leaseEnd || leaseEnd < leaseStart) {
+          throw new Error("Enter valid lease start and end dates");
+        }
+        if (!idDocument || !leaseDocument) {
+          throw new Error("Upload your ID and lease documents for approval");
+        }
 
-if (res.approved && !res.passwordSet) {
-  navigate(`/set-password?token=${token}`);
-  return;
-}
+        const [idBase64, leaseBase64] = await Promise.all([
+          readDocument(idDocument),
+          readDocument(leaseDocument),
+        ]);
+        payload.tenant = {
+          propertyId,
+          unitId,
+          idNumber: data.idNumber,
+          emergencyContactName: data.emergencyContactName,
+          emergencyContactPhone: data.emergencyContactPhone,
+          relationship: data.relationship,
+        };
+        payload.lease = {
+          startDate: leaseStart,
+          endDate: leaseEnd,
+          monthlyRent: invite.rentAmount ?? null,
+          securityDeposit: invite.depositAmount ?? null,
+        };
+        payload.documents = { idBase64, leaseBase64 };
+      }
 
-// not approved → stay on this page
-setCompleted(true);
-toast.success("Onboarding completed. Awaiting approval.");
+      if (invite.role === "LANDLORD") {
+        payload.landlord = { companyName: invite.companyName ?? undefined };
+        payload.companyId = invite.companyId;
+        payload.apartmentIds = invite.apartments?.map((property) => property.id) ?? [];
+      }
 
+      if (invite.role === "EMPLOYEE") {
+        payload.employee = {
+          propertyIds: invite.apartments?.map((property) => property.id) ?? [],
+        };
+        if (!payload.employee.propertyIds.length) {
+          throw new Error("No properties were assigned to this employee invitation");
+        }
+      }
+
+      await completeOnboardingService(payload);
+      setCompleted(true);
+      toast.success("Onboarding completed. Awaiting approval.");
     } catch (err: any) {
       toast.error(err?.message ?? "Failed to complete onboarding");
     } finally {
       setSubmitting(false);
     }
   };
+
 
   /* =========================
      UI STATES
@@ -194,13 +266,44 @@ toast.success("Onboarding completed. Awaiting approval.");
             <InputField label="First Name" icon={User} register={register("firstName")} />
             <InputField label="Last Name" icon={User} register={register("lastName")} />
             <InputField label="Phone" icon={Phone} register={register("phone")} />
-            <InputField label="ID Number" icon={CreditCard} register={register("idNumber")} />
+            {invite?.role === "TENANT" && (
+              <InputField label="ID Number" icon={CreditCard} register={register("idNumber")} />
+            )}
 
             {/* Emergency Contact (Optional) */}
             <InputField label="Emergency Contact Name" icon={User} register={register("emergencyContactName")} />
             <InputField label="Emergency Contact Phone" icon={Phone} register={register("emergencyContactPhone")} />
             <InputField label="Relationship" register={register("relationship")} />
             <InputField label="Emergency Contact (Notes)" register={register("emergencyContact")} />
+
+            {invite?.role === "TENANT" && (
+              <div className="space-y-4 rounded-lg border p-4">
+                <p className="font-semibold">Lease and identity documents</p>
+                <p className="text-sm text-muted-foreground">
+                  Unit {invite.unit?.unitNumber ?? "—"} · {invite.unit?.propertyName ?? invite.property?.name}
+                </p>
+                <div className="space-y-1">
+                  <Label htmlFor="lease-start">Lease start date</Label>
+                  <Input id="lease-start" type="date" value={leaseStart}
+                    onChange={(event) => setLeaseStart(event.target.value)} required />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="lease-end">Lease end date</Label>
+                  <Input id="lease-end" type="date" value={leaseEnd} min={leaseStart || undefined}
+                    onChange={(event) => setLeaseEnd(event.target.value)} required />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="id-file">Identity document (PDF, JPG or PNG)</Label>
+                  <Input id="id-file" type="file" accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(event) => setIdDocument(event.target.files?.[0] ?? null)} required />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="lease-file">Signed lease document (PDF, JPG or PNG)</Label>
+                  <Input id="lease-file" type="file" accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(event) => setLeaseDocument(event.target.files?.[0] ?? null)} required />
+                </div>
+              </div>
+            )}
 
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2">

@@ -1,3 +1,4 @@
+import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -29,8 +30,9 @@ import { Plus, Search, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Properties() {
+  const [viewMode, setViewMode] = useViewMode('properties');
   const { t } = useTranslation();
-  const { properties, isLoading, addProperty, updateProperty, deleteProperty } = useProperties();
+  const { properties, isLoading, loadError, addProperty, updateProperty, deleteProperty } = useProperties();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
@@ -98,6 +100,7 @@ const filteredProperties = properties.filter((property) => {
         { label: t('properties.title') },
       ]}
     >
+      {loadError && <div role="alert" className="rounded-lg border border-destructive/50 p-3 mb-4 text-sm text-destructive">Property data could not be refreshed: {loadError}</div>}
       {/* Actions Bar */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <div className="relative flex-1">
@@ -127,9 +130,10 @@ const filteredProperties = properties.filter((property) => {
         </Button>
       </div>
 
+      <div className="flex justify-end mb-3"><ViewModeToggle value={viewMode} onChange={setViewMode} /></div>
       {/* Properties Grid */}
       {filteredProperties.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className={viewMode === 'grid' ? "grid gap-4 md:grid-cols-2 lg:grid-cols-3" : "grid grid-cols-1 gap-3"}>
           {filteredProperties.map((property) => {
   const landlord = getLandlordById(Number(property.landlordId));
 

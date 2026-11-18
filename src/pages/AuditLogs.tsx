@@ -1,268 +1,121 @@
-import { useState, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { 
-  Shield, 
-  AlertTriangle, 
-  Info, 
-  AlertCircle,
-  Filter,
-  Download,
-  RefreshCw,
-  Search
-} from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { getAuditLogs, getActivitySummary, AuditLog, AuditSeverity } from '@/services/auditService';
-import { useToast } from '@/hooks/use-toast';
+import { ResponsiveTableView } from '@/components/ui/responsive-table-view';
+import { Download, RefreshCw, Shield } from 'lucide-react';
+import { apiRequest } from '@/api/https';
+import { useAuth } from '@/contexts/AuthContext';
 
-const severityConfig: Record<AuditSeverity, { icon: React.ElementType; color: string; bg: string }> = {
-  info: { icon: Info, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-  warning: { icon: AlertTriangle, color: 'text-yellow-500', bg: 'bg-yellow-500/10' },
-  critical: { icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-500/10' },
+type LogEntry = {
+  id: number; action: string; entityType: string; entityId: number | null;
+  details: string | null; severity: string | null; ipAddress: string | null;
+  userEmail: string | null; createdAt: string;
 };
 
-const AuditLogs = () => {
-  const { t } = useTranslation();
-  const { toast } = useToast();
-  const [logs, setLogs] = useState<AuditLog[]>(() => getAuditLogs());
-  const [searchTerm, setSearchTerm] = useState('');
-  const [severityFilter, setSeverityFilter] = useState<string>('all');
-  const [actionFilter, setActionFilter] = useState<string>('all');
-
-  const summary = useMemo(() => getActivitySummary(7), [logs]);
-
-  const filteredLogs = useMemo(() => {
-    return logs.filter(log => {
-      const matchesSearch = 
-        log.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.resource.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.details.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesSeverity = severityFilter === 'all' || log.severity === severityFilter;
-      const matchesAction = actionFilter === 'all' || log.action === actionFilter;
-
-      return matchesSearch && matchesSeverity && matchesAction;
-    });
-  }, [logs, searchTerm, severityFilter, actionFilter]);
-
-  const uniqueActions = useMemo(() => {
-    return [...new Set(logs.map(log => log.action))];
-  }, [logs]);
-
-  const refreshLogs = () => {
-    setLogs(getAuditLogs());
-    toast({ title: 'Logs refreshed' });
+export default function AuditLogs() {
+  const { user } = useAuth();
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
+  const [mode, setMode] = useViewMode('auditlogs', 'list');
+  const load = async () => {
+    setLoading(true);
+    try {
+      const isAdmin = user?.role === 'super_admin';
+      const response = isAdmin
+        ? await apiRequest<null, {content: LogEntry[]}>({
+            path:'/api/audit-logs?page=0&size=200', method:'GET'
+          })
+        : null;
+      const data = isAdmin ? (response?.content ?? []) :
+        await apiRequest<null, LogEntry[]>({path:'/api/audit-logs/recent',method:'GET'});
+      setLogs(data);
+      setError('');
+    } catch(e) {
+      setLogs([]);
+      setError(e instanceof Error ? e.message : 'Unable to fetch audit events');
+    } finally {setLoading(false);}
   };
+  useEffect(() => {if(user?.id) void load();}, [user?.id,user?.role]);
 
-  const exportLogs = () => {
-    const csv = [
-      ['Timestamp', 'User', 'Role', 'Action', 'Severity', 'Resource', 'Details'].join(','),
-      ...filteredLogs.map(log => [
-        format(log.timestamp, 'yyyy-MM-dd HH:mm:ss'),
-        log.userName,
-        log.userRole,
-        log.action,
-        log.severity,
-        log.resource,
-        `"${log.details.replace(/"/g, '""')}"`,
-      ].join(','))
-    ].join('\n');
+  const filtered = useMemo(() => logs.filter(log => [
+    log.action,log.entityType,log.details ?? '',log.userEmail ?? ''
+  ].some(text => text.toLowerCase().includes(search.toLowerCase()))), [logs,search]);
 
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `audit-logs-${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    a.click();
+  const exportCsv = () => {
+    const escape = (v: unknown) => '"' + String(v ?? '').replace(/"/g,'""') + '"';
+    const lines = [
+      ['Date','Actor','Action','Severity','Entity','Details'].map(escape).join(','),
+      ...filtered.map(l => [l.createdAt,l.userEmail,l.action,l.severity,
+        l.entityType + (l.entityId == null ? '' : ' #' + l.entityId),l.details].map(escape).join(','))
+    ];
+    const url = URL.createObjectURL(new Blob(['\uFEFF',lines.join('\r\n')],{type:'text/csv;charset=utf-8'}));
+    const link = document.createElement('a');
+    link.href=url;
+    link.download='audit-events.csv';
+    link.click();
     URL.revokeObjectURL(url);
-    
-    toast({ title: 'Logs exported successfully' });
   };
-
-  const breadcrumbs = [
-    { label: t('nav.dashboard'), href: '/dashboard' },
-    { label: 'Audit Logs' },
-  ];
-
-  return (
-    <DashboardLayout breadcrumbs={breadcrumbs}>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Audit Logs</h1>
-            <p className="text-muted-foreground">Track all system activities and security events</p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={refreshLogs}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-            <Button variant="outline" size="sm" onClick={exportLogs}>
-              <Download className="h-4 w-4 mr-2" />
-              Export CSV
-            </Button>
-          </div>
+  return <DashboardLayout title="Audit Logs"
+    breadcrumbs={[{label:'Dashboard',href:'/dashboard'}, {label:'Audit Logs'}]}>
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold">Recorded system activity</h2>
+          <p className="text-sm text-muted-foreground">
+            {user?.role === 'super_admin' ? 'Recent persisted events across the system.' : 'Your own recorded events.'}
+          </p>
         </div>
-
-        {/* Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total Events (7d)</CardTitle>
-              <Shield className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{summary.totalActions}</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Info Events</CardTitle>
-              <Info className="h-4 w-4 text-blue-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-500">{summary.bySeverity.info}</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Warnings</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-yellow-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-yellow-500">{summary.bySeverity.warning}</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Critical Events</CardTitle>
-              <AlertCircle className="h-4 w-4 text-red-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-500">{summary.bySeverity.critical}</div>
-            </CardContent>
-          </Card>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
+            <RefreshCw className="mr-2 h-4 w-4"/>Refresh
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportCsv} disabled={!filtered.length}>
+            <Download className="mr-2 h-4 w-4"/>CSV
+          </Button>
         </div>
-
-        {/* Filters */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search logs..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-              <Select value={severityFilter} onValueChange={setSeverityFilter}>
-                <SelectTrigger className="w-[150px]">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Severity" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Severities</SelectItem>
-                  <SelectItem value="info">Info</SelectItem>
-                  <SelectItem value="warning">Warning</SelectItem>
-                  <SelectItem value="critical">Critical</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={actionFilter} onValueChange={setActionFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Action" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Actions</SelectItem>
-                  {uniqueActions.map(action => (
-                    <SelectItem key={action} value={action}>
-                      {action.replace(/_/g, ' ')}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Logs Table */}
-        <Card>
-          <CardContent className="p-0">
-            <ScrollArea className="h-[500px]">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[180px]">Timestamp</TableHead>
-                    <TableHead>User</TableHead>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Severity</TableHead>
-                    <TableHead>Resource</TableHead>
-                    <TableHead className="max-w-[300px]">Details</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredLogs.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                        No audit logs found
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredLogs.map((log) => {
-                      const severity = severityConfig[log.severity];
-                      const SeverityIcon = severity.icon;
-                      
-                      return (
-                        <TableRow key={log.id}>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {format(log.timestamp, 'MMM d, HH:mm:ss')}
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <p className="font-medium">{log.userName}</p>
-                              <p className="text-xs text-muted-foreground capitalize">{log.userRole}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="capitalize">
-                              {log.action.replace(/_/g, ' ')}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full ${severity.bg}`}>
-                              <SeverityIcon className={`h-3 w-3 ${severity.color}`} />
-                              <span className={`text-xs capitalize ${severity.color}`}>{log.severity}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="font-mono text-sm">{log.resource}</TableCell>
-                          <TableCell className="max-w-[300px] truncate text-sm text-muted-foreground">
-                            {log.details}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </ScrollArea>
-          </CardContent>
-        </Card>
       </div>
-    </DashboardLayout>
-  );
-};
-
-export default AuditLogs;
+      <Card><CardContent className="flex items-center gap-3 p-4">
+        <Shield className="h-5 w-5 text-primary"/>
+        <span className="text-sm">{loading ? 'Loading audit records…' : `${logs.length} records loaded from the backend`}</span>
+      </CardContent></Card>
+      <div className="flex items-center justify-between gap-3">
+        <Input value={search} onChange={e=>setSearch(e.target.value)}
+          className="max-w-sm" placeholder="Search actor, action or details…" />
+        <ViewModeToggle value={mode} onChange={setMode}/>
+      </div>
+      {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
+      {!loading && !error && filtered.length===0 && <p className="text-sm text-muted-foreground">No matching audit events.</p>}
+      <Card><CardContent className="p-3">
+        <ResponsiveTableView mode={mode}>
+          <Table>
+            <TableHeader><TableRow>
+              <TableHead>Date</TableHead><TableHead>Actor</TableHead>
+              <TableHead>Action</TableHead><TableHead>Severity</TableHead>
+              <TableHead>Entity</TableHead><TableHead>Details</TableHead>
+            </TableRow></TableHeader>
+            <TableBody>
+              {filtered.map(log=><TableRow key={log.id}>
+                <TableCell>{format(new Date(log.createdAt),'MMM d, yyyy HH:mm')}</TableCell>
+                <TableCell className="break-all">{log.userEmail || 'System'}</TableCell>
+                <TableCell>{log.action.replace(/_/g,' ')}</TableCell>
+                <TableCell><Badge variant={log.severity?.toUpperCase() === 'CRITICAL' ? 'destructive':'secondary'}>
+                  {log.severity || 'INFO'}
+                </Badge></TableCell>
+                <TableCell>{log.entityType}{log.entityId==null?'':` #${log.entityId}`}</TableCell>
+                <TableCell className="break-words">{log.details || '—'}</TableCell>
+              </TableRow>)}
+            </TableBody>
+          </Table>
+        </ResponsiveTableView>
+      </CardContent></Card>
+    </div>
+  </DashboardLayout>;
+}
