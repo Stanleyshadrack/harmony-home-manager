@@ -101,12 +101,11 @@ export function QuickStatsWidget() {
             <ScrollArea className="h-[120px]">
               <div className="space-y-2">
                 {recentMessages.map((conv) => {
-                  const otherParticipant = conv.participants.find(p => p.userId !== 'current-user') || conv.participants[0];
                   return (
                     <div key={conv.id} className={`flex items-start justify-between text-sm p-2 rounded-lg ${conv.unreadCount > 0 ? 'bg-primary/10' : 'bg-muted/50'}`}>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className="font-medium truncate">{otherParticipant?.name || conv.subject || 'Conversation'}</p>
+                          <p className="font-medium truncate">{conv.title || 'Conversation'}</p>
                           {conv.unreadCount > 0 && (
                             <Badge variant="secondary" className="text-xs">{conv.unreadCount}</Badge>
                           )}
