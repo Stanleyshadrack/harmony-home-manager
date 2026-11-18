@@ -25,6 +25,7 @@ export default function Notifications() {
   const [search, setSearch] = useState("");
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
+  const [channel, setChannel] = useState<"EMAIL" | "IN_APP">("IN_APP");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -70,13 +71,13 @@ export default function Notifications() {
       toast.error("Maximum 100 recipients, 180 subject characters and 2,000 message characters");
       return;
     }
-    if (!window.confirm(`Submit ${selected.length} email(s) to the configured SMTP server?`)) return;
+    if (!window.confirm(channel === "EMAIL" ? `Submit ${selected.length} email(s) to the configured SMTP server?` : `Send ${selected.length} in-app notification(s) to tenant accounts?`)) return;
     setSending(true);
     try {
-      const data = await notificationOperationsApi.send(selected, title.trim(), message.trim());
+      const data = await notificationOperationsApi.send(selected, title.trim(), message.trim(), channel);
       setResult(data);
-      if (data.failed) toast.error(`SMTP accepted ${data.accepted}; ${data.failed} failed. Check notification logs.`);
-      else toast.success(`SMTP accepted ${data.accepted} email(s). Inbox delivery is not yet confirmed.`);
+      if (data.failed) toast.error(`${data.accepted} accepted; ${data.failed} failed. Check notification logs.`);
+      else toast.success(channel === "IN_APP" ? `${data.accepted} in-app notification(s) saved for recipients.` : `SMTP accepted ${data.accepted} email(s). Inbox delivery is not yet confirmed.`);
       setSelected([]);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Unable to send notifications");
@@ -90,8 +91,8 @@ export default function Notifications() {
       <div className="space-y-6">
         <Card><CardContent className="p-5 flex gap-3 items-start">
           <Mail className="h-5 w-5 text-primary mt-1" />
-          <div><p className="font-semibold">Real email notifications</p>
-            <p className="text-sm text-muted-foreground">Recipients come from approved property assignments in PostgreSQL. Success means SMTP accepted the email, not confirmed inbox delivery. SMS and WhatsApp are unavailable until a sending provider is configured.</p>
+          <div><p className="font-semibold">Email and in-app notifications</p>
+            <p className="text-sm text-muted-foreground">Recipients come from approved property assignments in PostgreSQL. In-app messages are saved in PostgreSQL and appear in tenant notification bells. Email success means SMTP acceptance, not confirmed inbox delivery. SMS and WhatsApp require a provider.</p>
           </div>
         </CardContent></Card>
 
@@ -119,8 +120,14 @@ export default function Notifications() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>Compose email</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Compose notification</CardTitle></CardHeader>
             <CardContent className="space-y-4">
+              <div className="space-y-2"><Label>Delivery channel</Label>
+                <div className="flex gap-2">
+                  <Button variant={channel === "IN_APP" ? "default" : "outline"} onClick={() => setChannel("IN_APP")}>In-app</Button>
+                  <Button variant={channel === "EMAIL" ? "default" : "outline"} onClick={() => setChannel("EMAIL")}>Email</Button>
+                </div>
+              </div>
               <div className="flex gap-2 flex-wrap">{presets.map(p => <Button key={p.name} size="sm" variant="outline" onClick={() => {setTitle(p.title);setMessage(p.message);}}>
                 {p.name}</Button>)}</div>
               <div className="space-y-2"><Label htmlFor="mail-title">Subject</Label>
@@ -129,10 +136,10 @@ export default function Notifications() {
                 <Textarea id="mail-body" rows={8} maxLength={2000} value={message} onChange={e => setMessage(e.target.value)} placeholder="Write your email message" />
                 <p className="text-xs text-muted-foreground">{message.length}/2000 characters</p></div>
               <Button className="w-full" onClick={() => void send()} disabled={sending || loading || !!error || !selected.length || !title.trim() || !message.trim()}>
-                <Send className="h-4 w-4 mr-2" />{sending ? "Submitting to SMTP…" : `Send email to ${selected.length} tenant(s)`}</Button>
+                <Send className="h-4 w-4 mr-2" />{sending ? "Sending…" : `Send ${channel === "IN_APP" ? "in-app" : "email"} to ${selected.length} tenant(s)`}</Button>
               {result && <div className="flex items-center gap-2 text-sm">
                 {result.failed ? <AlertCircle className="h-4 w-4 text-destructive" /> : <CheckCircle2 className="h-4 w-4 text-green-600" />}
-                {result.accepted} accepted by SMTP; {result.failed} failed. See Notification Logs for recorded attempts.
+                {result.accepted} {channel === "IN_APP" ? "saved in-app" : "accepted by SMTP"}; {result.failed} failed. See Notification Logs for recorded attempts.
               </div>}
             </CardContent>
           </Card>
