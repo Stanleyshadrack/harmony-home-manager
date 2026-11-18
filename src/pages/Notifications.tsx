@@ -8,6 +8,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Mail, Send, RefreshCw, Search, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 import { notificationOperationsApi, NotificationRecipient, DeliveryResult } from "@/api/service/notificationOperationsApi";
 
 const presets = [
@@ -28,6 +32,7 @@ export default function Notifications() {
   const [channel, setChannel] = useState<"EMAIL" | "IN_APP">("IN_APP");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<DeliveryResult | null>(null);
 
@@ -63,7 +68,7 @@ export default function Notifications() {
       : current.filter(id => !filtered.some(r => r.id === id)));
   };
 
-  async function send() {
+  function requestSend() {
     setResult(null);
     if (!selected.length) { toast.error("Choose at least one tenant"); return; }
     if (!title.trim() || !message.trim()) { toast.error("Enter a subject and message"); return; }
@@ -71,7 +76,11 @@ export default function Notifications() {
       toast.error("Maximum 100 recipients, 180 subject characters and 2,000 message characters");
       return;
     }
-    if (!window.confirm(channel === "EMAIL" ? `Submit ${selected.length} email(s) to the configured SMTP server?` : `Send ${selected.length} in-app notification(s) to tenant accounts?`)) return;
+    setConfirmOpen(true);
+  }
+
+  async function send() {
+    if (sending || !selected.length || !title.trim() || !message.trim() || selected.length > 100 || title.length > 180 || message.length > 2000) return;
     setSending(true);
     try {
       const data = await notificationOperationsApi.send(selected, title.trim(), message.trim(), channel);
@@ -79,6 +88,7 @@ export default function Notifications() {
       if (data.failed) toast.error(`${data.accepted} accepted; ${data.failed} failed. Check notification logs.`);
       else toast.success(channel === "IN_APP" ? `${data.accepted} in-app notification(s) saved for recipients.` : `SMTP accepted ${data.accepted} email(s). Inbox delivery is not yet confirmed.`);
       setSelected([]);
+      setConfirmOpen(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Unable to send notifications");
     } finally {
@@ -135,7 +145,7 @@ export default function Notifications() {
               <div className="space-y-2"><Label htmlFor="mail-body">Message</Label>
                 <Textarea id="mail-body" rows={8} maxLength={2000} value={message} onChange={e => setMessage(e.target.value)} placeholder="Write your email message" />
                 <p className="text-xs text-muted-foreground">{message.length}/2000 characters</p></div>
-              <Button className="w-full" onClick={() => void send()} disabled={sending || loading || !!error || !selected.length || !title.trim() || !message.trim()}>
+              <Button className="w-full" onClick={requestSend} disabled={sending || loading || !!error || !selected.length || !title.trim() || !message.trim()}>
                 <Send className="h-4 w-4 mr-2" />{sending ? "Sending…" : `Send ${channel === "IN_APP" ? "in-app" : "email"} to ${selected.length} tenant(s)`}</Button>
               {result && <div className="flex items-center gap-2 text-sm">
                 {result.failed ? <AlertCircle className="h-4 w-4 text-destructive" /> : <CheckCircle2 className="h-4 w-4 text-green-600" />}
@@ -144,6 +154,50 @@ export default function Notifications() {
             </CardContent>
           </Card>
         </div>
+
+        <AlertDialog open={confirmOpen} onOpenChange={open => { if (!sending) setConfirmOpen(open); }}>
+          <AlertDialogContent className="max-w-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <Send className="h-5 w-5 text-primary" />
+                Confirm notification delivery
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Review the details before sending. This action will notify the selected tenant accounts.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="space-y-3 rounded-lg border bg-muted/30 p-4 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Delivery method</span>
+                <span className="font-medium">{channel === "IN_APP" ? "In-app notification" : "Email (SMTP)"}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Recipients</span>
+                <span className="font-medium">{selected.length} tenant{selected.length === 1 ? "" : "s"}</span>
+              </div>
+              <div className="space-y-1">
+                <p className="text-muted-foreground">Subject</p>
+                <p className="font-medium break-words">{title.trim()}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-muted-foreground">Message preview</p>
+                <p className="max-h-36 overflow-y-auto whitespace-pre-wrap break-words">{message.trim()}</p>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {channel === "IN_APP"
+                ? "Messages will be saved to recipient accounts and shown in their notification bell, subject to notification preferences."
+                : "The message will be submitted to the configured SMTP server. Acceptance does not guarantee inbox delivery."}
+            </p>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={sending}>Cancel</AlertDialogCancel>
+              <Button onClick={() => void send()} disabled={sending}>
+                <Send className="mr-2 h-4 w-4" />
+                {sending ? "Sending…" : `Confirm and send to ${selected.length}`}
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );
