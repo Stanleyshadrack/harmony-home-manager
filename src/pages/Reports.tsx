@@ -1,3 +1,5 @@
+import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
+import { ResponsiveTableView } from '@/components/ui/responsive-table-view';
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -55,6 +57,7 @@ function csvCell(value: string | number) {
 }
 
 export default function Reports() {
+  const [viewMode, setViewMode] = useViewMode('reports', 'list');
   const { t } = useTranslation();
   const [period, setPeriod] = useState("year");
   const [summary, setSummary] = useState<ReportSummary | null>(null);
@@ -178,12 +181,15 @@ export default function Reports() {
 
             <Card><CardHeader><CardTitle>Property performance</CardTitle></CardHeader>
               <CardContent className="overflow-x-auto">
+                <div className="flex justify-end mb-3"><ViewModeToggle value={viewMode} onChange={setViewMode} /></div>
+              <ResponsiveTableView mode={viewMode}>
                 <table className="w-full text-sm">
                   <thead><tr className="border-b text-left"><th className="py-3">Property</th><th>Units</th><th>Occupied</th><th>Collected</th><th>Outstanding</th></tr></thead>
                   <tbody>{summary.properties.map(p => <tr key={p.id} className="border-b last:border-0">
                     <td className="py-3 font-medium">{p.name}</td><td>{p.units}</td><td>{p.occupied}</td>
                     <td>{money(p.collected)}</td><td>{money(p.outstanding)}</td></tr>)}</tbody>
                 </table>
+                </ResponsiveTableView>
                 {!summary.properties.length && <p className="py-5 text-muted-foreground">No properties assigned.</p>}
               </CardContent>
             </Card>
