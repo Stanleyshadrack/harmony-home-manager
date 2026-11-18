@@ -29,6 +29,9 @@ export function useSystemMaintenance(userId?: string) {
       const next = await apiRequest<null, SystemMaintenanceStatus>({
         path: userId ? '/api/system-maintenance/me' : '/api/system-maintenance/status', method: 'GET', retry: !!userId,
       });
+      if (!next || typeof next.enabled !== "boolean") {
+        throw new Error("Invalid maintenance response. Expected JSON status from the backend.");
+      }
       setStatus(next);
       setCheckedIdentity(identity);
       setError('');
