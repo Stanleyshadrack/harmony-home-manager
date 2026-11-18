@@ -1,3 +1,4 @@
+import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { Bell, Check, Trash2, Filter, Search } from 'lucide-react';
@@ -23,6 +24,7 @@ const categoryColors: Record<string, string> = {
 };
 
 export default function UserNotifications() {
+  const [viewMode, setViewMode] = useViewMode('user-notifications');
   const { user } = useAuth();
   const { notifications, markAsRead, markAllAsRead, deleteNotification, getUnreadCount, isLoading, error } = useInAppNotifications(user?.id);
   
@@ -109,6 +111,7 @@ export default function UserNotifications() {
 
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         {isLoading && <p role="status" className="text-sm text-muted-foreground">Loading notifications…</p>}
+        <div className="flex justify-end"><ViewModeToggle value={viewMode} onChange={setViewMode} /></div>
         {/* Notifications List */}
         {!isLoading && filteredNotifications.length === 0 ? (
           <Card>
@@ -123,7 +126,7 @@ export default function UserNotifications() {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-3">
+          <div className={viewMode === 'grid' ? 'grid gap-3 md:grid-cols-2 xl:grid-cols-3' : 'space-y-3'}>
             {filteredNotifications.map((notification) => (
               <Card
                 key={notification.id}
