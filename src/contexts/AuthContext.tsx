@@ -105,7 +105,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           method: "GET",
         });
         const currentToken = tokenService.getAccessToken();
-        const claims = userFromAccessToken(currentToken || token);
+        // If OTP login or another tab replaced this session while /me was in
+        // flight, do not let stale restoration overwrite the freshly logged-in user.
+        if (currentToken !== token) return;
+        const claims = userFromAccessToken(currentToken);
         if (actual.email !== claims.email ||
             String(actual.id) !== claims.id ||
             actual.role.toLowerCase() !== claims.role) {
@@ -116,6 +119,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(claims);
         }
       } catch (error) {
+        // A request launched with a previous session must never clear tokens
+        // issued later by a fresh MFA login or a different browser tab.
+        if (tokenService.getAccessToken() !== token) return;
         // A backend restart or network outage must not erase credentials.
         // apiRequest clears tokens itself only when the backend rejects the
         // session and token refresh conclusively fails.
