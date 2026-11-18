@@ -37,11 +37,11 @@ export const notificationOperationsApi = {
       path: "/api/notification-operations/history",
       method: "GET",
     }),
-  send: (tenantIds: number[], title: string, message: string) =>
+  send: (tenantIds: number[], title: string, message: string, channel: "EMAIL" | "IN_APP" = "EMAIL") =>
     apiRequest<{tenantIds: number[]; channel: string; title: string; message: string}, DeliveryResult>({
       path: "/api/notification-operations/send",
       method: "POST",
-      body: { tenantIds, channel: "EMAIL", title, message },
+      body: { tenantIds, channel, title, message },
       timeout: 90000,
     }),
 };
