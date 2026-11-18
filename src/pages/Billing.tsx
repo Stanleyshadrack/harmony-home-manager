@@ -44,6 +44,8 @@ export default function Billing() {
     invoices,
     payments,
     isLoading,
+    loadError,
+    reload,
     createInvoice,
     createWaterInvoice,
     recordPayment,
@@ -189,6 +191,7 @@ export default function Billing() {
   const handleAutoGenerateInvoices = async () => {
     try {
       const { generated, skipped } = await generateMonthlyRentInvoices();
+      await reload();
       toast({ title: 'Generation Complete', description: `Generated ${generated} invoice(s); skipped ${skipped}.` });
     } catch (error) {
       toast({ title: 'Generation Failed', description: error instanceof Error ? error.message : 'Unable to generate invoices', variant: 'destructive' });
