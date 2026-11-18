@@ -5,6 +5,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { UsersRound } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { UserAvatar } from '@/components/profile/UserAvatar';
 
 interface ConversationListProps {
   conversations: Conversation[];
@@ -13,12 +15,13 @@ interface ConversationListProps {
 }
 
 export function ConversationList({ conversations, selectedId, onSelect }: ConversationListProps) {
+  const { user } = useAuth();
   return (
     <ScrollArea className="h-full max-h-full">
       <div className="space-y-1 p-2">
         {conversations.map(conversation => {
           const group = conversation.type === 'GROUP';
-          const initials = conversation.title.split(' ').slice(0, 2).map(t => t.charAt(0).toUpperCase()).join('');
+          const counterpart = conversation.members.find(member => member.userId !== Number(user?.id));
           return (
             <button
               type="button"
@@ -30,11 +33,16 @@ export function ConversationList({ conversations, selectedId, onSelect }: Conver
                 selectedId === conversation.id ? 'bg-primary/10' : 'hover:bg-muted/60'
               )}
             >
-              <Avatar className="h-11 w-11 shrink-0">
-                <AvatarFallback className="bg-primary/10 text-primary">
-                  {group ? <UsersRound className="h-5 w-5" aria-hidden="true" /> : initials || '?'}
-                </AvatarFallback>
-              </Avatar>
+              {group ? (
+                <Avatar className="h-11 w-11 shrink-0">
+                  <AvatarFallback className="bg-primary/10 text-primary">
+                    <UsersRound className="h-5 w-5" aria-hidden="true" />
+                  </AvatarFallback>
+                </Avatar>
+              ) : (
+                <UserAvatar name={conversation.title}
+                  avatarUrl={counterpart?.avatarUrl} className="h-11 w-11" />
+              )}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
                   <span className="truncate font-semibold">{conversation.title}</span>
