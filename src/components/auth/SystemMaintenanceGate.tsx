@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { isMaintenanceLockedError } from '@/api/https';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Wrench, ShieldAlert, RefreshCw, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,6 +12,17 @@ export function SystemMaintenanceGate({children}:{children: React.ReactNode}) {
   const { status, loading, error, refresh } = useSystemMaintenance(user?.id);
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Expected 423 responses can race with the 10-second status poll.
+  // The maintenance overlay replaces the page; do not report these as
+  // unhandled runtime crashes in development. Other errors remain visible.
+  useEffect(() => {
+    const handleUnhandled = (event: PromiseRejectionEvent) => {
+      if (isMaintenanceLockedError(event.reason)) event.preventDefault();
+    };
+    window.addEventListener('unhandledrejection', handleUnhandled);
+    return () => window.removeEventListener('unhandledrejection', handleUnhandled);
+  }, []);
 
   const isAdmin = user?.role === 'super_admin';
   const adminLogin = location.pathname === '/auth' &&
