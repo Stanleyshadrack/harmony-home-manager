@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { ApiHttpError } from "@/api/https";
 import { useToast } from "@/hooks/use-toast";
 import { metersApi } from "@/api/service/metersApi.service";
 import { WaterMeter } from "@/api/dto/WaterMeterDTO";
@@ -6,6 +8,7 @@ import { WaterMeterStats } from "@/api/dto/WaterMeterDTO";
 
 export function useMeters() {
   const { toast } = useToast();
+  const { user, isLoading: authLoading } = useAuth();
 
   const [meters, setMeters] = useState<WaterMeter[]>([]);
   const [stats, setStats] = useState<WaterMeterStats | null>(null);
@@ -17,7 +20,7 @@ export function useMeters() {
       const data = await metersApi.fetchAll();
       setMeters(data);
     } catch (error) {
-      console.error(error);
+      if (error instanceof ApiHttpError && [401, 403, 423].includes(error.status)) return;
       toast({
         title: "Error",
         description: "Failed to load water meters",
@@ -33,7 +36,9 @@ export function useMeters() {
       const data = await metersApi.getStats();
       setStats(data);
     } catch (error) {
-      console.error("Failed to load meter stats", error);
+      if (!(error instanceof ApiHttpError && [401, 403, 423].includes(error.status))) {
+        console.warn("Failed to load meter stats", error);
+      }
     }
   };
 
@@ -134,9 +139,16 @@ export function useMeters() {
   };
 
   useEffect(() => {
-    loadMeters();
-    loadStats();
-  }, []);
+    if (authLoading) return;
+    if (!user) {
+      setMeters([]);
+      setStats(null);
+      setLoading(false);
+      return;
+    }
+    void loadMeters();
+    void loadStats();
+  }, [authLoading, user?.id]);
 
   return {
     meters,
