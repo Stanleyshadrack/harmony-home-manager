@@ -249,6 +249,7 @@ export function mapUnitFromApi(api: PropertyUnitApiResponse): Unit {
 ====================================================== */
 
 export function useUnits() {
+  const { user, isLoading: authLoading } = useAuth();
   const [units, setUnits] = useState<Unit[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -257,6 +258,13 @@ export function useUnits() {
      📄 FETCH ALL UNITS
   ========================= */
   useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      setUnits([]);
+      setLoadError(null);
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
 
     let active = true;
@@ -275,7 +283,7 @@ export function useUnits() {
       })
       .finally(() => { if (active) setIsLoading(false); });
     return () => { active = false; };
-  }, []);
+  }, [authLoading, user?.id]);
 
   /* =========================
      ➕ ADD UNIT
