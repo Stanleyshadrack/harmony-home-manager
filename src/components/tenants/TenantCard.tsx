@@ -91,7 +91,7 @@ export function TenantCard({ tenant, onView, onEdit, onDelete }: TenantCardProps
             {tenant.status}
           </Badge>
           <span className="text-xs text-muted-foreground">
-            Move in: {new Date(tenant.moveInDate).toLocaleDateString()}
+            Move in: {tenant.moveInDate ? new Date(tenant.moveInDate).toLocaleDateString() : 'Not recorded'}
           </span>
         </div>
       </CardContent>
