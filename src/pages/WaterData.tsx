@@ -257,7 +257,7 @@ export default function WaterData() {
                 <TrendingUp className="h-5 w-5 text-success" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Water Revenue</p>
+                <p className="text-sm text-muted-foreground">Approved Water Charges (not payments)</p>
                 <p className="text-2xl font-bold">{formatCurrency(stats?.totalRevenue ?? 0)}</p>
               </div>
             </CardContent>
