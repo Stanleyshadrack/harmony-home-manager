@@ -6,7 +6,7 @@ export interface ChatCall {
   callerId: number;
   recipientId: number;
   video: boolean;
-  status: 'RINGING' | 'ACCEPTED' | 'DECLINED' | 'ENDED';
+  status: 'RINGING' | 'ACCEPTED' | 'DECLINED' | 'ENDED' | 'MISSED' | 'CANCELLED';
   createdAt: string;
 }
 export interface CallHistoryEntry {
