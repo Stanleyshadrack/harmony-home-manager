@@ -13,6 +13,7 @@ interface MaintenanceDetailProps {
   request: MaintenanceRequest;
   onAddNote: (content: string) => Promise<void>;
   onClose: () => void;
+  onTenantDecision?: (accepted: boolean, reason?: string) => Promise<void>;
 }
 
 const priorityColors: Record<MaintenanceRequest['priority'], string> = {
@@ -26,7 +27,9 @@ const statusColors: Record<MaintenanceRequest['status'], string> = {
   pending: 'bg-warning/10 text-warning border-warning/20',
   assigned: 'bg-info/10 text-info border-info/20',
   in_progress: 'bg-primary/10 text-primary border-primary/20',
-  resolved: 'bg-success/10 text-success border-success/20',
+  resolved: 'bg-warning/10 text-warning border-warning/20',
+  reopened: 'bg-destructive/10 text-destructive border-destructive/20',
+  confirmed: 'bg-success/10 text-success border-success/20',
   cancelled: 'bg-muted text-muted-foreground',
 };
 
@@ -38,10 +41,31 @@ const roleIcons = {
   super_admin: Building2,
 };
 
-export function MaintenanceDetail({ request, onAddNote, onClose }: MaintenanceDetailProps) {
+export function MaintenanceDetail({ request, onAddNote, onClose, onTenantDecision }: MaintenanceDetailProps) {
   const { t } = useTranslation();
   const [noteContent, setNoteContent] = useState('');
   const [sendingNote, setSendingNote] = useState(false);
+  const [tenantReason, setTenantReason] = useState('');
+  const [decisionPending, setDecisionPending] = useState(false);
+  const [decisionError, setDecisionError] = useState('');
+
+  const submitTenantDecision = async (accepted: boolean) => {
+    if (!onTenantDecision || decisionPending) return;
+    if (!accepted && !tenantReason.trim()) {
+      setDecisionError('Please explain why the issue is not resolved.');
+      return;
+    }
+    setDecisionPending(true);
+    setDecisionError('');
+    try {
+      await onTenantDecision(accepted, tenantReason.trim() || undefined);
+      setTenantReason('');
+    } catch (error) {
+      setDecisionError(error instanceof Error ? error.message : 'Unable to submit your decision');
+    } finally {
+      setDecisionPending(false);
+    }
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -78,7 +102,10 @@ export function MaintenanceDetail({ request, onAddNote, onClose }: MaintenanceDe
               {t(`maintenance.${request.priority}`)}
             </Badge>
             <Badge variant="outline" className={statusColors[request.status]}>
-              {t(`maintenance.${request.status === 'in_progress' ? 'inProgress' : request.status}`)}
+              {request.status === 'resolved' ? 'Awaiting Tenant Confirmation'
+                : request.status === 'reopened' ? 'Reopened'
+                : request.status === 'confirmed' ? 'Confirmed / Closed'
+                : t(`maintenance.${request.status === 'in_progress' ? 'inProgress' : request.status}`)}
             </Badge>
           </div>
         </div>
@@ -137,6 +164,28 @@ export function MaintenanceDetail({ request, onAddNote, onClose }: MaintenanceDe
           </>
         )}
       </div>
+
+      {onTenantDecision && request.status === 'resolved' && (
+        <div className="space-y-3 rounded-lg border p-3">
+          <p className="font-medium">Confirm the maintenance repair</p>
+          <p className="text-sm text-muted-foreground">
+            The employee has marked the repair resolved. Confirm it is fixed to close the request,
+            or reject it to send the issue back for further work.
+          </p>
+          <Textarea value={tenantReason} onChange={event => setTenantReason(event.target.value)}
+            maxLength={2000} placeholder="Reason if the problem is not fixed (required for rejection)" />
+          {decisionError && <p role="alert" className="text-sm text-destructive">{decisionError}</p>}
+          <div className="flex flex-wrap gap-2">
+            <Button disabled={decisionPending} onClick={() => void submitTenantDecision(true)}>
+              Confirm Repair & Close
+            </Button>
+            <Button variant="destructive" disabled={decisionPending || !tenantReason.trim()}
+              onClick={() => void submitTenantDecision(false)}>
+              Not Fixed — Reopen
+            </Button>
+          </div>
+        </div>
+      )}
 
       <Separator />
 
