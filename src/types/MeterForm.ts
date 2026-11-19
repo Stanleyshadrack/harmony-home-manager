@@ -11,4 +11,5 @@ export type MeterForm = {
   serialNumber: string
   notes: string
   lastReading: number
+  lastReadingDate?: string
 }
