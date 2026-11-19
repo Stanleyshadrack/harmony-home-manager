@@ -285,7 +285,7 @@ export default function Messages() {
                   </div>
                 )}
               </>
-            )
+            )}
           </CardContent>
         </Card>
 
