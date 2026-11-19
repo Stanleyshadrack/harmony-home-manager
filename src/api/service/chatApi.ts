@@ -64,6 +64,25 @@ export const chatApi = {
   attachmentUrl: (conversationId: number, attachmentId: number) =>
     `${ROOT}/conversations/${conversationId}/attachments/${attachmentId}`,
 
+  deleteConversation: (id: number) =>
+    apiRequest<null, void>({
+      path: `${ROOT}/conversations/${id}`, method: 'DELETE',
+    }),
+
+  uploadGroupAvatar: (id: number, file: File) => {
+    const data = new FormData();
+    data.append('file', file);
+    return apiRequest<FormData, Conversation>({
+      path: `${ROOT}/conversations/${id}/avatar`,
+      method: 'POST', body: data, timeout: 30000,
+    });
+  },
+
+  removeGroupAvatar: (id: number) =>
+    apiRequest<null, Conversation>({
+      path: `${ROOT}/conversations/${id}/avatar`, method: 'DELETE',
+    }),
+
   markRead: (id: number) =>
     apiRequest<null, void>({
       path: `${ROOT}/conversations/${id}/read`,
