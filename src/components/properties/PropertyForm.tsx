@@ -121,7 +121,15 @@ const handleFormSubmit = async (data: PropertyFormData) => {
 
     console.log('CREATE PROPERTY PAYLOAD', payload);
 
-    await PropertyApi.create(payload);
+    if (property) {
+      await PropertyApi.update(Number(property.id), {
+        ...data,
+        amenities,
+        propertyType: data.propertyType.toUpperCase(),
+      } as PropertyFormData);
+    } else {
+      await PropertyApi.create(payload);
+    }
 
     queryClient.invalidateQueries({ queryKey: ['properties'] });
 
