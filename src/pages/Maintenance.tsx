@@ -334,12 +334,12 @@ export default function Maintenance() {
       </Dialog>
 
       <Sheet open={showDetail} onOpenChange={setShowDetail}>
-        <SheetContent className="w-full sm:max-w-lg">
-          <SheetHeader>
+        <SheetContent className="flex h-[100dvh] w-full flex-col overflow-hidden p-4 sm:max-w-xl sm:p-6">
+          <SheetHeader className="shrink-0 border-b pb-4 pr-8 text-left">
             <SheetTitle>{t('maintenance.requestDetails')}</SheetTitle>
           </SheetHeader>
           {selectedRequest && (
-            <div className="mt-6">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pt-4 pr-1 pb-6 sm:pr-2">
               <MaintenanceDetail
                 request={selectedRequest}
                 onAddNote={handleAddNote}
