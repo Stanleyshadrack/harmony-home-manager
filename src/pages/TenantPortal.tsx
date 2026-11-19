@@ -1,5 +1,6 @@
 import { TenantDepositStatement } from '@/components/billing/TenantDepositStatement';
 import { TenantMoveInClearancePanel } from '@/components/tenants/TenantMoveInClearancePanel';
+import { TenantDocumentCorrectionPanel } from '@/components/tenants/TenantDocumentCorrectionPanel';
 import { TenantsApi } from '@/api/service/tenantsApi';
 import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
@@ -229,6 +230,12 @@ const tenantInvoices = invoices.filter(
           </p>
         )}
         <TenantMoveInClearancePanel tenantView />
+        {currentTenant && (
+          <TenantDocumentCorrectionPanel
+            idStatus={currentTenant.idDocumentStatus}
+            leaseStatus={currentTenant.leaseDocumentStatus}
+          />
+        )}
 
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
