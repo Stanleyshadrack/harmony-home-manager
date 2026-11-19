@@ -47,15 +47,15 @@ export function MaintenanceStats({ requests }: MaintenanceStatsProps) {
   ];
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {stats.map((stat, index) => (
-        <Card key={index}>
-          <CardContent className="flex items-center gap-4 p-6">
-            <div className={`p-3 rounded-xl ${stat.bgColor}`}>
+        <Card key={index} className="min-w-0">
+          <CardContent className="flex min-w-0 items-center gap-3 p-4 sm:p-5">
+            <div className={`shrink-0 p-3 rounded-xl ${stat.bgColor}`}>
               <stat.icon className={`h-6 w-6 ${stat.color}`} />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">{stat.label}</p>
+              <p className="text-sm text-muted-foreground break-words">{stat.label}</p>
               <p className="text-2xl font-bold">{stat.value}</p>
             </div>
           </CardContent>
