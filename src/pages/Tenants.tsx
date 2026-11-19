@@ -32,10 +32,8 @@ import {
 } from 'lucide-react';
 
 import { useTenants } from '@/hooks/useTenants';
-import { usePendingRegistrations } from '@/hooks/useRegistrations';
 import { useAuth } from '@/contexts/AuthContext';
 import { TenantCard } from '@/components/tenants/TenantCard';
-import { TenantApprovals } from '@/components/tenants/TenantApprovals';
 import { TenantWorkflowApprovals } from '@/components/tenants/TenantWorkflowApprovals';
 import { Tenant } from '@/types/tenant';
 import { useToast } from '@/hooks/use-toast';
@@ -47,12 +45,7 @@ export default function Tenants() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { tenants, isLoading, updateTenant, deleteTenant } = useTenants();
-  const { registrations } = usePendingRegistrations();
   const { user } = useAuth();
-
-  const pendingTenantRegistrations = registrations.filter(
-    r => r.requestedRole === 'tenant' && r.status === 'pending'
-  );
 
   const isLandlordOrAdmin =
     user?.role === 'landlord' || user?.role === 'super_admin';
@@ -186,11 +179,7 @@ const filteredTenants = tenants.filter((tenant) => {
           {isLandlordOrAdmin && (
             <TabsTrigger value="approvals">
               Approvals
-              {pendingTenantRegistrations.length > 0 && (
-                <span className="ml-2 h-5 w-5 rounded-full bg-destructive text-xs flex items-center justify-center">
-                  {pendingTenantRegistrations.length}
-                </span>
-              )}
+
             </TabsTrigger>
           )}
         </TabsList>
@@ -200,7 +189,6 @@ const filteredTenants = tenants.filter((tenant) => {
           {activeTab === 'approvals' ? (
             <div className="space-y-6">
               <TenantWorkflowApprovals />
-              <TenantApprovals />
             </div>
           ) : isLoading ? (
             <div className="flex justify-center py-12">Loading…</div>
