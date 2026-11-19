@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 
 import { validateInvite } from "@/api/service/validateInvite.service";
+import { ApiHttpError } from "@/api/https";
 import { completeOnboardingService, CompleteOnboardingPayload } from "@/api/service/completeOnboardingService";
 import type { InviteValidationResponse } from "@/api/service/validateInvite.service";
 
@@ -68,12 +69,14 @@ function readDocument(file: File): Promise<string> {
 export default function Onboarding() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const token = params.get("token");
+  const token = params.get("token")?.trim() ?? null;
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isServiceError, setIsServiceError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   const [invite, setInvite] = useState<Invite | null>(null);
   const [leaseStart, setLeaseStart] = useState("");
@@ -94,25 +97,40 @@ export default function Onboarding() {
      Validate invite
   ========================= */
   useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+    setError(null);
+    setIsServiceError(false);
     if (!token) {
-      setError("Invalid invitation link");
+      setError("The invitation link is missing its token. Ask your inviter to resend it.");
       setLoading(false);
       return;
     }
 
-    validateInvite(token)
+    void validateInvite(token)
       .then((details) => {
-        if (!details.valid) throw new Error('Invitation is not valid');
+        if (!mounted) return;
+        if (!details.valid) throw new Error('Invitation could not be verified');
         setInvite(details);
         if (details.firstName) setValue('firstName', details.firstName);
         if (details.lastName) setValue('lastName', details.lastName);
         if (details.phone) setValue('phone', details.phone);
       })
-      .catch((err) =>
-        setError(err?.message ?? "Invite expired or invalid")
-      )
-      .finally(() => setLoading(false));
-  }, [token, setValue]);
+      .catch((err: unknown) => {
+        if (!mounted) return;
+        const code = err instanceof ApiHttpError ? err.status : null;
+        const unavailable = code === 429 || code === 500 || code === 502 ||
+          code === 503 || code === 504 || code === null;
+        setIsServiceError(unavailable);
+        if (code === 429) setError('Too many requests. Try again shortly.');
+        else if (unavailable)
+          setError('The invitation service is temporarily unavailable. Your link may still be valid.');
+        else setError(err instanceof Error ? err.message :
+          'This invitation has expired or was replaced. Ask your inviter to resend it.');
+      })
+      .finally(() => { if (mounted) setLoading(false); });
+    return () => { mounted = false; };
+  }, [token, setValue, retryCount]);
 
   /* =========================
      Submit onboarding
@@ -212,8 +230,20 @@ export default function Onboarding() {
         <Card className="max-w-md w-full">
           <CardContent className="p-6 text-center space-y-4">
             <XCircle className="h-10 w-10 text-destructive mx-auto" />
-            <h2 className="text-xl font-semibold">Invalid Invitation</h2>
+            <h2 className="text-xl font-semibold">{isServiceError ? 'Invitation service unavailable' : 'Invalid Invitation'}</h2>
             <p className="text-muted-foreground">{error}</p>
+            {isServiceError ? (
+              <Button type="button" variant="outline"
+                onClick={() => setRetryCount(value => value + 1)}
+                className="w-full">
+                Retry invitation validation
+              </Button>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                The person who invited you can use <strong>Invitations → Resend</strong>
+                to issue a new link. Older links stop working after resending.
+              </p>
+            )}
             <Button onClick={() => navigate("/auth")} className="w-full">
               Go to Login
             </Button>
