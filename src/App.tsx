@@ -31,6 +31,7 @@ import Notifications from "./pages/Notifications";
 import AuditLogs from "./pages/AuditLogs";
 import TenantPortal from "./pages/TenantPortal";
 import EmployeePortal from "./pages/EmployeePortal";
+import AssignedProperties from "./pages/AssignedProperties";
 import AdminPortal from "./pages/AdminPortal";
 import UserNotifications from "./pages/UserNotifications";
 import WaterData from "./pages/WaterData";
@@ -116,7 +117,7 @@ const App = () => (
                   path="/units"
                   element={
                     <ProtectedRoute
-                      allowedRoles={["super_admin", "landlord", "employee"]}
+                      allowedRoles={["super_admin", "landlord"]}
                     >
                       <Units />
                     </ProtectedRoute>
@@ -126,7 +127,7 @@ const App = () => (
                   path="/tenants"
                   element={
                     <ProtectedRoute
-                      allowedRoles={["super_admin", "landlord", "employee"]}
+                      allowedRoles={["super_admin", "landlord"]}
                     >
                       <Tenants />
                     </ProtectedRoute>
@@ -202,7 +203,7 @@ const App = () => (
                   path="/maintenance"
                   element={
                     <ProtectedRoute
-                      allowedRoles={["super_admin", "landlord", "employee"]}
+                      allowedRoles={["super_admin", "landlord"]}
                     >
                       <Maintenance />
                     </ProtectedRoute>
@@ -277,6 +278,15 @@ const App = () => (
                   element={
                     <ProtectedRoute allowedRoles={["employee"]}>
                       <EmployeePortal />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/assigned-properties"
+                  element={
+                    <ProtectedRoute allowedRoles={["employee"]}>
+                      <AssignedProperties />
                     </ProtectedRoute>
                   }
                 />
