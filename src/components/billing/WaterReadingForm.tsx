@@ -50,6 +50,7 @@ export function WaterReadingForm({ onSubmit, onCancel, isLoading, allowedUnitIds
   const { t } = useTranslation()
   const { units, isLoading: unitsLoading } = useUnits()
   const selectableUnits = allowedUnitIds ? units.filter(u => allowedUnitIds.includes(Number(u.id))) : units
+  const selectedUnit = selectableUnits.find(u => Number(u.id) === Number(form.watch('unitId')))
   const { meters, loading: metersLoading } = useMeters()
   const [lastReadingDate, setLastReadingDate] = useState<string | null>(null)
 
@@ -141,7 +142,7 @@ const handleUnitChange = (unitId: number) => {
   value={String(unit.id)}
   disabled={!meters.some(m => Number(m.unitId) === Number(unit.id) && m.status === 'ACTIVE')}
 >
-  {unit.unitNumber}
+  {unit.unitNumber}{unit.status === 'vacant' ? ' — Vacant' : ''}
   {!meters.some(m => Number(m.unitId) === Number(unit.id) && m.status === "ACTIVE") && " (No active meter)"}
 </SelectItem>
 
@@ -155,6 +156,13 @@ const handleUnitChange = (unitId: number) => {
           )}
         />
 
+
+        {selectedUnit?.status === 'vacant' && (
+          <div role="status" className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm text-foreground">
+            <strong>Vacant unit:</strong> Record the meter normally to preserve consumption history.
+            Water used while the unit is vacant must be reviewed separately and must not be charged to a future tenant.
+          </div>
+        )}
 
         {/* METER ID (AUTOFILLED) */}
         <FormField
