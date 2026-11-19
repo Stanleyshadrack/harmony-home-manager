@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 interface MessageInputProps {
   onSend: (content: string) => Promise<void>;
   onUploadFile: (file: File, caption: string) => Promise<void>;
+  onTypingChange?: (typing: boolean) => void;
   disabled?: boolean;
   placeholder?: string;
 }
@@ -16,7 +17,7 @@ type QueuedFile = { id: number; file: File; preview: string | null };
 const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'txt', 'csv', 'docx', 'xlsx'];
 
 export function MessageInput({
-  onSend, onUploadFile, disabled = false, placeholder,
+  onSend, onUploadFile, onTypingChange, disabled = false, placeholder,
 }: MessageInputProps) {
   const [message, setMessage] = useState('');
   const [files, setFiles] = useState<QueuedFile[]>([]);
@@ -39,6 +40,7 @@ export function MessageInput({
     const text = (message.slice(0, start) + emoji + message.slice(end)).slice(0, 4000);
     const caret = Math.min(start + emoji.length, text.length);
     setMessage(text);
+    onTypingChange?.(text.trim().length > 0);
     window.requestAnimationFrame(() => {
       input?.focus();
       input?.setSelectionRange(caret, caret);
@@ -87,6 +89,7 @@ export function MessageInput({
     event?.preventDefault();
     const text = message.trim();
     if (disabled || sending || (!text && files.length === 0)) return;
+    onTypingChange?.(false);
     setSending(true);
     try {
       if (files.length) {
@@ -151,7 +154,12 @@ export function MessageInput({
           aria-label="Type a message"
           ref={textareaRef}
           value={message}
-          onChange={event => setMessage(event.target.value)}
+          onChange={event => {
+            const next = event.target.value;
+            setMessage(next);
+            onTypingChange?.(next.trim().length > 0);
+          }}
+          onBlur={() => onTypingChange?.(false)}
           onPaste={event => {
             const images = Array.from(event.clipboardData.files).filter(file => file.type.startsWith('image/'));
             if (images.length) {
