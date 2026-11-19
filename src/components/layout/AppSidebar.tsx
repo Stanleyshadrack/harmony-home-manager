@@ -69,8 +69,8 @@ const mainNavItems: NavItem[] = [
   // Landlord items (full access to property management)
   { title: 'navigation.dashboard', url: '/dashboard', icon: LayoutDashboard, roles: ['super_admin', 'landlord'] },
   { title: 'navigation.properties', url: '/properties', icon: Building2, roles: ['super_admin', 'landlord'] },
-  { title: 'navigation.units', url: '/units', icon: Home, roles: ['super_admin', 'landlord', 'employee'] },
-  { title: 'navigation.tenants', url: '/tenants', icon: Users, roles: ['super_admin', 'landlord', 'employee'] },
+  { title: 'navigation.units', url: '/units', icon: Home, roles: ['super_admin', 'landlord'] },
+  { title: 'navigation.tenants', url: '/tenants', icon: Users, roles: ['super_admin', 'landlord'] },
   { title: 'Employees', url: '/employees', icon: UsersRound, roles: ['super_admin', 'landlord'] },
   { title: 'navigation.billing', url: '/billing', icon: CreditCard, roles: ['super_admin', 'landlord'] },
   { title: 'Subscription Plans', url: '/subscription-plans', icon: CreditCardIcon, roles: ['landlord'] },
@@ -79,7 +79,8 @@ const mainNavItems: NavItem[] = [
   { title: 'navigation.maintenance', url: '/maintenance', icon: Wrench, roles: ['super_admin', 'landlord'] },
   { title: 'navigation.messages', url: '/messages', icon: MessageSquare, roles: ['super_admin', 'landlord', 'employee', 'tenant'] },
   
-  // Employee items
+  // Employee items: assigned properties is the hub for units and tenants.
+  { title: 'Assigned Properties', url: '/assigned-properties', icon: Building2, roles: ['employee'] },
   { title: 'navigation.employeePortal', url: '/employee-portal', icon: Briefcase, roles: ['employee'] },
   { title: 'navigation.maintenance', url: '/maintenance', icon: Wrench, roles: ['employee'] },
   
@@ -174,11 +175,11 @@ export function AppSidebar() {
                   <SidebarMenuButton
                     asChild
                     isActive={location.pathname === item.url}
-                    tooltip={collapsed ? getRoleModuleLabel(item.url, userRole, t(item.title)) : undefined}
+                    tooltip={collapsed ? getRoleModuleLabel(item.url, userRole, item.title === "Assigned Properties" ? item.title : t(item.title)) : undefined}
                   >
                     <NavLink to={item.url} onClick={() => setOpenMobile(false)}>
                       <item.icon className="h-4 w-4" />
-                      <span>{getRoleModuleLabel(item.url, userRole, t(item.title))}</span>
+                      <span>{getRoleModuleLabel(item.url, userRole, item.title === "Assigned Properties" ? item.title : t(item.title))}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -197,11 +198,11 @@ export function AppSidebar() {
                     <SidebarMenuButton
                       asChild
                       isActive={location.pathname === item.url}
-                      tooltip={collapsed ? getRoleModuleLabel(item.url, userRole, t(item.title)) : undefined}
+                      tooltip={collapsed ? getRoleModuleLabel(item.url, userRole, item.title === "Assigned Properties" ? item.title : t(item.title)) : undefined}
                     >
                       <NavLink to={item.url} onClick={() => setOpenMobile(false)}>
                         <item.icon className="h-4 w-4" />
-                        <span>{getRoleModuleLabel(item.url, userRole, t(item.title))}</span>
+                        <span>{getRoleModuleLabel(item.url, userRole, item.title === "Assigned Properties" ? item.title : t(item.title))}</span>
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
