@@ -34,6 +34,7 @@ import { TenantPaymentForm } from '@/components/portal/TenantPaymentForm';
 import { InvoiceCard } from '@/components/billing/InvoiceCard';
 import { MaintenanceForm } from '@/components/maintenance/MaintenanceForm';
 import { MaintenanceCard } from '@/components/maintenance/MaintenanceCard';
+import { MaintenanceDetail } from '@/components/maintenance/MaintenanceDetail';
 import { Unit } from '@/types/property';
 import { useTenantAvailableUnits } from '@/hooks/useAvailableUnits';
 
@@ -51,7 +52,7 @@ export default function TenantPortal() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { invoices, recordPayment } = useBilling();
-  const { requests, createRequest, availableUnits, unitsLoadError, loadError: maintenanceError } = useMaintenance();
+  const { requests, createRequest, addNote, availableUnits, unitsLoadError, loadError: maintenanceError } = useMaintenance();
   const location = useLocation();
   const { applications, submitApplication, withdrawApplication } = useApplications();
 
@@ -65,6 +66,7 @@ export default function TenantPortal() {
   }, [location.search]);
   const [showApplicationForm, setShowApplicationForm] = useState(false);
   const [showMaintenanceForm, setShowMaintenanceForm] = useState(false);
+  const [maintenanceDetailId, setMaintenanceDetailId] = useState<string | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -74,6 +76,14 @@ const tenantInvoices = invoices.filter(
 );
   // The server already limits GET /api/maintenance to this authenticated tenant.
   const tenantRequests = requests;
+  const selectedMaintenance = tenantRequests.find(item => item.id === maintenanceDetailId) ?? null;
+  useEffect(() => {
+    const id = new URLSearchParams(location.search).get('request');
+    if (id && tenantRequests.some(item => item.id === id)) {
+      setActiveTab('maintenance');
+      setMaintenanceDetailId(id);
+    }
+  }, [location.search, requests.length]);
   const tenantApplications = applications.filter(
     (app) => app.applicantEmail === MOCK_TENANT.email
   );
@@ -520,7 +530,8 @@ const tenantInvoices = invoices.filter(
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {tenantRequests.map((request) => (
-                <MaintenanceCard key={request.id} request={request} />
+                <MaintenanceCard key={request.id} request={request}
+                  onView={() => setMaintenanceDetailId(request.id)} />
               ))}
               {tenantRequests.length === 0 && (
                 <Card className="col-span-full">
@@ -555,6 +566,20 @@ const tenantInvoices = invoices.filter(
             isLoading={isLoading}
             preselectedUnitId={selectedUnit?.id}
           />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={maintenanceDetailId !== null}
+        onOpenChange={open => { if (!open) setMaintenanceDetailId(null); }}>
+        <DialogContent className="flex h-[min(85dvh,760px)] max-w-lg flex-col overflow-hidden">
+          <DialogHeader><DialogTitle>Maintenance request details</DialogTitle></DialogHeader>
+          {selectedMaintenance && (
+            <MaintenanceDetail request={selectedMaintenance}
+              onClose={() => setMaintenanceDetailId(null)}
+              onAddNote={async content => {
+                await addNote(selectedMaintenance.id, content);
+              }} />
+          )}
         </DialogContent>
       </Dialog>
 
