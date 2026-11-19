@@ -76,6 +76,7 @@ export default function TenantPortal() {
   const [isLoading, setIsLoading] = useState(false);
   const [pendingCheckout, setPendingCheckout] = useState<{id: string; invoiceId: number} | null>(null);
   const [paymentNotice, setPaymentNotice] = useState('');
+  const [selectedPayInvoiceId, setSelectedPayInvoiceId] = useState<number | null>(null);
 
   // /api/billing/invoice/my is already restricted to the authenticated tenant
   // by the backend. An empty/incomplete profile load must not hide valid invoices.
@@ -552,7 +553,12 @@ export default function TenantPortal() {
             {invoicesLoading && <p role="status" className="text-sm text-muted-foreground">Loading invoices…</p>}
             <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
               {tenantInvoices.map((invoice) => (
-                <InvoiceCard key={invoice.id} invoice={invoice} />
+                <InvoiceCard key={invoice.id} invoice={invoice}
+                  paymentActionLabel="Pay with M-Pesa"
+                  onRecordPayment={(selected) => {
+                    setSelectedPayInvoiceId(selected.id);
+                    setActiveTab('payments');
+                  }} />
               ))}
               {tenantInvoices.length === 0 && (
                 <Card className="col-span-full">
@@ -594,6 +600,7 @@ export default function TenantPortal() {
                 <CardContent>
                   <TenantPaymentForm
                     invoices={tenantInvoices}
+                    selectedInvoiceId={selectedPayInvoiceId}
                     onSubmit={handlePayment}
                     isLoading={isLoading || invoicesLoading || !!pendingCheckout}
                   />
