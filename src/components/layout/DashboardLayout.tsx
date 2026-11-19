@@ -11,6 +11,7 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { IncomingCallBanner } from '@/components/messages/IncomingCallBanner';
+import { DeviceCallNotifications } from '@/components/messages/DeviceCallNotifications';
 import { Separator } from '@/components/ui/separator';
 import {
   Breadcrumb,
@@ -99,6 +100,7 @@ export function DashboardLayout({ children, title, breadcrumbs }: DashboardLayou
             )}
 
             <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
+              <DeviceCallNotifications />
               <NotificationBell />
               <LanguageSwitcher />
               <ThemeSwitcher />
