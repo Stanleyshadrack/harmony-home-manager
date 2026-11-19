@@ -263,54 +263,64 @@ export function EmployeeManagement() {
       // committed the approval before their HTTP response failed.
       try {
         await queryClient.invalidateQueries({ queryKey: ['employees'] });
-      } finally {
-        setIsProcessing(false);
+      } catch {
+        toast.warning('Refresh the employee list to verify the updated status.');
       }
+      setIsProcessing(false);
     }
   };
 
   const handleRejectRegistration = async () => {
-    if (!selectedRegistration || !rejectionReason.trim()) {
+    if (isProcessing || !selectedRegistration) return;
+    if (!rejectionReason.trim()) {
       toast.error('Please provide a rejection reason');
       return;
     }
 
     setIsProcessing(true);
     try {
-      await apiRequest<null, unknown>({
-        path: `/api/landlords/employees/${selectedRegistration.id}/reject`, method: 'POST',
+      const current = await apiRequest<null, { status: string }>({
+        path: `/api/employees/${selectedRegistration.id}`, method: 'GET',
       });
-      await queryClient.invalidateQueries({ queryKey: ['employees'] });
-      
-      // In-app notification
-      // addNotification({
-      //   userId: selectedRegistration.phone,
-      //   title: 'Registration Rejected',
-      //   message: `Your employee registration was not approved. Reason: ${rejectionReason}`,
-      //   category: 'registration_rejected',
-      //   priority: 'high',
-      // });
-
-      // Send SMS notification
-      if (selectedRegistration.phone) {
-        await sendQuickNotification(
-          selectedRegistration.phone,
-          `${selectedRegistration.firstName} ${selectedRegistration.lastName}`,
-          'registration_rejected',
-          'sms',
-          {
-            name: selectedRegistration.firstName,
-            role: 'employee',
-            reason: rejectionReason
-          }
-        );
+      if (current.status?.toUpperCase() !== 'PENDING') {
+        toast.info('This employee is no longer pending. Refreshing the approvals list.');
+        setShowRejectDialog(false);
+        setSelectedRegistration(null);
+        return;
       }
 
-      toast.success('Registration rejected. Notification sent.');
+      await apiRequest<null, void>({
+        path: `/api/landlords/employees/${selectedRegistration.id}/reject`,
+        method: 'POST',
+      });
+
+      toast.success('Employee registration rejected.');
       setShowRejectDialog(false);
       setSelectedRegistration(null);
       setRejectionReason('');
+
+      if (selectedRegistration.phone) {
+        try {
+          await sendQuickNotification(
+            selectedRegistration.phone,
+            `${selectedRegistration.firstName} ${selectedRegistration.lastName}`,
+            'registration_rejected',
+            'sms',
+            { name: selectedRegistration.firstName, role: 'employee',
+              reason: rejectionReason.trim() }
+          );
+        } catch {
+          toast.warning('Registration rejected, but the optional SMS could not be sent.');
+        }
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Employee rejection failed.');
     } finally {
+      try {
+        await queryClient.invalidateQueries({ queryKey: ['employees'] });
+      } catch {
+        toast.warning('Refresh the employee list to verify the updated status.');
+      }
       setIsProcessing(false);
     }
   };
@@ -673,7 +683,8 @@ export function EmployeeManagement() {
                       <div className="flex gap-2 sm:flex-shrink-0">
                         <Button
                           size="sm"
-                          onClick={() => handleApproveRegistration(registration)}
+                          onClick={() => void handleApproveRegistration(registration)}
+                          disabled={isProcessing}
                         >
                           <CheckCircle className="h-4 w-4 mr-1" />
                           Approve
@@ -681,6 +692,7 @@ export function EmployeeManagement() {
                         <Button
                           size="sm"
                           variant="outline"
+                          disabled={isProcessing}
                           onClick={() => {
                             setSelectedRegistration(registration);
                             setShowRejectDialog(true);
