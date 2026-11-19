@@ -29,6 +29,7 @@ const statusColors: Record<Invoice['status'], string> = {
 };
 
 const typeIcons: Record<Invoice['type'], React.ReactNode> = {
+  combined: <Home className="h-4 w-4" />,
   rent: <Home className="h-4 w-4" />,
   water: <Droplets className="h-4 w-4" />,
   utilities: <FileText className="h-4 w-4" />,
@@ -41,9 +42,9 @@ export function InvoiceCard({ invoice, onView, onRecordPayment }: InvoiceCardPro
   const { toast } = useToast();
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-KE', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'KES',
     }).format(amount);
   };
 
@@ -59,13 +60,13 @@ export function InvoiceCard({ invoice, onView, onRecordPayment }: InvoiceCardPro
     downloadInvoicePDF({
       invoice,
       tenantName: invoice.tenantName,
-      tenantEmail: 'tenant@email.com',
+      tenantEmail: invoice.tenantEmail || '',
       unitNumber: invoice.unitNumber,
       propertyName: invoice.propertyName,
-      propertyAddress: '123 Property Street, Nairobi',
-      landlordName: 'Property Manager',
-      landlordPhone: '+254 712 345 678',
-      landlordEmail: 'manager@property.com',
+      propertyAddress: '',
+      landlordName: invoice.invoiceDisplayName || invoice.propertyName,
+      landlordPhone: '',
+      landlordEmail: invoice.paymentSupportContact || '',
     });
     toast({
       title: 'Invoice Downloaded',
@@ -74,7 +75,7 @@ export function InvoiceCard({ invoice, onView, onRecordPayment }: InvoiceCardPro
   };
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card className="min-w-0 overflow-hidden hover:shadow-md transition-shadow">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
@@ -82,7 +83,7 @@ export function InvoiceCard({ invoice, onView, onRecordPayment }: InvoiceCardPro
               {typeIcons[invoice.type]}
             </div>
             <div>
-              <p className="font-semibold">{invoice.invoiceNumber}</p>
+              <p className="font-semibold break-all">{invoice.invoiceNumber}</p>
               <p className="text-sm text-muted-foreground">{invoice.tenantName}</p>
             </div>
           </div>
@@ -117,7 +118,13 @@ export function InvoiceCard({ invoice, onView, onRecordPayment }: InvoiceCardPro
         </div>
       </CardHeader>
       <CardContent>
-        <p className="text-sm text-muted-foreground mb-3">{invoice.description}</p>
+        <p className="text-sm text-muted-foreground mb-3 break-words">{invoice.description}</p>
+        {invoice.lines && invoice.lines.length > 0 && <div className="mb-3 space-y-1 border-y py-2 text-xs">
+          {invoice.lines.map((line, index) => <div key={index} className="flex justify-between gap-2">
+            <span className="break-words">{line.description}</span>
+            <span className="shrink-0 font-medium">{formatCurrency(line.amount)}</span>
+          </div>)}
+        </div>
         
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
           <span>{invoice.propertyName}</span>
