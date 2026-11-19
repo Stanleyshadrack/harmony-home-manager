@@ -50,7 +50,7 @@ const MOCK_EMPLOYEE = {
 export default function EmployeePortal() {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const { requests, updateStatus, addNote } = useMaintenance();
+  const { requests, updateStatus, loadError: maintenanceError } = useMaintenance();
   const { units } = useUnits();
   const { createWaterInvoice } = useBilling();
 
@@ -60,10 +60,8 @@ export default function EmployeePortal() {
   const [showWaterReadingForm, setShowWaterReadingForm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Filter requests assigned to this employee
-  const assignedRequests = requests.filter(
-    (req) => req.assignedTo === MOCK_EMPLOYEE.id
-  );
+  // The backend already scopes maintenance to the authenticated employee's assignments.
+  const assignedRequests = requests;
 
   const filteredRequests = assignedRequests.filter((req) => {
     const matchesSearch =
@@ -85,13 +83,15 @@ export default function EmployeePortal() {
   const handleStartTask = async (requestId: string) => {
     setIsLoading(true);
     try {
-      updateStatus(requestId, 'in_progress', 'Work started by technician');
+      await updateStatus(requestId, 'in_progress');
       toast({
         title: 'Task Started',
         description: 'You have started working on this task.',
       });
-    } catch {
-      toast({ title: 'Error', variant: 'destructive' });
+    } catch (error) {
+      toast({ title: 'Maintenance action failed',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
@@ -100,13 +100,15 @@ export default function EmployeePortal() {
   const handleCompleteTask = async (requestId: string) => {
     setIsLoading(true);
     try {
-      updateStatus(requestId, 'resolved', 'Task completed by technician');
+      await updateStatus(requestId, 'resolved');
       toast({
         title: 'Task Completed',
         description: 'The maintenance task has been marked as completed.',
       });
-    } catch {
-      toast({ title: 'Error', variant: 'destructive' });
+    } catch (error) {
+      toast({ title: 'Maintenance action failed',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
@@ -335,6 +337,11 @@ export default function EmployeePortal() {
               </Select>
             </div>
 
+            {maintenanceError && (
+              <p role="alert" className="text-sm text-destructive">
+                Maintenance tasks could not be loaded: {maintenanceError}
+              </p>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filteredRequests.map((request) => (
                 <Card key={request.id} className="relative">
