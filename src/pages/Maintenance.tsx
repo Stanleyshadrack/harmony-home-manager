@@ -97,8 +97,8 @@ export default function Maintenance() {
     const matchesTab =
       activeTab === 'all' ||
       (activeTab === 'pending' && request.status === 'pending') ||
-      (activeTab === 'in_progress' && (request.status === 'assigned' || request.status === 'in_progress')) ||
-      (activeTab === 'resolved' && request.status === 'resolved');
+      (activeTab === 'in_progress' && (request.status === 'assigned' || request.status === 'in_progress' || request.status === 'reopened')) ||
+      (activeTab === 'resolved' && (request.status === 'resolved' || request.status === 'confirmed'));
     return matchesSearch && matchesPriority && matchesTab;
   });
 
