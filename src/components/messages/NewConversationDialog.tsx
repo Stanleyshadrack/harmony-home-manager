@@ -171,10 +171,11 @@ export function NewConversationDialog({ open, onOpenChange, onSubmit }: Props) {
               <button type="button" key={contact.id}
                 onClick={() => choose(contact)}
                 className="flex min-h-12 w-full items-center justify-between gap-2 border-b px-3 py-2 text-left last:border-0 hover:bg-muted/60">
-                <UserAvatar name={contact.name} avatarUrl={contact.avatarUrl} className="h-9 w-9" />
+                <UserAvatar name={contact.name} avatarUrl={contact.avatarUrl}
+                  online={contact.online} className="h-9 w-9" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{contact.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">{contact.role.replaceAll('_', ' ').toLowerCase()} · {contact.email}</p>
+                  <p className="truncate text-xs text-muted-foreground">{contact.role.replaceAll('_', ' ').toLowerCase()} · {contact.online ? 'Online' : 'Offline'} · {contact.email}</p>
                 </div>
                 <Check className="h-4 w-4 shrink-0 text-muted-foreground" />
               </button>
