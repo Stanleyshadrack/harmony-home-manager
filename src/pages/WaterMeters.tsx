@@ -55,7 +55,7 @@ export default function WaterMeters() {
   const [viewMode, setViewMode] = useViewMode('watermeters', 'list');
   const { t } = useTranslation();
   const { toast } = useToast();
- const { meters, stats, loading, createMeter, updateMeter, deleteMeter, assignMeter } = useMeters();
+ const { meters, stats, loading, createMeter, updateMeter, deleteMeter, assignMeter, unassignMeter } = useMeters();
   const [searchQuery, setSearchQuery] = useState('');
   const [propertyFilter, setPropertyFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -76,7 +76,8 @@ export default function WaterMeters() {
     model: "",
     serialNumber: "",
     notes: "",
-    lastReading:0
+    lastReading:0,
+      lastReadingDate: ''
   });
 
   const resetForm = () => {
@@ -88,7 +89,8 @@ export default function WaterMeters() {
       model: "",
       serialNumber: "",
       notes: "",
-      lastReading:0
+      lastReading:0,
+      lastReadingDate: ''
     });
   };
 
@@ -200,9 +202,11 @@ export default function WaterMeters() {
   serialNumber: formData.serialNumber,
   notes: formData.notes,
   lastReading: formData.lastReading,
+      lastReadingDate: formData.lastReadingDate || undefined,
     };
 
-    await createMeter(newMeter as WaterMeter);
+    const created = await createMeter(newMeter as WaterMeter);
+    if (!created) return;
 
     setShowAddDialog(false);
     resetForm();
@@ -226,11 +230,12 @@ export default function WaterMeters() {
        lastReading: formData.lastReading,
     };
 
-    await updateMeter(Number(selectedMeter.id), {
+    const saved = await updateMeter(Number(selectedMeter.id), {
       ...selectedMeter,
       ...updated,
     });
 
+    if (!saved) return;
     setShowEditDialog(false);
     setSelectedMeter(null);
     resetForm();
@@ -243,10 +248,11 @@ export default function WaterMeters() {
   const handleAssignUnit = async () => {
   if (!selectedMeter || !assignUnitId) return;
 
-  await assignMeter(
+  const assigned = await assignMeter(
     Number(selectedMeter.id),
     Number(assignUnitId)
   );
+  if (!assigned) return;
 
   setShowAssignDialog(false);
   setAssignUnitId("");
@@ -256,7 +262,8 @@ export default function WaterMeters() {
   const handleDeleteMeter = async () => {
     if (!selectedMeter) return;
 
-    await deleteMeter(Number(selectedMeter.id));
+    const deleted = await deleteMeter(Number(selectedMeter.id));
+    if (!deleted) return;
 
     setShowDeleteDialog(false);
     setSelectedMeter(null);
@@ -279,6 +286,7 @@ export default function WaterMeters() {
   serialNumber: meter.serialNumber ?? "",
   notes: meter.notes ?? "",
   lastReading: meter.lastReading ?? 0,
+  lastReadingDate: meter.lastReadingDate ?? '',
 });
 
     setShowEditDialog(true);
@@ -469,14 +477,14 @@ export default function WaterMeters() {
                     </TableCell>
                     <TableCell>{getMeterTypeBadge(meter.meterType)}</TableCell>
                     <TableCell>
-                      {meter.lastReading ? (
+                      {meter.lastReading != null ? (
                         <div>
                           <p className="font-medium">
                             {(meter.lastReading ?? 0).toLocaleString()} m³
                           </p>
 
                           <p className="text-xs text-muted-foreground">
-                            {format(meter.lastReading, "MMM d, yyyy")}
+                            {meter.lastReadingDate ? format(new Date(meter.lastReadingDate), "MMM d, yyyy") : "Opening baseline"}
                           </p>
                         </div>
                       ) : (
@@ -500,6 +508,10 @@ export default function WaterMeters() {
     </Button>
   )}
 
+  {meter.unitNumber && <Button size="sm" variant="outline" onClick={async () => {
+    if (window.confirm('Unassign meter, retain its reading history, and mark it inactive?'))
+      await unassignMeter(Number(meter.id));
+  }}>Unassign</Button>}
   <Button variant="ghost" size="icon" onClick={() => openEditDialog(meter)}>
     <Edit className="h-4 w-4" />
   </Button>
@@ -631,6 +643,7 @@ export default function WaterMeters() {
   <Input
     id="lastReading"
     type="number"
+    disabled={showEditDialog}
     value={formData.lastReading}
     onChange={(e) =>
       setFormData({
@@ -642,8 +655,13 @@ export default function WaterMeters() {
   />
 
   <p className="text-xs text-muted-foreground">
-    Initial meter reading (can be edited)
+    Opening reading only. Subsequent readings are recorded under Water Data.
   </p>
+  {!showEditDialog && <div className="mt-2 space-y-1">
+    <Label htmlFor="lastReadingDate">Opening reading date</Label>
+    <Input id="lastReadingDate" type="date" value={formData.lastReadingDate || ''}
+      onChange={e => setFormData({...formData,lastReadingDate:e.target.value})}/>
+  </div>}
 </div>
               <div className="space-y-2">
                 <Label htmlFor="notes">Notes</Label>
