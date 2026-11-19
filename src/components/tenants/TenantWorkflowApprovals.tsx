@@ -14,10 +14,15 @@ export function TenantWorkflowApprovals() {
   const [reasonById, setReasonById] = useState<Record<number, string>>({});
   const [workingId, setWorkingId] = useState<number | null>(null);
 
+  // Review in the order required by the backend: tenant identity first,
+  // then both supporting documents, then activation of the dated lease.
   const pending = approvals.filter(
     (item) => item.status === "PENDING" &&
       ["TENANT", "LEASE", "DOCUMENT"].includes(item.type)
-  );
+  ).sort((a, b) => {
+    const priority = (type: string) => type === "TENANT" ? 0 : type === "DOCUMENT" ? 1 : 2;
+    return priority(a.type) - priority(b.type);
+  });
 
   async function decide(item: Approval, decision: "approve" | "reject") {
     const reason = reasonById[item.id]?.trim();
@@ -84,7 +89,8 @@ export function TenantWorkflowApprovals() {
       <CardHeader>
         <CardTitle>Tenant, Lease & Document Reviews</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Review tenant onboarding, lease activation, tenant ID and lease documents.
+          Complete approvals in sequence: approve the tenant application, review the ID and signed lease,
+          then activate the lease. Deposit, first rent and final move-in clearance are separate checks.
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -107,6 +113,12 @@ export function TenantWorkflowApprovals() {
               <div className="text-xs text-muted-foreground">
                 {item.propertyNames?.join(", ") || `Property #${item.propertyId ?? "—"}`}
               </div>
+              {item.type === 'LEASE' && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Approve ID and signed lease documents first. Lease approval reserves the unit;
+                  it does not grant move-in permission.
+                </p>
+              )}
               <Input
                 aria-label={`Rejection reason for approval ${item.id}`}
                 placeholder="Reason for rejection (required to reject)"
