@@ -45,7 +45,9 @@ const statusColors: Record<MaintenanceRequest['status'], string> = {
   pending: 'bg-warning/10 text-warning border-warning/20',
   assigned: 'bg-info/10 text-info border-info/20',
   in_progress: 'bg-primary/10 text-primary border-primary/20',
-  resolved: 'bg-success/10 text-success border-success/20',
+  resolved: 'bg-warning/10 text-warning border-warning/20',
+  reopened: 'bg-destructive/10 text-destructive border-destructive/20',
+  confirmed: 'bg-success/10 text-success border-success/20',
   cancelled: 'bg-muted text-muted-foreground',
 };
 
@@ -123,7 +125,7 @@ export function MaintenanceCard({ request, onView, onAssign, onUpdateStatus }: M
                     Mark Resolved
                   </DropdownMenuItem>
                 )}
-                {request.status !== 'resolved' && request.status !== 'cancelled'
+                {request.status !== 'resolved' && request.status !== 'confirmed' && request.status !== 'cancelled'
                   && canAssign && onUpdateStatus && (
                   <DropdownMenuItem
                     onClick={() => onUpdateStatus?.(request, 'cancelled')}
@@ -152,7 +154,10 @@ export function MaintenanceCard({ request, onView, onAssign, onUpdateStatus }: M
 
         <div className="flex items-center justify-between pt-3 border-t">
           <Badge variant="outline" className={statusColors[request.status]}>
-            {t(`maintenance.${request.status === 'in_progress' ? 'inProgress' : request.status}`)}
+            {request.status === 'resolved' ? 'Awaiting Tenant Confirmation'
+              : request.status === 'reopened' ? 'Reopened'
+              : request.status === 'confirmed' ? 'Confirmed / Closed'
+              : t(`maintenance.${request.status === 'in_progress' ? 'inProgress' : request.status}`)}
           </Badge>
           <span className="text-xs text-muted-foreground">
             {formatDate(request.createdAt)}
