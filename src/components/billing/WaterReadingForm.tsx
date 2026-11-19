@@ -64,10 +64,7 @@ export function WaterReadingForm({ onSubmit, onCancel, isLoading, allowedUnitIds
       currentReading: 0,
       ratePerUnit: 1,
       readingDate: new Date().toISOString().split('T')[0],
-      billingPeriod: new Date().toLocaleDateString('en-US', {
-        month: 'long',
-        year: 'numeric',
-      }),
+      billingPeriod: new Date().toISOString().slice(0,7),
     },
   })
 
@@ -292,7 +289,11 @@ const handleUnitChange = (unitId: number) => {
               <FormItem>
                 <FormLabel>Reading Date</FormLabel>
                 <FormControl>
-                  <Input type="date" {...field} />
+                  <Input type="date" {...field}
+                    onChange={e => {
+                      field.onChange(e.target.value)
+                      form.setValue('billingPeriod', e.target.value.slice(0,7))
+                    }} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -309,7 +310,8 @@ const handleUnitChange = (unitId: number) => {
                 <FormLabel>Billing Period</FormLabel>
 
                 <FormControl>
-                  <Input {...field} />
+                  <Input {...field} readOnly className="bg-muted"
+                    value={form.watch('readingDate')?.slice(0,7) || ''} />
                 </FormControl>
 
                 <FormMessage />
