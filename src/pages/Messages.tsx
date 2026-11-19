@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MessageSquare, Plus, Search, UsersRound, ArrowLeft, Settings2, Trash2, Lock, LockOpen } from 'lucide-react';
 import { useConversations, useMessages } from '@/hooks/useMessages';
 import { useTypingPresence } from '@/hooks/useTypingPresence';
@@ -43,7 +44,7 @@ export default function Messages() {
   const [forwardCandidate, setForwardCandidate] = useState<Message | null>(null);
   const [showMobileList, setShowMobileList] = useState(true);
   const [confirmDeleteChat, setConfirmDeleteChat] = useState(false);
-  const [showCallHistory, setShowCallHistory] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<'chats' | 'groups' | 'calls'>('chats');
 
   const selectedConversation = selectedSnapshot?.id === selectedId
     ? selectedSnapshot : conversations.find(item => item.id === selectedId) ?? null;
@@ -94,17 +95,22 @@ export default function Messages() {
   };
 
   const filteredConversations = conversations.filter(conv => {
+    if (sidebarTab === 'chats' && conv.type !== 'DIRECT') return false;
+    if (sidebarTab === 'groups' && conv.type !== 'GROUP') return false;
     const query = search.toLowerCase().trim();
     return conv.title.toLowerCase().includes(query) ||
       conv.members.some(member => member.name.toLowerCase().includes(query)) ||
       (conv.lastMessage?.content.toLowerCase().includes(query) ?? false);
   });
   const unread = conversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
+  const directUnread = conversations.filter(conv => conv.type === 'DIRECT').reduce((sum, conv) => sum + conv.unreadCount, 0);
+  const groupUnread = conversations.filter(conv => conv.type === 'GROUP').reduce((sum, conv) => sum + conv.unreadCount, 0);
 
   const select = (conversation: Conversation) => {
     setSelectedId(conversation.id);
     setSelectedSnapshot(conversation);
     setShowMobileList(false);
+    setSidebarTab(conversation.type === 'GROUP' ? 'groups' : 'chats');
     if (conversation.unreadCount > 0) {
       void markAsRead(conversation.id).catch(() => {
         // The next server refresh will retain any real unread count.
@@ -157,6 +163,7 @@ export default function Messages() {
     setSelectedId(conversation.id);
     setSelectedSnapshot(conversation);
     setShowMobileList(false);
+    setSidebarTab(data.type === 'GROUP' ? 'groups' : 'chats');
     toast({ title: data.type === 'GROUP' ? 'Group created' : 'Conversation opened' });
     return conversation;
   };
@@ -208,64 +215,78 @@ export default function Messages() {
           {encryptionError}
         </p>
       )}
-      <div className="mb-2 flex flex-wrap items-center justify-end gap-2">
-        <Button type="button" size="sm" variant={showCallHistory ? 'default' : 'outline'}
-          onClick={() => setShowCallHistory(!showCallHistory)}>
-          {showCallHistory ? 'Back to chats' : 'Call History'}
-        </Button>
+      <div className="mb-2 flex justify-end">
         <ChatCallControls conversation={selectedConversation}
           conversations={conversations} onSelectConversation={select} />
       </div>
-      {showCallHistory && <div className="mb-3 max-h-[50dvh] overflow-y-auto rounded-lg border bg-card p-3 sm:p-4">
-        <CallHistoryPanel conversations={conversations} onOpenConversation={conversation => {
-          select(conversation);
-          setShowCallHistory(false);
-        }} />
-      </div>}
       <div className="flex h-[calc(100dvh-11rem)] min-h-[29rem] gap-3 lg:gap-5">
         {/* Conversation navigation on desktop; replaces thread on narrow phones. */}
         <Card className={`min-h-0 w-full flex-col overflow-hidden lg:flex lg:w-[340px] lg:shrink-0 ${!showMobileList ? 'hidden' : 'flex'}`}>
           <CardHeader className="shrink-0 border-b p-3 sm:p-4">
             <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-lg">Chats</CardTitle>
-                {unread > 0 && <Badge>{unread > 99 ? '99+' : unread}</Badge>}
-              </div>
-              <Button type="button" size="icon" variant="outline"
-                title="Start a new chat or group" aria-label="Start a new chat or group"
+              <CardTitle className="text-lg">Messages</CardTitle>
+              {sidebarTab !== 'calls' && <Button type="button" size="icon" variant="outline"
+                title={sidebarTab === 'groups' ? 'Create group' : 'Start a new chat'}
+                aria-label={sidebarTab === 'groups' ? 'Create group' : 'Start a new chat'}
                 onClick={() => setShowNewDialog(true)}>
                 <Plus className="h-5 w-5" />
-              </Button>
+              </Button>}
             </div>
-            <div className="relative">
+            <Tabs value={sidebarTab} onValueChange={value => setSidebarTab(value as 'chats' | 'groups' | 'calls')}>
+              <TabsList className="grid h-10 w-full grid-cols-3 gap-1 p-1" aria-label="Message sections">
+                <TabsTrigger value="chats" className="min-w-0 gap-1 px-1 text-xs sm:text-sm">
+                  Chats {directUnread > 0 && <Badge variant="secondary" className="px-1 text-[10px]">{directUnread > 99 ? '99+' : directUnread}</Badge>}
+                </TabsTrigger>
+                <TabsTrigger value="groups" className="min-w-0 gap-1 px-1 text-xs sm:text-sm">
+                  Groups {groupUnread > 0 && <Badge variant="secondary" className="px-1 text-[10px]">{groupUnread > 99 ? '99+' : groupUnread}</Badge>}
+                </TabsTrigger>
+                <TabsTrigger value="calls" className="min-w-0 px-1 text-xs sm:text-sm">Calls</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            {sidebarTab !== 'calls' && <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input value={search} onChange={event => setSearch(event.target.value)}
-                placeholder="Search conversations…" className="pl-9" />
-            </div>
+                placeholder={sidebarTab === 'groups' ? 'Search groups…' : 'Search chats…'}
+                aria-label={sidebarTab === 'groups' ? 'Search groups' : 'Search chats'} className="pl-9" />
+            </div>}
           </CardHeader>
           <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
-            {conversationsError && (
-              <p role="alert" className="border-b p-3 text-xs text-destructive">{conversationsError}</p>
-            )}
-            {loadingConversations ? (
-              <p className="p-4 text-sm text-muted-foreground">Loading chats…</p>
-            ) : filteredConversations.length ? (
-              <ConversationList
-                conversations={filteredConversations}
-                selectedId={selectedId}
-                onSelect={select}
-              />
-            ) : (
-              <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
-                <MessageSquare className="h-10 w-10 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
-                  {search ? 'No matching chats' : 'No conversations yet'}
-                </p>
-                <Button variant="outline" className="gap-2" onClick={() => setShowNewDialog(true)}>
-                  <Plus className="h-4 w-4" /> New chat
-                </Button>
+            {sidebarTab === 'calls' ? (
+              <div className="h-full min-h-0 overflow-y-auto overscroll-contain p-3">
+                <CallHistoryPanel conversations={conversations}
+                  compact onOpenConversation={conversation => select(conversation)} />
               </div>
-            )}
+            ) : (
+              <>
+                {conversationsError && (
+                  <p role="alert" className="border-b p-3 text-xs text-destructive">{conversationsError}</p>
+                )}
+                {loadingConversations ? (
+                  <p className="p-4 text-sm text-muted-foreground">Loading conversations…</p>
+                ) : filteredConversations.length ? (
+                  <ConversationList
+                    conversations={filteredConversations}
+                    selectedId={selectedId}
+                    onSelect={select}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
+                    {sidebarTab === 'groups'
+                      ? <UsersRound className="h-10 w-10 text-muted-foreground" />
+                      : <MessageSquare className="h-10 w-10 text-muted-foreground" />}
+                    <p className="text-sm text-muted-foreground">
+                      {search ? 'No matching conversations'
+                        : sidebarTab === 'groups' ? 'No groups yet' : 'No direct chats yet'}
+                    </p>
+                    <Button variant="outline" className="gap-2"
+                      onClick={() => setShowNewDialog(true)}>
+                      <Plus className="h-4 w-4" />
+                      {sidebarTab === 'groups' ? 'Create group' : 'New chat'}
+                    </Button>
+                  </div>
+                )}
+              </>
+            )
           </CardContent>
         </Card>
 
@@ -387,6 +408,7 @@ export default function Messages() {
         open={showNewDialog}
         onOpenChange={setShowNewDialog}
         onSubmit={create}
+        initialType={sidebarTab === 'groups' ? 'GROUP' : 'DIRECT'}
       />
       <ForwardMessageDialog
         open={forwardCandidate !== null}
