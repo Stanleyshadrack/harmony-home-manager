@@ -23,6 +23,7 @@ import {
 import { Plus, Search, Droplets, FileText, Filter, Zap, Download, CheckCircle, Mail, Loader2, Edit } from 'lucide-react';
 import { useBilling } from '@/hooks/useBilling';
 import { BillingAutomationPanel } from '@/components/billing/BillingAutomationPanel';
+import { InvoiceDispatchPanel } from '@/components/billing/InvoiceDispatchPanel';
 import { DepositManagementPanel } from '@/components/billing/DepositManagementPanel';
 import { InvoicePaymentSettingsPanel } from '@/components/billing/InvoicePaymentSettingsPanel';
 import { BillingStats } from '@/components/billing/BillingStats';
@@ -284,6 +285,7 @@ export default function Billing() {
 
       <div className="flex justify-end mb-3"><ViewModeToggle value={viewMode} onChange={setViewMode} /></div>
           <TabsContent value="invoices" className="mt-6">
+            <InvoiceDispatchPanel invoices={filteredInvoices} />
             {filteredInvoices.length === 0 ? (
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-16 text-center">
