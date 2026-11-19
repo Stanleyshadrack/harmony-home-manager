@@ -203,7 +203,7 @@ const App = () => (
                   path="/maintenance"
                   element={
                     <ProtectedRoute
-                      allowedRoles={["super_admin", "landlord"]}
+                      allowedRoles={["super_admin", "landlord", "employee"]}
                     >
                       <Maintenance />
                     </ProtectedRoute>
