@@ -54,11 +54,12 @@ export function useMeters() {
       });
 
       await loadStats();
+      return true;
     } catch (error) {
       console.error(error);
       toast({
         title: "Error",
-        description: "Failed to create water meter",
+        description: error instanceof Error ? error.message : "Failed to create water meter",
         variant: "destructive",
       });
     }
@@ -82,7 +83,7 @@ export function useMeters() {
       console.error(error);
       toast({
         title: "Error",
-        description: "Failed to update meter",
+        description: error instanceof Error ? error.message : "Failed to update meter",
         variant: "destructive",
       });
     }
@@ -104,13 +105,14 @@ export function useMeters() {
     // refresh stats and meters
     await loadStats();
     await loadMeters();
+    return true;
 
   } catch (error) {
     console.error(error);
 
     toast({
       title: "Error",
-      description: "Failed to assign meter",
+      description: error instanceof Error ? error.message : "Failed to assign meter",
       variant: "destructive",
     });
   }
@@ -132,9 +134,25 @@ export function useMeters() {
       console.error(error);
       toast({
         title: "Error",
-        description: "Failed to delete meter",
+        description: error instanceof Error ? error.message : "Failed to delete meter",
         variant: "destructive",
       });
+    }
+  };
+
+  const unassignMeter = async (meterId: number) => {
+    try {
+      const updated = await metersApi.unassign(meterId);
+      setMeters(prev => prev.map(m => m.id === meterId ? updated : m));
+      await loadStats();
+      await loadMeters();
+      toast({title: "Meter unassigned", description: "The meter was retained for audit and made inactive"});
+      return true;
+    } catch (error) {
+      toast({title: "Unassign failed",
+        description: error instanceof Error ? error.message : "Unable to unassign",
+        variant: "destructive"});
+      return false;
     }
   };
 
@@ -157,6 +175,7 @@ export function useMeters() {
     createMeter,
     updateMeter,
     assignMeter,
+    unassignMeter,
     deleteMeter,
     reload: loadMeters,
   };
