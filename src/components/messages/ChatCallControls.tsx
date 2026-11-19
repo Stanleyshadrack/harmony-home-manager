@@ -218,7 +218,7 @@ export function ChatCallControls({ conversation, conversations, onSelectConversa
       try {
         const status = await callApi.state(active.conversationId, active.callId);
         if (disposed) return;
-        if (status.status === 'ENDED' || status.status === 'DECLINED') {
+        if (['ENDED', 'DECLINED', 'MISSED', 'CANCELLED'].includes(status.status)) {
           resetMedia();
           toast.info(status.status === 'DECLINED' ? 'Call declined' : 'Call ended');
           return;
