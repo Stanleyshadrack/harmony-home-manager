@@ -88,7 +88,7 @@ export default function EmployeePortal() {
   });
 
   // Stats
-  const pendingTasks = assignedRequests.filter((r) => r.status === 'assigned').length;
+  const pendingTasks = assignedRequests.filter((r) => r.status === 'assigned' || r.status === 'reopened').length;
   const inProgressTasks = assignedRequests.filter((r) => r.status === 'in_progress').length;
   const completedToday = assignedRequests.filter((r) => {
     if (!r.completedDate) return false;
@@ -273,7 +273,7 @@ export default function EmployeePortal() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {assignedRequests
-                    .filter((r) => r.priority === 'urgent' && r.status !== 'resolved')
+                    .filter((r) => r.priority === 'urgent' && r.status !== 'resolved' && r.status !== 'confirmed' && r.status !== 'cancelled')
                     .slice(0, 3)
                     .map((request) => (
                       <div
@@ -290,7 +290,7 @@ export default function EmployeePortal() {
                           <Badge variant="destructive">Urgent</Badge>
                         </div>
                         <div className="flex gap-2 mt-3">
-                          {request.status === 'assigned' && (
+                          {(request.status === 'assigned' || request.status === 'reopened') && (
                             <Button size="sm" onClick={() => handleStartTask(request.id)}>
                               Start Task
                             </Button>
@@ -303,7 +303,7 @@ export default function EmployeePortal() {
                         </div>
                       </div>
                     ))}
-                  {assignedRequests.filter((r) => r.priority === 'urgent' && r.status !== 'resolved').length === 0 && (
+                  {assignedRequests.filter((r) => r.priority === 'urgent' && r.status !== 'resolved' && r.status !== 'confirmed' && r.status !== 'cancelled').length === 0 && (
                     <p className="text-center text-muted-foreground py-4">No urgent tasks</p>
                   )}
                 </CardContent>
@@ -316,7 +316,7 @@ export default function EmployeePortal() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {assignedRequests
-                    .filter((r) => r.status !== 'resolved' && r.status !== 'cancelled')
+                    .filter((r) => r.status !== 'confirmed' && r.status !== 'cancelled')
                     .slice(0, 5)
                     .map((request) => (
                       <div
@@ -337,7 +337,7 @@ export default function EmployeePortal() {
                         <Badge variant="outline">{request.status.replace('_', ' ')}</Badge>
                       </div>
                     ))}
-                  {assignedRequests.filter((r) => r.status !== 'resolved').length === 0 && (
+                  {assignedRequests.filter((r) => r.status !== 'confirmed' && r.status !== 'cancelled').length === 0 && (
                     <p className="text-center text-muted-foreground py-4">No tasks scheduled</p>
                   )}
                 </CardContent>
@@ -365,7 +365,9 @@ export default function EmployeePortal() {
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="assigned">Assigned</SelectItem>
                   <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="resolved">Resolved</SelectItem>
+                  <SelectItem value="resolved">Awaiting Tenant Confirmation</SelectItem>
+                  <SelectItem value="reopened">Reopened</SelectItem>
+                  <SelectItem value="confirmed">Tenant Confirmed</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -380,7 +382,7 @@ export default function EmployeePortal() {
                 <Card key={request.id} className="relative">
                   <MaintenanceCard request={request} />
                   <div className="px-4 pb-4 flex gap-2">
-                    {request.status === 'assigned' && (
+                    {(request.status === 'assigned' || request.status === 'reopened') && (
                       <Button 
                         size="sm" 
                         className="w-full"
