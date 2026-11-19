@@ -10,7 +10,13 @@ const SESSION_KEY = 'apartment:presence-session';
 function getSessionId() {
   let value = sessionStorage.getItem(SESSION_KEY);
   if (!value || !/^[0-9a-f-]{36}$/i.test(value)) {
-    value = crypto.randomUUID();
+    // Presence session IDs are not credentials. Unlike encrypted chat keys,
+    // they must also work on the app's current non-HTTPS LAN test address.
+    value = globalThis.crypto?.randomUUID?.() ??
+      'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, char => {
+        const n = Math.floor(Math.random() * 16);
+        return (char === 'x' ? n : (n & 3) | 8).toString(16);
+      });
     sessionStorage.setItem(SESSION_KEY, value);
   }
   return value;
