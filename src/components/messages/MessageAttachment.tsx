@@ -23,6 +23,9 @@ export function MessageAttachment({ conversationId, message }: Props) {
     ? message.decryptedAttachment?.filename || 'Encrypted attachment'
     : attachment.filename;
   const image = type.startsWith('image/');
+  const audio = type.startsWith('audio/');
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [audioError, setAudioError] = useState('');
   const ordinaryPicture = useProtectedMedia(!encrypted && image ? path : null);
   const [securePicture, setSecurePicture] = useState<string | null>(null);
 
@@ -47,6 +50,29 @@ export function MessageAttachment({ conversationId, message }: Props) {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [attachment.id, encrypted, image, message.decryptedAttachment?.fileIv, user?.id, conversationId]);
+
+  useEffect(() => {
+    if (!audio) return;
+    let active = true;
+    let objectUrl: string | null = null;
+    setAudioError('');
+    setAudioUrl(null);
+    void (async () => {
+      try {
+        const bytes = await fetchProtectedFile(path);
+        if (!active) return;
+        const blob = encrypted
+          ? await decryptChatFile(conversationId, Number(user?.id), message, bytes)
+          : bytes;
+        if (!active) return;
+        objectUrl = URL.createObjectURL(blob);
+        setAudioUrl(objectUrl);
+      } catch (error) {
+        if (active) setAudioError(error instanceof Error ? error.message : 'Unable to load voice note');
+      }
+    })();
+    return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [audio, attachment.id, encrypted, conversationId, message.decryptedAttachment?.fileIv, user?.id]);
 
   const download = async () => {
     try {
@@ -78,6 +104,11 @@ export function MessageAttachment({ conversationId, message }: Props) {
 
   return (
     <div className="mt-2 max-w-[min(20rem,75vw)] overflow-hidden rounded-lg border border-border/40 bg-background/80 text-foreground">
+      {audio && <div className="min-w-0 p-2">
+        {audioUrl ? <audio controls preload="metadata" src={audioUrl}
+          className="h-10 w-full max-w-full" aria-label="Play voice note" />
+          : <p className="text-xs text-muted-foreground">{audioError || 'Loading voice note…'}</p>}
+      </div>}
       {image && (
         <button type="button" aria-label={`Download ${filename}`}
           onClick={() => void download()} className="block w-full overflow-hidden">
