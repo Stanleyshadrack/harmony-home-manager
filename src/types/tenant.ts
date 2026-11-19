@@ -14,6 +14,14 @@ export interface Tenant {
 
   status: 'ACTIVE' | 'PENDING' | 'MOVED_OUT';
   moveInDate?: string;
+  moveInClearedAt?: string | null;
+  leaseStart?: string | null;
+  leaseEnd?: string | null;
+  leaseStatus?: 'PENDING' | 'ACTIVE' | 'VACATED' | 'OCCUPIED' | null;
+  rentAmount?: number | null;
+  depositAmount?: number | null;
+  idDocumentStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+  leaseDocumentStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
 
    avatarUrl?: string; 
     propertyName?: string;
