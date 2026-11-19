@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { MaintenanceFormData, MaintenanceCategory, MaintenancePriority } from '@/types/maintenance';
+import type { MaintenanceUnitOption } from '@/api/service/maintenanceApi';
 
 const maintenanceSchema = z.object({
   unitId: z.string().min(1, 'Unit is required'),
@@ -31,18 +32,13 @@ const maintenanceSchema = z.object({
 });
 
 interface MaintenanceFormProps {
-  onSubmit: (data: MaintenanceFormData) => void;
+  onSubmit: (data: MaintenanceFormData) => void | Promise<void>;
+  units: MaintenanceUnitOption[];
   onCancel: () => void;
   isLoading?: boolean;
 }
 
-const mockUnits = [
-  { id: 'u1', number: 'A101', propertyName: 'Sunrise Apartments' },
-  { id: 'u2', number: 'B202', propertyName: 'Sunrise Apartments' },
-  { id: 'u3', number: 'C303', propertyName: 'Ocean View Towers' },
-];
-
-export function MaintenanceForm({ onSubmit, onCancel, isLoading }: MaintenanceFormProps) {
+export function MaintenanceForm({ onSubmit, onCancel, isLoading, units }: MaintenanceFormProps) {
   const { t } = useTranslation();
 
   const form = useForm<MaintenanceFormData>({
@@ -90,13 +86,19 @@ export function MaintenanceForm({ onSubmit, onCancel, isLoading }: MaintenanceFo
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {mockUnits.map((unit) => (
-                    <SelectItem key={unit.id} value={unit.id}>
-                      {unit.number} - {unit.propertyName}
+                  {units.map((unit) => (
+                    <SelectItem key={unit.id} value={String(unit.id)}>
+                      {unit.unitNumber} - {unit.propertyName}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {units.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No actively occupied unit is assigned to your tenant account.
+                  Contact your landlord before reporting maintenance.
+                </p>
+              )}
               <FormMessage />
             </FormItem>
           )}
@@ -188,7 +190,7 @@ export function MaintenanceForm({ onSubmit, onCancel, isLoading }: MaintenanceFo
           <Button type="button" variant="outline" onClick={onCancel}>
             {t('common.cancel')}
           </Button>
-          <Button type="submit" disabled={isLoading}>
+          <Button type="submit" disabled={isLoading || units.length === 0}>
             {isLoading ? t('common.loading') : t('maintenance.newRequest')}
           </Button>
         </div>
