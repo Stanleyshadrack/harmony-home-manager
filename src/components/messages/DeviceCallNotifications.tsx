@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { BellRing } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { callApi } from '@/api/service/callApi';
+import { groupCallApi } from '@/api/service/groupCallApi';
 import { useAuth } from '@/contexts/AuthContext';
 
 function notify(title: string, body: string, conversationId: number) {
@@ -35,12 +36,13 @@ export function DeviceCallNotifications() {
       // Continue polling while this tab is open, including when it is backgrounded.
       // Timers may be throttled; true closed-browser push needs a service worker.
       try {
-        const [incoming, history] = await Promise.all([callApi.incoming(), callApi.history()]);
+        const [incoming, history, groups] = await Promise.all([callApi.incoming(), callApi.history(), groupCallApi.incoming()]);
         if (!active) return;
         const recentMissed = history.filter(call => call.recipientId === Number(user.id)
           && call.status === 'MISSED' && Date.now() - new Date(call.endedAt || call.startedAt).getTime() < 5 * 60_000);
         const ids = new Set([
           ...incoming.map(call => `incoming:${call.callId}`),
+          ...groups.map(call => `group:${call.callId}`),
           ...recentMissed.map(call => `missed:${call.callId}`),
         ]);
         if (observed.current !== null) {
@@ -48,6 +50,11 @@ export function DeviceCallNotifications() {
             if (!observed.current?.has(`incoming:${call.callId}`))
               notify(call.video ? 'Incoming video call' : 'Incoming voice call',
                 'Open PropManager Messages to answer.', call.conversationId);
+          });
+          groups.forEach(call => {
+            if (!observed.current?.has(`group:${call.callId}`))
+              notify(call.video ? 'Active group video call' : 'Active group voice call',
+                'A group conversation has started a call. Open Messages to join.', call.conversationId);
           });
           recentMissed.forEach(call => {
             if (!observed.current?.has(`missed:${call.callId}`))
