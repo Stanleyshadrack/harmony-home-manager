@@ -127,6 +127,19 @@ export const chatApi = {
       path: `${ROOT}/conversations/${id}/avatar`, method: 'DELETE',
     }),
 
+  typing: (id: number) =>
+    apiRequest<null, Array<{ userId: number; name: string }>>({
+      path: `${ROOT}/conversations/${id}/typing`,
+      method: 'GET',
+    }),
+
+  setTyping: (id: number, typing: boolean) =>
+    apiRequest<{ typing: boolean }, void>({
+      path: `${ROOT}/conversations/${id}/typing`,
+      method: 'POST',
+      body: { typing },
+    }),
+
   markRead: (id: number) =>
     apiRequest<null, void>({
       path: `${ROOT}/conversations/${id}/read`,
