@@ -9,6 +9,8 @@ export interface ChatContact {
   role: ChatRole;
   companyId: number | null;
   avatarUrl?: string | null;
+  online?: boolean;
+  lastSeenAt?: string | null;
 }
 
 export interface ChatMember {
@@ -18,6 +20,8 @@ export interface ChatMember {
   admin: boolean;
   joinedAt: string;
   avatarUrl?: string | null;
+  online?: boolean;
+  lastSeenAt?: string | null;
 }
 
 export interface MessageAttachment {
