@@ -1,5 +1,4 @@
 import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
-import { ResponsiveTableView } from '@/components/ui/responsive-table-view';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
@@ -482,79 +481,107 @@ export default function WaterData() {
               </Button>
             </div>
 
-            <Card>
-              <div className="flex justify-end mb-3"><ViewModeToggle value={viewMode} onChange={setViewMode} /></div>
-              <ResponsiveTableView mode={viewMode}>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Unit</TableHead>
-                    <TableHead>Tenant</TableHead>
-                    <TableHead>Recorded By</TableHead>
-                    <TableHead className="text-right">Previous (m³)</TableHead>
-                    <TableHead className="text-right">Current (m³)</TableHead>
-                    <TableHead className="text-right">Consumption (m³)</TableHead>
-                    <TableHead className="text-right">Total amount</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredReadings.map((reading) => (
-                    <TableRow key={reading.id}>
-                      <TableCell>{format(new Date(reading.readingDate), 'MMM d, yyyy')}</TableCell>
-                      <TableCell className="font-medium">{reading.unitNumber}</TableCell>
-                      <TableCell>{reading.tenantName}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm">{reading.recordedBy}</span>
-                          <Badge variant="outline" className="text-xs">
-                            {reading.recordedByRole}
-                          </Badge>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">{Number(reading.previousReading).toLocaleString('en-KE', {maximumFractionDigits: 3})}</TableCell>
-                      <TableCell className="text-right tabular-nums">{Number(reading.currentReading).toLocaleString('en-KE', {maximumFractionDigits: 3})}</TableCell>
-                      <TableCell className="text-right">
-                        <Badge variant={reading.consumption > 60 ? 'destructive' : 'outline'}>
-                          {Number(reading.consumption).toLocaleString('en-KE', {maximumFractionDigits: 3})} m³
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrency(Number(reading.amount))}
-                      </TableCell>
-                      <TableCell>{getStatusBadge(reading.status)}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <Button size="sm" variant="outline" className="gap-1 whitespace-nowrap"
-                            aria-label={`Compare reading history for unit ${reading.unitNumber}`}
-                            onClick={() => setComparisonReading(reading)}>
-                            <History className="h-4 w-4" /> Compare history
-                          </Button>
-                          {canApprove && reading.status === 'PENDING' && (
-                            <>
-                              <Button size="sm" variant="ghost" className="text-success"
-                                aria-label={`Approve reading for unit ${reading.unitNumber}`}
-                                onClick={() => handleApprove(reading)} disabled={actionBusy}>
-                                <Check className="h-4 w-4" />
+            <Card className="min-w-0 overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">Water readings</p>
+                  <p className="text-xs text-muted-foreground">{filteredReadings.length} matching records</p>
+                </div>
+                <ViewModeToggle value={viewMode} onChange={setViewMode} />
+              </div>
+              {filteredReadings.length === 0 ? (
+                <p className="px-4 py-10 text-center text-sm text-muted-foreground">No readings match the selected filters.</p>
+              ) : viewMode === 'list' ? (
+                <div className="w-full max-w-full overflow-x-auto" role="region" tabIndex={0}
+                  aria-label="Water readings table; scroll horizontally to see additional columns">
+                  <Table className="min-w-[1120px] text-xs xl:text-sm">
+                    <TableHeader>
+                      <TableRow className="bg-muted/30">
+                        <TableHead className="whitespace-nowrap px-3">Date</TableHead>
+                        <TableHead className="whitespace-nowrap px-3">Unit</TableHead>
+                        <TableHead className="min-w-[110px] px-3">Tenant</TableHead>
+                        <TableHead className="min-w-[145px] px-3">Recorded by</TableHead>
+                        <TableHead className="whitespace-nowrap px-2 text-right">Previous (m³)</TableHead>
+                        <TableHead className="whitespace-nowrap px-2 text-right">Current (m³)</TableHead>
+                        <TableHead className="whitespace-nowrap px-2 text-right">Consumption</TableHead>
+                        <TableHead className="whitespace-nowrap px-2 text-right">Total amount</TableHead>
+                        <TableHead className="px-3">Status</TableHead>
+                        <TableHead className="px-3">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredReadings.map(reading => (
+                        <TableRow key={reading.id}>
+                          <TableCell className="whitespace-nowrap px-3 py-3">{format(new Date(reading.readingDate), 'dd MMM yyyy')}</TableCell>
+                          <TableCell className="whitespace-nowrap px-3 py-3 font-semibold">{reading.unitNumber}</TableCell>
+                          <TableCell className="max-w-[140px] truncate px-3 py-3" title={reading.tenantName}>{reading.tenantName}</TableCell>
+                          <TableCell className="max-w-[160px] px-3 py-3">
+                            <span className="block truncate" title={reading.recordedBy}>{reading.recordedBy}</span>
+                            <span className="block text-[10px] text-muted-foreground">{reading.recordedByRole}</span>
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap px-2 py-3 text-right tabular-nums">{Number(reading.previousReading).toLocaleString('en-KE', {maximumFractionDigits: 3})}</TableCell>
+                          <TableCell className="whitespace-nowrap px-2 py-3 text-right tabular-nums">{Number(reading.currentReading).toLocaleString('en-KE', {maximumFractionDigits: 3})}</TableCell>
+                          <TableCell className="whitespace-nowrap px-2 py-3 text-right tabular-nums">{Number(reading.consumption).toLocaleString('en-KE', {maximumFractionDigits: 3})} m³</TableCell>
+                          <TableCell className="whitespace-nowrap px-2 py-3 text-right font-semibold tabular-nums">{formatCurrency(Number(reading.amount))}</TableCell>
+                          <TableCell className="whitespace-nowrap px-3 py-3">{getStatusBadge(reading.status)}</TableCell>
+                          <TableCell className="px-3 py-3">
+                            <div className="flex items-center gap-1">
+                              <Button size="sm" variant="outline" className="h-8 gap-1 whitespace-nowrap px-2" onClick={() => setComparisonReading(reading)} aria-label={`Compare history for unit ${reading.unitNumber}`}>
+                                <History className="h-3.5 w-3.5" /> Compare
                               </Button>
-                              <Button size="sm" variant="ghost" className="text-destructive"
-                                aria-label={`Reject reading for unit ${reading.unitNumber}`}
-                                onClick={() => openRejectDialog(reading)} disabled={actionBusy}>
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
+                              {canApprove && reading.status === 'PENDING' && <>
+                                <Button size="icon" variant="ghost" className="h-8 w-8 text-success" onClick={() => handleApprove(reading)} disabled={actionBusy} aria-label={`Approve unit ${reading.unitNumber}`}><Check className="h-4 w-4" /></Button>
+                                <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => openRejectDialog(reading)} disabled={actionBusy} aria-label={`Reject unit ${reading.unitNumber}`}><X className="h-4 w-4" /></Button>
+                              </>}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="grid min-w-0 grid-cols-1 gap-3 p-3 md:grid-cols-2 2xl:grid-cols-3">
+                  {filteredReadings.map(reading => (
+                    <article key={reading.id} className="min-w-0 overflow-hidden rounded-xl border bg-card">
+                      <header className="flex items-start justify-between gap-3 border-b bg-muted/20 p-4">
+                        <div className="min-w-0">
+                          <h3 className="truncate font-semibold" title={reading.unitNumber}>Unit {reading.unitNumber}</h3>
+                          <p className="truncate text-xs text-muted-foreground" title={reading.tenantName}>{reading.tenantName}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{format(new Date(reading.readingDate), 'dd MMM yyyy')}</p>
                         </div>
-                      </TableCell>
-
-                    </TableRow>
+                        <div className="shrink-0">{getStatusBadge(reading.status)}</div>
+                      </header>
+                      <div className="grid grid-cols-2 gap-px bg-border">
+                        {([
+                          ['Previous (m³)', Number(reading.previousReading).toLocaleString('en-KE', {maximumFractionDigits: 3})],
+                          ['Current (m³)', Number(reading.currentReading).toLocaleString('en-KE', {maximumFractionDigits: 3})],
+                          ['Consumption', Number(reading.consumption).toLocaleString('en-KE', {maximumFractionDigits: 3}) + ' m³'],
+                          ['Total amount', formatCurrency(Number(reading.amount))],
+                        ] as const).map(([label, value]) => (
+                          <div key={label} className="min-w-0 bg-card p-3">
+                            <p className="text-xs text-muted-foreground">{label}</p>
+                            <p className="mt-1 truncate font-semibold tabular-nums" title={value}>{value}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-between gap-2 border-t px-4 py-2.5 text-xs text-muted-foreground">
+                        <span className="min-w-0 truncate" title={reading.recordedBy}>By {reading.recordedBy}</span>
+                        <span className="shrink-0 text-[10px] uppercase">{reading.recordedByRole}</span>
+                      </div>
+                      <footer className="flex flex-wrap items-center gap-2 border-t p-3">
+                        <Button size="sm" variant="outline" className="flex-1 gap-1" onClick={() => setComparisonReading(reading)}>
+                          <History className="h-4 w-4" /> Compare history
+                        </Button>
+                        {canApprove && reading.status === 'PENDING' && <>
+                          <Button size="sm" variant="outline" className="gap-1 text-success" onClick={() => handleApprove(reading)} disabled={actionBusy}><Check className="h-4 w-4" /> Approve</Button>
+                          <Button size="sm" variant="outline" className="gap-1 text-destructive" onClick={() => openRejectDialog(reading)} disabled={actionBusy}><X className="h-4 w-4" /> Reject</Button>
+                        </>}
+                      </footer>
+                    </article>
                   ))}
-                </TableBody>
-              </Table>
-              </ResponsiveTableView>
+                </div>
+              )}
             </Card>
           </TabsContent>
 
