@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { UserPlus, Shield, UserMinus, DoorOpen, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { UserAvatar } from '@/components/profile/UserAvatar';
+import { LastSeen } from '@/components/presence/LastSeen';
 import { ConfirmActionDialog } from './ConfirmActionDialog';
 import { EmojiPicker } from './EmojiPicker';
 import { GroupPhotoControl } from './GroupPhotoControl';
@@ -207,12 +208,14 @@ export function GroupManagementDialog({ open, onOpenChange, conversation, onChan
               return (
                 <div key={member.userId}
                   className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2.5">
-                  <UserAvatar name={member.name} avatarUrl={member.avatarUrl} className="h-9 w-9" />
+                  <UserAvatar name={member.name} avatarUrl={member.avatarUrl}
+                    online={member.online} className="h-9 w-9" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">
                       {member.name}{self ? ' (You)' : ''}
                     </p>
                     <p className="text-xs text-muted-foreground">{member.role.replaceAll('_', ' ').toLowerCase()}</p>
+                    <LastSeen online={member.online} lastSeenAt={member.lastSeenAt} />
                   </div>
                   {member.admin && <Badge variant="secondary">Group admin</Badge>}
                   {isAdmin && !self && (
@@ -250,7 +253,8 @@ export function GroupManagementDialog({ open, onOpenChange, conversation, onChan
                 )}
                 {eligibleContacts.map(contact => (
                   <div key={contact.id} className="flex items-center justify-between gap-2 border-b p-2 last:border-0">
-                    <UserAvatar name={contact.name} avatarUrl={contact.avatarUrl} className="h-8 w-8" />
+                    <UserAvatar name={contact.name} avatarUrl={contact.avatarUrl}
+                      online={contact.online} className="h-8 w-8" />
                     <span className="min-w-0 flex-1 truncate text-sm">{contact.name}</span>
                     <Button size="sm" variant="outline" disabled={busy}
                       onClick={() => void execute(() => chatApi.addMember(group.id, contact.id),
