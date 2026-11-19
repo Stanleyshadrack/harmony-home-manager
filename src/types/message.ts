@@ -56,6 +56,7 @@ export interface Conversation {
   adminsOnlyEditInfo: boolean;
   createdAt: string;
   updatedAt: string;
+  avatarUrl?: string | null;
 }
 
 export interface NewConversationData {
