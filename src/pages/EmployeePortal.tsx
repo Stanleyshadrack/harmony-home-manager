@@ -1,4 +1,9 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
+import { apiRequest } from '@/api/https';
+import { waterReadingsApi } from '@/api/service/water.readings.service';
+import type { WaterReadingFormData } from '@/types/billing';
 import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -33,26 +38,37 @@ import {
 } from 'lucide-react';
 import { useMaintenance } from '@/hooks/useMaintenance';
 import { useUnits } from '@/hooks/useProperties';
-import { useBilling } from '@/hooks/useBilling';
 import { useToast } from '@/hooks/use-toast';
 import { MaintenanceCard } from '@/components/maintenance/MaintenanceCard';
 import { WaterReadingForm } from '@/components/billing/WaterReadingForm';
 
-// Mock current employee data
-const MOCK_EMPLOYEE = {
-  id: 'emp-1',
-  name: 'James Kamau',
-  email: 'james.kamau@property.com',
-  role: 'Maintenance Technician',
-  assignedProperties: ['1', '2'],
-};
+interface EmployeeProfile {
+  id: number;
+  firstName?: string | null;
+  lastName?: string | null;
+  fullName?: string | null;
+  jobTitle?: string | null;
+  propertyIds?: number[] | null;
+}
 
 export default function EmployeePortal() {
+  const { user } = useAuth();
   const { t } = useTranslation();
   const { toast } = useToast();
   const { requests, updateStatus, loadError: maintenanceError } = useMaintenance();
-  const { units } = useUnits();
-  const { createWaterInvoice } = useBilling();
+  const { units, isLoading: unitsLoading, loadError: unitsError } = useUnits();
+  const profile = useQuery({
+    queryKey: ['employee-profile', user?.id],
+    enabled: !!user?.id && user.role === 'employee',
+    queryFn: () => apiRequest<null, EmployeeProfile>({ path: '/api/employees/me', method: 'GET' }),
+    retry: 1,
+  });
+  const propertyIds = profile.data?.propertyIds ?? [];
+  const assignedUnits = units.filter(unit => propertyIds.includes(Number(unit.propertyId)));
+  const occupiedAssignedUnits = assignedUnits.filter(unit => unit.status === 'occupied');
+  const profileName = profile.data?.fullName?.trim()
+    || [profile.data?.firstName, profile.data?.lastName].filter(Boolean).join(' ')
+    || user?.email || 'Employee';
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
@@ -114,20 +130,34 @@ export default function EmployeePortal() {
     }
   };
 
-  const handleWaterReading = async (data: any) => {
+  const handleWaterReading = async (data: WaterReadingFormData) => {
+    if (!occupiedAssignedUnits.some(unit => Number(unit.id) === Number(data.unitId))) {
+      toast({ title: 'Invalid unit', description: 'Select a unit assigned to you.', variant: 'destructive' });
+      return;
+    }
     setIsLoading(true);
     try {
-      const unit = units.find((u) => u.id === data.unitId);
-      if (unit) {
-        await createWaterInvoice(data);
-        toast({
-          title: 'Water Reading Recorded',
-          description: 'Reading saved; billing follows the approved billing cycle.',
-        });
-        setShowWaterReadingForm(false);
-      }
-    } catch {
-      toast({ title: 'Error', variant: 'destructive' });
+      const result = await waterReadingsApi.create({
+        unitId: Number(data.unitId),
+        meterId: String(data.meterId),
+        currentReading: Number(data.currentReading),
+        ratePerUnit: Number(data.ratePerUnit),
+        readingDate: data.readingDate,
+        billingPeriod: data.billingPeriod,
+      });
+      toast({
+        title: 'Water reading recorded',
+        description: result.status === 'PENDING'
+          ? 'Saved for landlord approval; no invoice was generated.'
+          : 'Reading saved successfully.',
+      });
+      setShowWaterReadingForm(false);
+    } catch (error) {
+      toast({
+        title: 'Water reading failed',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -146,15 +176,18 @@ export default function EmployeePortal() {
               <User className="h-8 w-8 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">{MOCK_EMPLOYEE.name}</h1>
-              <p className="text-muted-foreground">{MOCK_EMPLOYEE.role}</p>
+              <h1 className="text-2xl font-bold">{profile.isLoading ? 'Loading employee...' : profileName}</h1>
+              <p className="text-muted-foreground">{profile.data?.jobTitle || 'Employee'}</p>
             </div>
           </div>
           <Badge variant="outline" className="text-sm">
-            {MOCK_EMPLOYEE.assignedProperties.length} Properties Assigned
+            {profile.isLoading ? 'Loading properties...' : `${propertyIds.length} Properties Assigned`}
           </Badge>
         </div>
 
+        {profile.isError && <p role="alert" className="text-sm text-destructive">
+          Employee profile could not be loaded: {profile.error instanceof Error ? profile.error.message : 'Please retry.'}
+        </p>}
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
@@ -390,14 +423,16 @@ export default function EmployeePortal() {
                 <h2 className="text-xl font-semibold">Water Meter Readings</h2>
                 <p className="text-muted-foreground">Record water consumption for units</p>
               </div>
-              <Button onClick={() => setShowWaterReadingForm(true)}>
+              <Button disabled={profile.isLoading || profile.isError || occupiedAssignedUnits.length === 0} onClick={() => setShowWaterReadingForm(true)}>
                 <Droplets className="h-4 w-4 mr-2" />
                 New Reading
               </Button>
             </div>
 
+            {unitsError && <p role="alert" className="text-sm text-destructive">{unitsError}</p>}
+            {(profile.isLoading || unitsLoading) && <p className="text-sm text-muted-foreground">Loading assigned units...</p>}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {units.filter((u) => u.status === 'occupied').map((unit) => (
+              {occupiedAssignedUnits.map((unit) => (
                 <Card key={unit.id}>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-3">
@@ -447,6 +482,7 @@ export default function EmployeePortal() {
           </DialogHeader>
           <WaterReadingForm
             onSubmit={handleWaterReading}
+            allowedUnitIds={occupiedAssignedUnits.map(unit => Number(unit.id))}
             onCancel={() => setShowWaterReadingForm(false)}
             isLoading={isLoading}
           />
