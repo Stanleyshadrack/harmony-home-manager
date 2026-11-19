@@ -574,6 +574,7 @@ const tenantInvoices = invoices.filter(
         <DialogContent className="grid h-[min(90dvh,820px)] w-[calc(100vw-2rem)] max-w-2xl grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden p-4 sm:p-6">
           <DialogHeader className="shrink-0 pr-8 text-left"><DialogTitle>Maintenance request details</DialogTitle></DialogHeader>
           {selectedMaintenance && (
+            <div className="min-h-0 overflow-y-auto overscroll-contain pr-1 pb-5 sm:pr-2">
             <MaintenanceDetail request={selectedMaintenance}
               onTenantDecision={async (accepted, reason) => {
                 await tenantConfirmation(selectedMaintenance.id, accepted, reason);
@@ -588,6 +589,7 @@ const tenantInvoices = invoices.filter(
               onAddNote={async content => {
                 await addNote(selectedMaintenance.id, content);
               }} />
+            </div>
           )}
         </DialogContent>
       </Dialog>
