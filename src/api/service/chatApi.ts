@@ -64,6 +64,50 @@ export const chatApi = {
   attachmentUrl: (conversationId: number, attachmentId: number) =>
     `${ROOT}/conversations/${conversationId}/attachments/${attachmentId}`,
 
+  identity: () =>
+    apiRequest<null, { userId: number; publicKey: string } | null>({
+      path: `${ROOT}/keys/me`, method: 'GET',
+    }),
+
+  registerIdentity: (publicKey: string) =>
+    apiRequest<{ publicKey: string }, { userId: number; publicKey: string }>({
+      path: `${ROOT}/keys/me`, method: 'PUT', body: { publicKey },
+    }),
+
+  recipientKeys: (id: number) =>
+    apiRequest<null, Array<{ userId: number; publicKey: string | null }>>({
+      path: `${ROOT}/conversations/${id}/keys`, method: 'GET',
+    }),
+
+  enableE2EE: (id: number) =>
+    apiRequest<null, Conversation>({
+      path: `${ROOT}/conversations/${id}/enable-e2ee`, method: 'POST',
+    }),
+
+  sendEncrypted: (id: number, payload: {
+    ciphertext: string; cipherIv: string; ephemeralPublicKey: string;
+    recipientKeys: Array<{userId:number; wrappedKey:string; wrapIv:string}>;
+    forwarded: boolean;
+  }) =>
+    apiRequest<typeof payload, Message>({
+      path: `${ROOT}/conversations/${id}/encrypted-messages`,
+      method: 'POST', body: payload,
+    }),
+
+  sendEncryptedFile: (id: number, payload: {
+    ciphertext: string; cipherIv: string; ephemeralPublicKey: string;
+    recipientKeys: Array<{userId:number; wrappedKey:string; wrapIv:string}>;
+    forwarded: boolean;
+  }, encryptedFile: File) => {
+    const data = new FormData();
+    data.append('file', encryptedFile);
+    data.append('payload', JSON.stringify(payload));
+    return apiRequest<FormData, Message>({
+      path: `${ROOT}/conversations/${id}/encrypted-attachments`,
+      method: 'POST', body: data, timeout: 45000,
+    });
+  },
+
   deleteConversation: (id: number) =>
     apiRequest<null, void>({
       path: `${ROOT}/conversations/${id}`, method: 'DELETE',
