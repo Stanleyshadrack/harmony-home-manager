@@ -168,15 +168,15 @@ export default function EmployeePortal() {
       breadcrumbs={[{ label: 'Employee Portal' }]}
       title="Employee Portal"
     >
-      <div className="space-y-6">
+      <div className="min-w-0 max-w-full space-y-6">
         {/* Welcome Section */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-4">
             <div className="p-3 rounded-full bg-primary/10">
               <User className="h-8 w-8 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">{profile.isLoading ? 'Loading employee...' : profileName}</h1>
+              <h1 className="text-2xl font-bold break-words">{profile.isLoading ? 'Loading employee...' : profileName}</h1>
               <p className="text-muted-foreground">{profile.data?.jobTitle || 'Employee'}</p>
             </div>
           </div>
@@ -189,7 +189,7 @@ export default function EmployeePortal() {
           Employee profile could not be loaded: {profile.error instanceof Error ? profile.error.message : 'Please retry.'}
         </p>}
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Card>
             <CardContent className="p-4 flex items-center gap-4">
               <div className="p-3 rounded-full bg-warning/10">
@@ -262,7 +262,7 @@ export default function EmployeePortal() {
 
           {/* Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid min-w-0 grid-cols-1 gap-6 xl:grid-cols-2">
               {/* Urgent Tasks */}
               <Card>
                 <CardHeader>
@@ -377,7 +377,7 @@ export default function EmployeePortal() {
                 Maintenance tasks could not be loaded: {maintenanceError}
               </p>
             )}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-2">
               {filteredRequests.map((request) => (
                 <Card key={request.id} className="relative">
                   <MaintenanceCard request={request} />
@@ -420,8 +420,8 @@ export default function EmployeePortal() {
 
           {/* Water Readings Tab */}
           <TabsContent value="water" className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
                 <h2 className="text-xl font-semibold">Water Meter Readings</h2>
                 <p className="text-muted-foreground">Record water consumption for units</p>
               </div>
@@ -433,7 +433,7 @@ export default function EmployeePortal() {
 
             {unitsError && <p role="alert" className="text-sm text-destructive">{unitsError}</p>}
             {(profile.isLoading || unitsLoading) && <p className="text-sm text-muted-foreground">Loading assigned units...</p>}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
               {occupiedAssignedUnits.map((unit) => (
                 <Card key={unit.id}>
                   <CardContent className="p-4">
@@ -478,7 +478,7 @@ export default function EmployeePortal() {
 
       {/* Water Reading Dialog */}
       <Dialog open={showWaterReadingForm} onOpenChange={setShowWaterReadingForm}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-h-[90dvh] w-[calc(100vw-2rem)] max-w-lg overflow-y-auto overflow-x-hidden p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Record Water Reading</DialogTitle>
           </DialogHeader>
