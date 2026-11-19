@@ -48,7 +48,7 @@ export function InviteUserDialog({ open, onOpenChange, inviterRole, initialRole 
 
   useEffect(() => {
     if (open) {
-      setRole(initialRole === "LANDLORD" && inviterRole === "super_admin" ? "LANDLORD" : "TENANT");
+      setRole(initialRole ?? "TENANT");
       setEmail("");
       setCompanyId(null);
       setPropertyIds([]);
@@ -57,11 +57,14 @@ export function InviteUserDialog({ open, onOpenChange, inviterRole, initialRole 
     }
   }, [open, initialRole, inviterRole]);
 
-  // Companies must be selectable before any property has been created.
+  // Super admins choose a company; landlords automatically use their own.
   const companies = options.companies;
+  const ownCompanyId = inviterRole === "landlord" ? companies[0]?.id ?? null : null;
+  const effectiveCompanyId = inviterRole === "landlord" && role === "LANDLORD"
+    ? ownCompanyId : companyId;
 
   const properties = options.properties.filter(p =>
-    role !== "LANDLORD" || companyId === null || p.companyId === companyId
+    role !== "LANDLORD" || effectiveCompanyId === null || p.companyId === effectiveCompanyId
   );
 
   const availableUnits = options.units.filter(u => propertyIds.includes(u.propertyId));
@@ -97,7 +100,7 @@ export function InviteUserDialog({ open, onOpenChange, inviterRole, initialRole 
       toast.error("Select a vacant unit for this tenant");
       return;
     }
-    if (role === "LANDLORD" && !companyId) {
+    if (role === "LANDLORD" && !effectiveCompanyId) {
       toast.error("Select the landlord's company");
       return;
     }
@@ -108,7 +111,7 @@ export function InviteUserDialog({ open, onOpenChange, inviterRole, initialRole 
         email: email.trim(),
         role,
         apartmentIds: propertyIds,
-        companyId: role === "LANDLORD" ? companyId : undefined,
+        companyId: role === "LANDLORD" ? effectiveCompanyId : undefined,
         unitId: role === "TENANT" ? unitId : undefined,
       });
       toast.success("Invitation accepted by email service");
@@ -139,14 +142,15 @@ export function InviteUserDialog({ open, onOpenChange, inviterRole, initialRole 
 
   const roles: { value: Role; label: string }[] = inviterRole === "super_admin"
     ? [{ value: "TENANT", label: "Tenant" }, { value: "EMPLOYEE", label: "Employee" }, { value: "LANDLORD", label: "Landlord" }]
-    : [{ value: "TENANT", label: "Tenant" }, { value: "EMPLOYEE", label: "Employee" }];
+    : [{ value: "TENANT", label: "Tenant" }, { value: "EMPLOYEE", label: "Employee" },
+       { value: "LANDLORD", label: "Landlord" }];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Invite user</DialogTitle>
-          <DialogDescription>Invitations are sent by the backend and expire after 48 hours.</DialogDescription>
+          <DialogDescription>Invitations expire after 48 hours. Landlords may invite colleagues into their company, employees for assigned properties and tenants for vacant units.</DialogDescription>
         </DialogHeader>
         {loading && <p className="text-sm text-muted-foreground">Loading available properties and invitations…</p>}
         <form className="space-y-4" onSubmit={submit}>
@@ -165,16 +169,27 @@ export function InviteUserDialog({ open, onOpenChange, inviterRole, initialRole 
           {role === "LANDLORD" && (
             <div className="space-y-1">
               <Label>Company <span className="text-destructive">*</span></Label>
-              <Select value={companyId === null ? "" : String(companyId)}
-                onValueChange={value => { setCompanyId(Number(value)); setPropertyIds([]); }}>
-                <SelectTrigger><SelectValue placeholder="Select company" /></SelectTrigger>
-                <SelectContent>{companies.map(company => (
-                  <SelectItem key={company.id} value={String(company.id)}>{company.name}</SelectItem>
-                ))}</SelectContent>
-              </Select>
+              {inviterRole === "landlord" ? (
+                <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
+                  {companies[0]?.name || "Your company is not available"}
+                  <p className="text-xs text-muted-foreground">
+                    New landlords are automatically attached to your company.
+                  </p>
+                </div>
+              ) : (
+                <Select value={companyId === null ? "" : String(companyId)}
+                  onValueChange={value => { setCompanyId(Number(value)); setPropertyIds([]); }}>
+                  <SelectTrigger><SelectValue placeholder="Select company" /></SelectTrigger>
+                  <SelectContent>{companies.map(company => (
+                    <SelectItem key={company.id} value={String(company.id)}>{company.name}</SelectItem>
+                  ))}</SelectContent>
+                </Select>
+              )}
               {!companies.length && !loading && (
                 <p className="text-sm text-destructive">
-                  Create a company in the Companies tab before inviting a landlord.
+                  {inviterRole === "landlord"
+                    ? "Your account must be attached to a valid company."
+                    : "Create a company in the Companies tab before inviting a landlord."}
                 </p>
               )}
             </div>
@@ -212,7 +227,7 @@ export function InviteUserDialog({ open, onOpenChange, inviterRole, initialRole 
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
-            <Button type="submit" disabled={working || loading || (role === "LANDLORD" ? companyId === null : !propertyIds.length || (role === "TENANT" && !unitId))}>
+            <Button type="submit" disabled={working || loading || (role === "LANDLORD" ? effectiveCompanyId === null : !propertyIds.length || (role === "TENANT" && !unitId))}>
               {working ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <UserPlus className="h-4 w-4 mr-2" />}
               Send invitation
             </Button>
