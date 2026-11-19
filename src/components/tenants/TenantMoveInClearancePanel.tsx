@@ -51,6 +51,34 @@ export function TenantMoveInClearancePanel({
 
   useEffect(() => { void refresh(); }, [refresh]);
 
+  const completedSteps = record?.checklist.filter(step => step.complete).length ?? 0;
+  const totalSteps = record?.checklist.length ?? 0;
+  const progress = totalSteps ? Math.round(completedSteps / totalSteps * 100) : 0;
+  const nextStep = record?.checklist.find(step => !step.complete);
+  const leaseApproved = record?.checklist.some(step => step.key === 'LEASE_APPROVED' && step.complete);
+  const firstRentIssued = record?.checklist.some(step => step.key === 'FIRST_RENT_ISSUED' && step.complete);
+
+  const issueFirstRent = async () => {
+    if (!tenantId || tenantView || !leaseApproved || firstRentIssued || busy) return;
+    if (!window.confirm('Create the first rent invoice for this approved lease? Check the agreed rent before proceeding.')) return;
+    setBusy(true);
+    try {
+      const result = await apiRequest<null, MoveInClearance>({
+        path: `/api/tenants/${tenantId}/move-in-clearance/first-rent`, method: 'POST',
+      });
+      setRecord(result);
+      toast({title: 'First rent invoice issued',
+        description: 'The invoice has been created. Confirm actual payment through Billing before clearing move-in.'});
+    } catch (e) {
+      toast({title: 'Could not issue first rent',
+        description: e instanceof Error ? e.message : 'Please review the lease and existing invoices.',
+        variant: 'destructive'});
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const confirm = async () => {
     if (!record || !record.ready || record.cleared || busy || !tenantId) return;
     if (!window.confirm(
@@ -107,6 +135,26 @@ export function TenantMoveInClearancePanel({
                   : record.ready ? 'Ready for final confirmation' : 'Checks outstanding'}
               </Badge>
             </div>
+            <section className="space-y-2" aria-label="Tenant onboarding progress">
+              <div className="flex items-center justify-between gap-2 text-sm">
+                <span className="font-medium">Journey progress</span>
+                <span className="tabular-nums text-muted-foreground">{completedSteps} of {totalSteps} checks complete ({progress}%)</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-muted" role="progressbar"
+                aria-valuenow={completedSteps} aria-valuemin={0} aria-valuemax={totalSteps || 1}>
+                <div className="h-full rounded-full bg-primary transition-all" style={{width: `${progress}%`}} />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Invitation accepted and onboarding submitted → tenant verification → document reviews →
+                lease approval → deposit and first rent → landlord clearance.
+              </p>
+              {!record.cleared && nextStep && (
+                <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
+                  <p className="font-medium">Next outstanding step: {nextStep.label}</p>
+                  <p className="mt-1 text-muted-foreground">{nextStep.detail}</p>
+                </div>
+              )}
+            </section>
             <div className="space-y-2">
               {record.checklist.map(step => (
                 <div key={step.key} className="flex items-start gap-2.5 rounded-md border px-3 py-2.5">
@@ -133,6 +181,12 @@ export function TenantMoveInClearancePanel({
               </p>
             ) : (
               <div className="space-y-2">
+                {leaseApproved && !firstRentIssued && !record.cleared && (
+                  <Button className="w-full" variant="outline" onClick={issueFirstRent}
+                    disabled={busy}>
+                    {busy ? 'Issuing…' : 'Issue first rent invoice'}
+                  </Button>
+                )}
                 <Button className="w-full" onClick={confirm}
                   disabled={!record.ready || record.cleared || busy}>
                   <ShieldCheck className="mr-2 h-4 w-4" />
