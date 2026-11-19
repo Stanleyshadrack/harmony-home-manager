@@ -77,6 +77,13 @@ export const maintenanceApi = {
       method: 'PATCH',
     })),
 
+  tenantConfirmation: async (id: string, accepted: boolean, reason?: string) => mapMaintenance(
+    await apiRequest<{ accepted: boolean; reason?: string }, ApiMaintenance>({
+      path: `/api/maintenance/${encodeURIComponent(id)}/tenant-confirmation`,
+      method: 'POST',
+      body: { accepted, reason },
+    })),
+
   addNote: async (id: string, content: string) =>
     apiRequest<{ requestId: number; content: string }, ApiNote>({
       path: '/api/maintenance/notes', method: 'POST',
