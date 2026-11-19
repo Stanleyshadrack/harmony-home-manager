@@ -70,7 +70,10 @@ const filteredTenants = tenants.filter((tenant) => {
     unit.includes(searchTerm);
 
   if (activeTab === "all") return matchesSearch;
-  return matchesSearch && tenant.status === activeTab;
+  const expectedStatus = activeTab === 'active' ? 'ACTIVE'
+    : activeTab === 'pending' ? 'PENDING'
+    : activeTab === 'inactive' ? 'MOVED_OUT' : activeTab.toUpperCase();
+  return matchesSearch && tenant.status === expectedStatus;
 });
 
   const stats = {
