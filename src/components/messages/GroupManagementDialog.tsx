@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { UserAvatar } from '@/components/profile/UserAvatar';
 import { ConfirmActionDialog } from './ConfirmActionDialog';
 import { EmojiPicker } from './EmojiPicker';
+import { GroupPhotoControl } from './GroupPhotoControl';
 
 type PendingAction =
   | { kind: 'remove'; userId: number; name: string }
@@ -157,6 +158,7 @@ export function GroupManagementDialog({ open, onOpenChange, conversation, onChan
           </DialogDescription>
         </DialogHeader>
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain pb-3 pr-1">
+          <GroupPhotoControl conversation={group} onChanged={onChanged} />
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
               <Label htmlFor="chat-info-title">Group name</Label>
