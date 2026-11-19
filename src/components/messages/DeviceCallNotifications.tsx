@@ -32,7 +32,8 @@ export function DeviceCallNotifications() {
     let active = true;
     observed.current = null;
     const poll = async () => {
-      if (document.visibilityState === 'hidden') return;
+      // Continue polling while this tab is open, including when it is backgrounded.
+      // Timers may be throttled; true closed-browser push needs a service worker.
       try {
         const [incoming, history] = await Promise.all([callApi.incoming(), callApi.history()]);
         if (!active) return;
