@@ -73,12 +73,14 @@ export default function NotificationLogs() {
     breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }, { label: "Notification Logs" }]}>
     <div className="space-y-6">
       <p className="text-sm text-muted-foreground">
-        Database-backed audit of notifications. “SMTP accepted” means the mail server accepted submission, not that delivery to the inbox was confirmed.
-        Earlier records may have an unverified status. History is retained; clearing logs in the browser is intentionally disabled.
+        Database-backed history of system emails and in-app notifications, including send failures.
+        “SMTP accepted” means the mail server accepted the message, not that it reached the recipient's inbox.
+        Sensitive OTP codes, email bodies and password links are not stored in the SMTP audit log.
+        The latest 500 records are shown; older records remain in PostgreSQL.
       </p>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {([
-          ["Total recorded", stats.total, Clock],
+          ["Recently logged", stats.total, Clock],
           ["SMTP accepted", stats.accepted, CheckCircle2],
           ["Submission failed", stats.failed, AlertTriangle],
           ["Other/legacy", stats.recorded, Mail],
@@ -92,7 +94,7 @@ export default function NotificationLogs() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between gap-4 flex-wrap">
-            <CardTitle>Send history</CardTitle>
+            <CardTitle>Email & notification history</CardTitle>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => void refresh()} disabled={loading}><RefreshCw className="h-4 w-4 mr-2" />Refresh</Button>
               <Button variant="outline" onClick={exportCsv} disabled={!filtered.length || loading}>
@@ -127,11 +129,12 @@ export default function NotificationLogs() {
               <ResponsiveTableView mode={viewMode}>
                 <table className="w-full text-sm">
                 <thead><tr className="border-b text-left"><th className="py-3 pr-3">Date</th><th className="pr-3">Recipient</th>
-                  <th className="pr-3">Channel</th><th className="pr-3">Subject / message</th><th>Status</th></tr></thead>
+                  <th className="pr-3">Channel</th><th className="pr-3">Type</th><th className="pr-3">Subject / message</th><th>Status</th></tr></thead>
                 <tbody>{filtered.map(log => <tr key={log.id} className="border-b last:border-0">
                   <td className="py-3 pr-3 whitespace-nowrap">{log.timestamp ? new Date(log.timestamp).toLocaleString() : "—"}</td>
                   <td className="pr-3">{log.recipient}</td>
                   <td className="pr-3">{log.channel || "—"}</td>
+                  <td className="pr-3 whitespace-nowrap text-muted-foreground">{log.type?.replace(/_/g, " ") || "—"}</td>
                   <td className="pr-3 max-w-xs"><strong>{log.title || "Notification"}</strong>
                     <p className="text-muted-foreground truncate" title={log.message}>{log.message}</p></td>
                   <td className="capitalize">{log.status === "accepted" ? "SMTP accepted" : log.status === "recorded" ? "Legacy / unverified" : log.status.replace("_", " ")}</td>
