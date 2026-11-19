@@ -246,6 +246,9 @@ export default function Onboarding() {
                 to issue a new link. Older links stop working after resending.
               </p>
             )}
+            <p className="text-xs text-muted-foreground">
+              Watch your email for a password-setup link after approval. Do not attempt to move in until final clearance is confirmed.
+            </p>
             <Button onClick={() => navigate("/auth")} className="w-full">
               Go to Login
             </Button>
@@ -363,7 +366,9 @@ export default function Onboarding() {
             <div className="bg-warning/10 p-3 rounded flex gap-2">
               <AlertTriangle className="h-4 w-4 text-warning" />
               <p className="text-xs">
-                Account activation requires admin approval
+                {invite?.role === "TENANT"
+                    ? "Your application needs landlord approval. Approved applicants receive a separate password-setup email. Signing a lease or paying a deposit does not authorize move-in."
+                    : "Account activation requires approval."}
               </p>
             </div>
 
