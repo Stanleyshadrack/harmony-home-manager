@@ -94,7 +94,19 @@ function publicCoordinates(key: string): string {
   return jwk.x + ':' + jwk.y;
 }
 
-export async function ensureChatIdentity(userId: number): Promise<void> {
+const identityProvisioning = new Map<number, Promise<void>>();
+
+export function ensureChatIdentity(userId: number): Promise<void> {
+  const existing = identityProvisioning.get(userId);
+  if (existing) return existing;
+  const task = provisionChatIdentity(userId).finally(() => {
+    if (identityProvisioning.get(userId) === task) identityProvisioning.delete(userId);
+  });
+  identityProvisioning.set(userId, task);
+  return task;
+}
+
+async function provisionChatIdentity(userId: number): Promise<void> {
   assertSecureContext();
   const registered = await chatApi.identity();
   const local = await localIdentity(userId);
