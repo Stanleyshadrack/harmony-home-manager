@@ -96,7 +96,6 @@ const handleUnitChange = async (unitId: number) => {
 setMeterName(unit.meterName || "")
 
 
-  console.log("Selected Unit:", unit)
   // 1️⃣ First use meter last reading
   if (unit.lastReading !== undefined && unit.lastReading !== null) {
     form.setValue("previousReading", unit.lastReading)
@@ -109,7 +108,6 @@ setMeterName(unit.meterName || "")
 
   // 2️⃣ fallback → water readings API
   const lastReading = await getLastReadingForUnit(unitId)
-  console.log("Last Reading:", lastReading)
 
   if (lastReading) {
     form.setValue("previousReading", lastReading.currentReading)
@@ -121,8 +119,8 @@ setMeterName(unit.meterName || "")
 
 
 
-  const handleSubmit = (data: WaterReadingFormData) => {
-    onSubmit(data)
+  const handleSubmit = async (data: WaterReadingFormData) => {
+    await onSubmit(data)
   }
 
 
@@ -162,10 +160,10 @@ setMeterName(unit.meterName || "")
                     <SelectItem
   key={unit.id}
   value={String(unit.id)}
-  disabled={!unit.meterName}
+  disabled={!unit.meterId}
 >
   {unit.unitNumber}
-  {!unit.meterName && " (No meter)"}
+  {!unit.meterId && " (No meter)"}
 </SelectItem>
 
                   ))}
@@ -346,7 +344,7 @@ setMeterName(unit.meterName || "")
           <div className="bg-info/10 border border-info/20 rounded-lg p-4">
 
             <p className="text-sm font-medium text-info mb-2">
-              Bill Preview
+              Estimated Consumption Cost
             </p>
 
             <div className="grid grid-cols-2 gap-2 text-sm">
@@ -362,7 +360,7 @@ setMeterName(unit.meterName || "")
 
               <div className="flex justify-between">
                 <span className="text-muted-foreground">
-                  Estimated Bill:
+                  Estimated Cost:
                 </span>
                 <span className="font-semibold">
                   KES {estimatedBill.toFixed(2)}
