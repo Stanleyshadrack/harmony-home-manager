@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useUnits } from "@/hooks/useProperties"
-import { useWaterData } from '@/hooks/useWaterData'
+import { useMeters } from '@/hooks/useMeters'
 import {
   Form,
   FormControl,
@@ -50,7 +50,7 @@ export function WaterReadingForm({ onSubmit, onCancel, isLoading, allowedUnitIds
   const { t } = useTranslation()
   const { units, isLoading: unitsLoading } = useUnits()
   const selectableUnits = allowedUnitIds ? units.filter(u => allowedUnitIds.includes(Number(u.id))) : units
-  const { getLastReadingForUnit } = useWaterData()
+  const { meters, loading: metersLoading } = useMeters()
   const [lastReadingDate, setLastReadingDate] = useState<string | null>(null)
 
 
@@ -72,8 +72,6 @@ export function WaterReadingForm({ onSubmit, onCancel, isLoading, allowedUnitIds
   })
 
 
-  const selectedUnitId = form.watch('unitId')
-  const unit = selectableUnits.find((u) => Number(u.id) === selectedUnitId)
 
   const previousReading = form.watch('previousReading')
   const currentReading = form.watch('currentReading')
@@ -85,41 +83,25 @@ export function WaterReadingForm({ onSubmit, onCancel, isLoading, allowedUnitIds
 
 
 
-const handleUnitChange = async (unitId: number) => {
-
-  const unit = selectableUnits.find((u) => Number(u.id) === unitId)
-
-  if (!unit) return
-
-  // Autofill meter id
-  form.setValue("meterId", unit.meterId || "")
-setMeterName(unit.meterName || "")
-
-
-  // 1️⃣ First use meter last reading
-  if (unit.lastReading !== undefined && unit.lastReading !== null) {
-    form.setValue("previousReading", unit.lastReading)
-    
-    return
-
-     
-  }
-
-
-  // 2️⃣ fallback → water readings API
-  const lastReading = await getLastReadingForUnit(unitId)
-
-  if (lastReading) {
-    form.setValue("previousReading", lastReading.currentReading)
-  setLastReadingDate(lastReading.readingDate)
-  } else {
-    form.setValue("previousReading", 0)
-  }
+const handleUnitChange = (unitId: number) => {
+  const selectedMeter = meters.find(m => Number(m.unitId) === unitId && m.status === 'ACTIVE')
+  setLastReadingDate(selectedMeter?.lastReadingDate || null)
+  form.setValue("meterId", selectedMeter?.id != null ? String(selectedMeter.id) : "")
+  setMeterName(selectedMeter?.meterName || "")
+  form.setValue("previousReading", Number(selectedMeter?.lastReading ?? 0))
+  form.setValue("currentReading", Number(selectedMeter?.lastReading ?? 0))
 }
 
 
-
   const handleSubmit = async (data: WaterReadingFormData) => {
+    if (!data.meterId) {
+      form.setError('meterId', { message: 'Selected unit has no active assigned meter' })
+      return
+    }
+    if (data.currentReading < data.previousReading) {
+      form.setError('currentReading', { message: 'Current reading cannot be below the meter baseline' })
+      return
+    }
     await onSubmit(data)
   }
 
@@ -150,7 +132,7 @@ setMeterName(unit.meterName || "")
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue
-                      placeholder={unitsLoading ? "Loading units..." : "Select unit"}
+                      placeholder={unitsLoading || metersLoading ? "Loading units and meters..." : "Select unit"}
                     />
                   </SelectTrigger>
                 </FormControl>
@@ -160,10 +142,10 @@ setMeterName(unit.meterName || "")
                     <SelectItem
   key={unit.id}
   value={String(unit.id)}
-  disabled={!unit.meterId}
+  disabled={!meters.some(m => Number(m.unitId) === Number(unit.id) && m.status === 'ACTIVE')}
 >
   {unit.unitNumber}
-  {!unit.meterId && " (No meter)"}
+  {!meters.some(m => Number(m.unitId) === Number(unit.id) && m.status === "ACTIVE") && " (No active meter)"}
 </SelectItem>
 
                   ))}
