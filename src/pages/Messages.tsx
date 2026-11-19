@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Plus, Search, UsersRound, ArrowLeft, Settings2 } from 'lucide-react';
+import { MessageSquare, Plus, Search, UsersRound, ArrowLeft, Settings2, Trash2 } from 'lucide-react';
 import { useConversations, useMessages } from '@/hooks/useMessages';
 import { ConversationList } from '@/components/messages/ConversationList';
 import { MessageThread } from '@/components/messages/MessageThread';
@@ -12,11 +13,15 @@ import { MessageInput } from '@/components/messages/MessageInput';
 import { NewConversationDialog } from '@/components/messages/NewConversationDialog';
 import { GroupManagementDialog } from '@/components/messages/GroupManagementDialog';
 import { ForwardMessageDialog } from '@/components/messages/ForwardMessageDialog';
+import { ConfirmActionDialog } from '@/components/messages/ConfirmActionDialog';
+import { chatApi } from '@/api/service/chatApi';
+import { UserAvatar } from '@/components/profile/UserAvatar';
 import type { Conversation, Message, NewConversationData } from '@/types/message';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Messages() {
   const { toast } = useToast();
+  const location = useLocation();
   const {
     conversations, isLoading: loadingConversations, error: conversationsError,
     createConversation, markAsRead, refreshConversations,
@@ -29,6 +34,7 @@ export default function Messages() {
   const [showGroupDialog, setShowGroupDialog] = useState(false);
   const [forwardCandidate, setForwardCandidate] = useState<Message | null>(null);
   const [showMobileList, setShowMobileList] = useState(true);
+  const [confirmDeleteChat, setConfirmDeleteChat] = useState(false);
 
   const selectedConversation = selectedSnapshot?.id === selectedId
     ? selectedSnapshot : conversations.find(item => item.id === selectedId) ?? null;
@@ -48,6 +54,31 @@ export default function Messages() {
       setShowGroupDialog(false);
     }
   }, [conversations, selectedId, loadingConversations, conversationsError]);
+
+  useEffect(() => {
+    const value = new URLSearchParams(location.search).get('conversation');
+    const id = value ? Number(value) : NaN;
+    if (!Number.isSafeInteger(id) || id <= 0 || !conversations.length) return;
+    const found = conversations.find(c => c.id === id);
+    if (found) {
+      setSelectedId(id);
+      setSelectedSnapshot(found);
+      setShowMobileList(false);
+      if (found.unreadCount > 0) void markAsRead(id).catch(() => {});
+    }
+  }, [location.search, conversations.length]);
+
+  const deleteChatForMe = async () => {
+    if (!selectedConversation) return;
+    await chatApi.deleteConversation(selectedConversation.id);
+    setSelectedId(null);
+    setSelectedSnapshot(null);
+    setShowGroupDialog(false);
+    setShowMobileList(true);
+    await refreshConversations();
+    toast({ title: 'Conversation deleted from your inbox',
+      description: 'Other participants still have their own copies.' });
+  };
 
   const filteredConversations = conversations.filter(conv => {
     const query = search.toLowerCase().trim();
@@ -196,6 +227,10 @@ export default function Messages() {
                     onClick={() => setShowMobileList(true)}>
                     <ArrowLeft className="h-5 w-5" />
                   </Button>
+                  {selectedConversation.type === 'GROUP' && (
+                    <UserAvatar name={selectedConversation.title}
+                      avatarUrl={selectedConversation.avatarUrl} className="h-10 w-10" />
+                  )}
                   <div className="min-w-0 flex-1">
                     <CardTitle className="truncate text-base sm:text-lg">
                       {selectedConversation.title}
@@ -206,6 +241,13 @@ export default function Messages() {
                         : 'One-to-one conversation'}
                     </p>
                   </div>
+                  <Button type="button" size="icon" variant="outline"
+                    className="h-10 w-10 shrink-0"
+                    title="Delete conversation for me"
+                    aria-label="Delete conversation for me"
+                    onClick={() => setConfirmDeleteChat(true)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                   {selectedConversation.type === 'GROUP' && (
                     <Button type="button" variant="outline" size="sm"
                       className="min-h-10 shrink-0 gap-2"
@@ -254,6 +296,14 @@ export default function Messages() {
         </Card>
       </div>
 
+      <ConfirmActionDialog
+        open={confirmDeleteChat}
+        onOpenChange={setConfirmDeleteChat}
+        title="Delete this conversation?"
+        description="The chat and its previous messages will disappear from your inbox. Other participants will retain their messages. New messages can make this conversation appear again."
+        confirmLabel="Delete for me"
+        onConfirm={deleteChatForMe}
+      />
       <NewConversationDialog
         open={showNewDialog}
         onOpenChange={setShowNewDialog}
