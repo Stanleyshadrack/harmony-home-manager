@@ -623,6 +623,20 @@ export default function WaterMeters() {
                   </Select>
                 </div>
                 <div className="space-y-2">
+                  <Label>Meter status</Label>
+                  <Select value={formData.status || 'ACTIVE'}
+                    onValueChange={(value: WaterMeter['status']) =>
+                      setFormData({...formData,status:value})}
+                    disabled={!showEditDialog}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ACTIVE">Active</SelectItem>
+                      <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
+                      <SelectItem value="INACTIVE">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="manufacturer">Manufacturer</Label>
                   <Input
                     id="manufacturer"
