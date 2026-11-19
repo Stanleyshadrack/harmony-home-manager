@@ -42,6 +42,8 @@ import { useUnits } from '@/hooks/useProperties';
 import { useToast } from '@/hooks/use-toast';
 import { MaintenanceCard } from '@/components/maintenance/MaintenanceCard';
 import { WaterReadingForm } from '@/components/billing/WaterReadingForm';
+import { OperationFeedbackDialog, type OperationFeedback } from '@/components/ui/OperationFeedbackDialog';
+import { waterReadingFailure } from '@/utils/waterReadingFeedback';
 
 interface EmployeeProfile {
   id: number;
@@ -81,6 +83,7 @@ export default function EmployeePortal() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showWaterReadingForm, setShowWaterReadingForm] = useState(false);
+  const [waterFeedback, setWaterFeedback] = useState<OperationFeedback | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   // The backend already scopes maintenance to the authenticated employee's assignments.
@@ -139,7 +142,12 @@ export default function EmployeePortal() {
 
   const handleWaterReading = async (data: WaterReadingFormData) => {
     if (!occupiedAssignedUnits.some(unit => Number(unit.id) === Number(data.unitId))) {
-      toast({ title: 'Invalid unit', description: 'Select a unit assigned to you.', variant: 'destructive' });
+      setWaterFeedback({
+        kind: 'warning',
+        title: 'Unit not assigned to you',
+        message: 'This unit is not part of your assigned occupied units.',
+        guidance: 'Choose a unit assigned to you, or ask the landlord to check your property assignment.',
+      });
       return;
     }
     setIsLoading(true);
@@ -152,19 +160,19 @@ export default function EmployeePortal() {
         readingDate: data.readingDate,
         billingPeriod: data.billingPeriod,
       });
-      toast({
-        title: 'Water reading recorded',
-        description: result.status === 'PENDING'
-          ? 'Saved for landlord approval; no invoice was generated.'
-          : 'Reading saved successfully.',
-      });
       setShowWaterReadingForm(false);
-    } catch (error) {
-      toast({
-        title: 'Water reading failed',
-        description: error instanceof Error ? error.message : 'Please try again.',
-        variant: 'destructive',
+      setWaterFeedback({
+        kind: 'success',
+        title: 'Water reading saved',
+        message: result.status === 'PENDING'
+          ? 'The meter reading has been submitted and is pending landlord approval. It has not yet been included in an invoice.'
+          : 'The meter reading was saved successfully.',
+        guidance: result.status === 'PENDING'
+          ? 'The landlord can review it under Water Data → Pending Approval. Please do not submit it again.'
+          : 'The approved reading will be available to the billing process for the following month.',
       });
+    } catch (error) {
+      setWaterFeedback(waterReadingFailure(error));
     } finally {
       setIsLoading(false);
     }
@@ -500,6 +508,7 @@ export default function EmployeePortal() {
           />
         </DialogContent>
       </Dialog>
+      <OperationFeedbackDialog feedback={waterFeedback} onClose={() => setWaterFeedback(null)} />
     </DashboardLayout>
   );
 }
