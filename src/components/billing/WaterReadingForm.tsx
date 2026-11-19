@@ -38,16 +38,18 @@ const waterReadingSchema = z.object({
 
 
 interface WaterReadingFormProps {
-  onSubmit: (data: WaterReadingFormData) => void
+  onSubmit: (data: WaterReadingFormData) => void | Promise<void>
+  allowedUnitIds?: number[]
   onCancel: () => void
   isLoading?: boolean
 }
 
 
-export function WaterReadingForm({ onSubmit, onCancel, isLoading }: WaterReadingFormProps) {
+export function WaterReadingForm({ onSubmit, onCancel, isLoading, allowedUnitIds }: WaterReadingFormProps) {
 
   const { t } = useTranslation()
   const { units, isLoading: unitsLoading } = useUnits()
+  const selectableUnits = allowedUnitIds ? units.filter(u => allowedUnitIds.includes(Number(u.id))) : units
   const { getLastReadingForUnit } = useWaterData()
   const [lastReadingDate, setLastReadingDate] = useState<string | null>(null)
 
@@ -71,7 +73,7 @@ export function WaterReadingForm({ onSubmit, onCancel, isLoading }: WaterReading
 
 
   const selectedUnitId = form.watch('unitId')
-  const unit = units.find((u) => Number(u.id) === selectedUnitId)
+  const unit = selectableUnits.find((u) => Number(u.id) === selectedUnitId)
 
   const previousReading = form.watch('previousReading')
   const currentReading = form.watch('currentReading')
@@ -85,7 +87,7 @@ export function WaterReadingForm({ onSubmit, onCancel, isLoading }: WaterReading
 
 const handleUnitChange = async (unitId: number) => {
 
-  const unit = units.find((u) => Number(u.id) === unitId)
+  const unit = selectableUnits.find((u) => Number(u.id) === unitId)
 
   if (!unit) return
 
@@ -156,7 +158,7 @@ setMeterName(unit.meterName || "")
                 </FormControl>
 
                 <SelectContent>
-                  {units.map((unit) => (
+                  {selectableUnits.map((unit) => (
                     <SelectItem
   key={unit.id}
   value={String(unit.id)}
@@ -276,7 +278,7 @@ setMeterName(unit.meterName || "")
           render={({ field }) => (
             <FormItem>
 
-              <FormLabel>Rate per Unit ($)</FormLabel>
+              <FormLabel>Rate per Unit (KES)</FormLabel>
 
               <FormControl>
                 <Input
@@ -363,7 +365,7 @@ setMeterName(unit.meterName || "")
                   Estimated Bill:
                 </span>
                 <span className="font-semibold">
-                  ${estimatedBill.toFixed(2)}
+                  KES {estimatedBill.toFixed(2)}
                 </span>
               </div>
 
@@ -384,7 +386,7 @@ setMeterName(unit.meterName || "")
           </Button>
 
           <Button type="submit" disabled={isLoading}>
-            {isLoading ? t('common.loading') : 'Generate Water Bill'}
+            {isLoading ? t('common.loading') : allowedUnitIds ? 'Submit Reading for Approval' : 'Save Water Reading'}
           </Button>
 
         </div>
