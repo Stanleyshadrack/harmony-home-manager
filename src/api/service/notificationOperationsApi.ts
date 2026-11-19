@@ -16,7 +16,7 @@ export type DeliveryHistory = {
   recipient: string;
   title: string | null;
   message: string;
-  status: "accepted" | "failed" | "in_app" | "recorded";
+  status: "accepted" | "failed" | "skipped" | "in_app" | "recorded";
 };
 
 export type DeliveryResult = {
