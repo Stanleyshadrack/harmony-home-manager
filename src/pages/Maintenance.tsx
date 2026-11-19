@@ -190,7 +190,7 @@ export default function Maintenance() {
         { label: t('maintenance.title') },
       ]}
     >
-      <div className="space-y-6">
+      <div className="min-w-0 max-w-full space-y-6">
         {loadError && <Card className="border-destructive/40"><CardContent className="py-3 text-sm text-destructive">
           Unable to load maintenance: {loadError}
         </CardContent></Card>}
@@ -209,8 +209,8 @@ export default function Maintenance() {
         )}
 
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <div className="flex flex-1 gap-3 w-full sm:w-auto">
-            <div className="relative flex-1 sm:max-w-xs">
+          <div className="flex min-w-0 flex-1 flex-wrap gap-3 w-full sm:w-auto">
+            <div className="relative min-w-[160px] flex-1 sm:max-w-xs">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder={t('common.search')}
@@ -223,7 +223,7 @@ export default function Maintenance() {
               value={priorityFilter}
               onValueChange={(value) => setPriorityFilter(value as MaintenanceRequest['priority'] | 'all')}
             >
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className="w-full min-w-[130px] sm:w-[160px]">
                 <Filter className="h-4 w-4 mr-2" />
                 <SelectValue placeholder={t('maintenance.priority')} />
               </SelectTrigger>
@@ -245,7 +245,7 @@ export default function Maintenance() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
+          <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 p-1">
             <TabsTrigger value="all">
               All ({requests.length})
             </TabsTrigger>
@@ -283,7 +283,7 @@ export default function Maintenance() {
                 </CardContent>
               </Card>
             ) : (
-              <div className={viewMode === 'grid' ? "grid gap-4 md:grid-cols-2 lg:grid-cols-3" : "grid grid-cols-1 gap-3"}>
+              <div className={viewMode === 'grid' ? "grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-2 2xl:grid-cols-3" : "grid min-w-0 grid-cols-1 gap-3"}>
                 {filteredRequests.map((request) => (
                   <MaintenanceCard
                     key={request.id}
@@ -300,7 +300,7 @@ export default function Maintenance() {
       </div>
 
       <Dialog open={showRequestForm} onOpenChange={setShowRequestForm}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-h-[90dvh] w-[calc(100vw-2rem)] max-w-lg overflow-y-auto overflow-x-hidden p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>{t('maintenance.newRequest')}</DialogTitle>
           </DialogHeader>
@@ -314,7 +314,7 @@ export default function Maintenance() {
       </Dialog>
 
       <Dialog open={showAssignForm} onOpenChange={setShowAssignForm}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-h-[90dvh] w-[calc(100vw-2rem)] max-w-lg overflow-y-auto overflow-x-hidden p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Assign Request</DialogTitle>
           </DialogHeader>
