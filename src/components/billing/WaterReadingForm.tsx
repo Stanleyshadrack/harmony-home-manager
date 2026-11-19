@@ -50,7 +50,6 @@ export function WaterReadingForm({ onSubmit, onCancel, isLoading, allowedUnitIds
   const { t } = useTranslation()
   const { units, isLoading: unitsLoading } = useUnits()
   const selectableUnits = allowedUnitIds ? units.filter(u => allowedUnitIds.includes(Number(u.id))) : units
-  const selectedUnit = selectableUnits.find(u => Number(u.id) === Number(form.watch('unitId')))
   const { meters, loading: metersLoading } = useMeters()
   const [lastReadingDate, setLastReadingDate] = useState<string | null>(null)
 
@@ -71,6 +70,7 @@ export function WaterReadingForm({ onSubmit, onCancel, isLoading, allowedUnitIds
 
 
 
+  const selectedUnit = selectableUnits.find(u => Number(u.id) === Number(form.watch('unitId')))
   const previousReading = form.watch('previousReading')
   const currentReading = form.watch('currentReading')
   const ratePerUnit = form.watch('ratePerUnit')
