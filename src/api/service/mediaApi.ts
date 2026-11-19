@@ -3,7 +3,7 @@ import { tokenService } from '@/services/tokenService';
 
 /** JWT-protected binary files must never use the publicly accessible /uploads URL. */
 export async function fetchProtectedFile(path: string): Promise<Blob> {
-  if (!/^\/api\/(chat\/conversations\/\d+\/attachments\/\d+|users\/\d+\/avatar)(\?.*)?$/.test(path)) {
+  if (!/^\/api\/(chat\/conversations\/\d+\/(?:attachments\/\d+|avatar)|users\/\d+\/avatar)(\?.*)?$/.test(path)) {
     throw new Error('Invalid protected media URL');
   }
 
