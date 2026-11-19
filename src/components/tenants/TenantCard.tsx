@@ -3,29 +3,23 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { MoreVertical, Eye, Edit, Mail, Phone, Trash2 } from 'lucide-react';
+import { Eye, Mail, Phone } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 interface TenantCardProps {
   tenant: Tenant;
   onView: (tenant: Tenant) => void;
-  onEdit: (tenant: Tenant) => void;
-  onDelete: (tenant: Tenant) => void;
+  onEdit?: (tenant: Tenant) => void;
+  onDelete?: (tenant: Tenant) => void;
 }
 
-const statusColors = {
-  active: 'bg-green-500/10 text-green-500 border-green-500/20',
-  pending: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
-  inactive: 'bg-muted text-muted-foreground border-muted',
+const statusColors: Record<string,string> = {
+  ACTIVE: 'bg-green-500/10 text-green-500 border-green-500/20',
+  PENDING: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
+  MOVED_OUT: 'bg-muted text-muted-foreground border-muted',
 };
 
-export function TenantCard({ tenant, onView, onEdit, onDelete }: TenantCardProps) {
+export function TenantCard({ tenant, onView }: TenantCardProps) {
   const { t } = useTranslation();
 
   return (
@@ -45,34 +39,14 @@ export function TenantCard({ tenant, onView, onEdit, onDelete }: TenantCardProps
                 {tenant.firstName} {tenant.lastName}
               </h3>
               <p className="text-sm text-muted-foreground">
-                {tenant.unitNumber} • {tenant.propertyName}
+                {tenant.unitNumber || 'Unit awaiting approval'} • {tenant.propertyName || 'Property pending'}
               </p>
             </div>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onView(tenant)}>
-                <Eye className="h-4 w-4 mr-2" />
-                {t('common.view')}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onEdit(tenant)}>
-                <Edit className="h-4 w-4 mr-2" />
-                {t('common.edit')}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => onDelete(tenant)}
-                className="text-destructive"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                {t('common.delete')}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button variant="outline" size="sm" className="shrink-0 gap-1"
+            onClick={() => onView(tenant)}>
+            <Eye className="h-4 w-4" /> Journey
+          </Button>
         </div>
 
         <div className="mt-4 space-y-2">
@@ -91,7 +65,7 @@ export function TenantCard({ tenant, onView, onEdit, onDelete }: TenantCardProps
             {tenant.status}
           </Badge>
           <span className="text-xs text-muted-foreground">
-            Move in: {tenant.moveInDate ? new Date(tenant.moveInDate).toLocaleDateString() : 'Not recorded'}
+            Move-in: {tenant.moveInDate ? new Date(tenant.moveInDate).toLocaleDateString() : 'Not cleared'}
           </span>
         </div>
       </CardContent>
