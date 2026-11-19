@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '@/api/https';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Invoice } from '@/types/billing';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 type Result = { sent: number; failed: number; skipped: number; failedInvoiceIds: number[] };
 
 export function InvoiceDispatchPanel({ invoices }: { invoices: Invoice[] }) {
+  const { user } = useAuth();
   const [selected, setSelected] = useState<number[]>([]);
   const [busy, setBusy] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
@@ -34,6 +36,7 @@ export function InvoiceDispatchPanel({ invoices }: { invoices: Invoice[] }) {
       setError(e instanceof Error ? e.message : 'Invoice dispatch failed');
     } finally { setBusy(false); }
   };
+  if (user?.role !== 'super_admin' && user?.role !== 'landlord') return null;
   return <Card className="mb-5">
     <CardHeader><CardTitle className="text-base">Dispatch invoices to tenants</CardTitle>
       <p className="text-sm text-muted-foreground">Choose individual invoices or all invoices currently visible under the billing filters. Each recipient is checked by the backend; SMTP attempts appear in My Notification Logs.</p>
