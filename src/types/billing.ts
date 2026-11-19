@@ -3,6 +3,7 @@
 ===================================== */
 
 export type InvoiceType =
+  | 'combined'
   | 'rent'
   | 'water'
   | 'utilities'
@@ -56,9 +57,28 @@ export interface Invoice {
   paidDate?: string;
 
   waterReading?: WaterReadingResponse;
+  lines?: InvoiceLine[];
+  priorBalanceAtIssue?: number;
+  billingYear?: number;
+  billingMonth?: number;
+  invoiceDisplayName?: string;
+  paymentMethodLabel?: string;
+  paybillNumber?: string;
+  paymentAccountReference?: string;
+  paymentSupportContact?: string;
+  paymentInstructions?: string;
 
   createdAt: string;
   updatedAt: string;
+}
+
+export interface InvoiceLine {
+  type: 'RENT' | 'WATER' | 'OTHER' | string;
+  description: string;
+  amount: number;
+  waterReadingId?: number;
+  periodYear?: number;
+  periodMonth?: number;
 }
 
 /* =====================================
