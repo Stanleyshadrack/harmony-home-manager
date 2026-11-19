@@ -241,7 +241,7 @@ export default function EmployeePortal() {
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid h-auto w-full grid-cols-4 gap-1 p-1">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">Dashboard</span>
@@ -280,9 +280,9 @@ export default function EmployeePortal() {
                         key={request.id}
                         className="p-3 bg-destructive/5 border border-destructive/20 rounded-lg"
                       >
-                        <div className="flex items-start justify-between">
+                        <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
                           <div>
-                            <p className="font-medium">{request.title}</p>
+                            <p className="font-medium break-words">{request.title}</p>
                             <p className="text-sm text-muted-foreground">
                               {request.propertyName} • Unit {request.unitNumber}
                             </p>
@@ -328,7 +328,7 @@ export default function EmployeePortal() {
                             request.status === 'in_progress' ? 'bg-info' : 'bg-warning'
                           }`} />
                           <div>
-                            <p className="font-medium">{request.title}</p>
+                            <p className="font-medium break-words">{request.title}</p>
                             <p className="text-sm text-muted-foreground">
                               {request.category}
                             </p>
