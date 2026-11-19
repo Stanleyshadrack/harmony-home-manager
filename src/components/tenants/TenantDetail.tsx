@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Tenant } from '@/types/tenant';
+import { TenantMoveInClearancePanel } from './TenantMoveInClearancePanel';
 import { useLeases, useTenantDocuments } from '@/hooks/useTenants';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -132,11 +133,16 @@ export function TenantDetail({ tenant, open, onOpenChange }: TenantDetailProps) 
           </div>
 
           <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-4">
               <TabsTrigger value="profile">{t('tenants.profile')}</TabsTrigger>
               <TabsTrigger value="lease">{t('tenants.lease')}</TabsTrigger>
               <TabsTrigger value="documents">{t('tenants.documents')}</TabsTrigger>
+              <TabsTrigger value="clearance">Move-in</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="clearance" className="mt-4">
+              <TenantMoveInClearancePanel tenantId={tenant.id} />
+            </TabsContent>
 
             <TabsContent value="profile" className="mt-4 space-y-4">
               <Card>
