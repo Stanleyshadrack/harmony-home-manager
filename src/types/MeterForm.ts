@@ -12,4 +12,5 @@ export type MeterForm = {
   notes: string
   lastReading: number
   lastReadingDate?: string
+  status?: WaterMeter["status"]
 }
