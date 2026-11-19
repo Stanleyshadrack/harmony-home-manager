@@ -36,6 +36,16 @@ export function NotificationBell() {
   const { notifications, markAsRead, markAllAsRead, deleteNotification, getUnreadCount, isLoading, error } = useInAppNotifications(user?.id);
   const [isOpen, setIsOpen] = useState(false);
 
+  useEffect(() => {
+    const arm = () => { void armNotificationSound(); };
+    window.addEventListener('pointerdown', arm, { once: true });
+    window.addEventListener('keydown', arm, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', arm);
+      window.removeEventListener('keydown', arm);
+    };
+  }, []);
+
   const unreadCount = getUnreadCount();
 
   const handleNotificationClick = (notification: InAppNotification) => {
