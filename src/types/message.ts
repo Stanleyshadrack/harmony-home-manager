@@ -25,6 +25,7 @@ export interface MessageAttachment {
   filename: string;
   contentType: string;
   size: number;
+  encrypted?: boolean;
 }
 
 export interface Message {
