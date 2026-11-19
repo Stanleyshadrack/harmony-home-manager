@@ -1,5 +1,6 @@
 import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -42,6 +43,7 @@ export default function Maintenance() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { user } = useAuth();
+  const location = useLocation();
   const {
     requests,
     isLoading,
@@ -50,6 +52,8 @@ export default function Maintenance() {
     updateStatus,
     addNote,
     getEmployees,
+    availableUnits,
+    loadError,
   } = useMaintenance();
 
   const [activeTab, setActiveTab] = useState('all');
@@ -59,9 +63,29 @@ export default function Maintenance() {
   const [showAssignForm, setShowAssignForm] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<MaintenanceRequest | undefined>();
+  const [eligibleEmployees, setEligibleEmployees] = useState<Array<{id:string;name:string;specialty:string}>>([]);
+  const [assigneeLoading, setAssigneeLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  // Only landlords and super_admin can assign tasks
+  useEffect(() => {
+    if (selectedRequest) {
+      const latest = requests.find(item => item.id === selectedRequest.id);
+      if (latest && latest !== selectedRequest) setSelectedRequest(latest);
+    }
+  }, [requests, selectedRequest?.id]);
+
+  useEffect(() => {
+    const id = new URLSearchParams(location.search).get('request');
+    if (!id) return;
+    const match = requests.find(item => item.id === id);
+    if (match) {
+      setSelectedRequest(match);
+      setShowDetail(true);
+    }
+  }, [location.search, requests.length]);
+
   const canAssign = user?.role === 'landlord' || user?.role === 'super_admin';
+  const canCreate = user?.role === 'tenant';
 
   const filteredRequests = requests.filter((request) => {
     const matchesSearch =
@@ -78,39 +102,41 @@ export default function Maintenance() {
     return matchesSearch && matchesPriority && matchesTab;
   });
 
-  const handleCreateRequest = (data: any) => {
-    createRequest(data, 't1', 'John Doe');
-    setShowRequestForm(false);
-    toast({
-      title: 'Request Created',
-      description: 'Maintenance request has been submitted successfully.',
-    });
+  const handleCreateRequest = async (data: Parameters<typeof createRequest>[0]) => {
+    setBusy(true);
+    try {
+      await createRequest(data);
+      setShowRequestForm(false);
+      toast({ title: 'Request created', description: 'Your request was saved.' });
+    } catch (error) {
+      toast({ title: 'Creation failed', description: error instanceof Error ? error.message : 'Try again.',
+        variant: 'destructive' });
+    } finally { setBusy(false); }
   };
 
-  const handleAssign = (data: any) => {
-    if (!canAssign) {
-      toast({
-        title: 'Permission Denied',
-        description: 'Only landlords can assign maintenance tasks.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    assignRequest(data);
-    setShowAssignForm(false);
-    setSelectedRequest(undefined);
-    toast({
-      title: 'Request Assigned',
-      description: 'Maintenance request has been assigned successfully.',
-    });
+  const handleAssign = async (data: Parameters<typeof assignRequest>[0]) => {
+    if (!canAssign) return;
+    setBusy(true);
+    try {
+      await assignRequest(data);
+      setShowAssignForm(false);
+      setSelectedRequest(undefined);
+      toast({ title: 'Maintenance assigned', description: 'The task was saved and notifications queued.' });
+    } catch (error) {
+      toast({ title: 'Assignment failed', description: error instanceof Error ? error.message : 'Try again.',
+        variant: 'destructive' });
+    } finally { setBusy(false); }
   };
 
-  const handleUpdateStatus = (request: MaintenanceRequest, status: MaintenanceStatus) => {
-    updateStatus(request.id, status);
-    toast({
-      title: 'Status Updated',
-      description: `Request marked as ${status}.`,
-    });
+  const handleUpdateStatus = async (request: MaintenanceRequest, status: MaintenanceStatus) => {
+    setBusy(true);
+    try {
+      await updateStatus(request.id, status);
+      toast({ title: 'Status updated', description: `Maintenance is now ${status.replaceAll('_', ' ')}.` });
+    } catch (error) {
+      toast({ title: 'Status update failed',
+        description: error instanceof Error ? error.message : 'Try again.', variant: 'destructive' });
+    } finally { setBusy(false); }
   };
 
   const handleViewRequest = (request: MaintenanceRequest) => {
@@ -118,41 +144,42 @@ export default function Maintenance() {
     setShowDetail(true);
   };
 
-  const handleAssignClick = (request: MaintenanceRequest) => {
-    if (!canAssign) {
-      toast({
-        title: 'Permission Denied',
-        description: 'Only landlords can assign maintenance tasks.',
-        variant: 'destructive',
-      });
-      return;
-    }
+  const handleAssignClick = async (request: MaintenanceRequest) => {
+    if (!canAssign || request.status !== 'pending') return;
     setSelectedRequest(request);
+    setEligibleEmployees([]);
     setShowAssignForm(true);
+    setAssigneeLoading(true);
+    try {
+      const employees = await getEmployees(request.id);
+      setEligibleEmployees(employees);
+    } catch (error) {
+      toast({ title: 'Cannot load eligible employees',
+        description: error instanceof Error ? error.message : 'Try again.',
+        variant: 'destructive' });
+      setShowAssignForm(false);
+    } finally { setAssigneeLoading(false); }
   };
 
-  const handleAddNote = (content: string) => {
-    if (selectedRequest) {
-      const userRole = user?.role === 'super_admin' ? 'landlord' : (user?.role || 'landlord');
-      const userName = (user?.firstName && user?.lastName) ? `${user.firstName} ${user.lastName}` : 'Property Manager';
-      
-      addNote(selectedRequest.id, content, user?.id || 'user', userName, userRole as 'employee' | 'landlord' | 'tenant');
-      setSelectedRequest({
-        ...selectedRequest,
-        notes: [
-          ...selectedRequest.notes,
-          {
-            id: `note-${Date.now()}`,
-            requestId: selectedRequest.id,
-            userId: user?.id || 'user',
-            userName,
-            userRole: userRole as 'employee' | 'landlord' | 'tenant',
-            content,
-            createdAt: new Date().toISOString(),
-          },
-        ],
-      });
-    }
+  const handleAddNote = async (content: string) => {
+    if (!selectedRequest) return;
+    setBusy(true);
+    try {
+      const created = await addNote(selectedRequest.id, content);
+      setSelectedRequest(previous => previous ? {
+        ...previous,
+        notes: [...previous.notes, {
+          id: String(created.id), requestId: previous.id,
+          userId: user?.id || '', userName: created.userName,
+          userRole: (created.userRole || 'SYSTEM').toLowerCase() as MaintenanceRequest['notes'][number]['userRole'],
+          content: created.content, createdAt: created.createdAt,
+        }],
+      } : previous);
+    } catch (error) {
+      toast({ title: 'Note was not saved',
+        description: error instanceof Error ? error.message : 'Try again.', variant: 'destructive' });
+      throw error;
+    } finally { setBusy(false); }
   };
 
   return (
@@ -164,6 +191,9 @@ export default function Maintenance() {
       ]}
     >
       <div className="space-y-6">
+        {loadError && <Card className="border-destructive/40"><CardContent className="py-3 text-sm text-destructive">
+          Unable to load maintenance: {loadError}
+        </CardContent></Card>}
         <MaintenanceStats requests={requests} />
 
         {/* Role-based info banner for employees */}
@@ -206,7 +236,7 @@ export default function Maintenance() {
               </SelectContent>
             </Select>
           </div>
-          {canAssign && (
+          {canCreate && (
             <Button onClick={() => setShowRequestForm(true)}>
               <Plus className="h-4 w-4 mr-2" />
               {t('maintenance.newRequest')}
@@ -244,7 +274,7 @@ export default function Maintenance() {
                       ? 'Try adjusting your search or filter criteria.'
                       : 'No maintenance requests have been submitted yet.'}
                   </p>
-                  {canAssign && (
+                  {canCreate && (
                     <Button onClick={() => setShowRequestForm(true)}>
                       <Plus className="h-4 w-4 mr-2" />
                       {t('maintenance.newRequest')}
@@ -260,7 +290,7 @@ export default function Maintenance() {
                     request={request}
                     onView={handleViewRequest}
                     onAssign={canAssign ? handleAssignClick : undefined}
-                    onUpdateStatus={handleUpdateStatus}
+                    onUpdateStatus={busy ? undefined : (request, status) => { void handleUpdateStatus(request, status); }}
                   />
                 ))}
               </div>
@@ -276,6 +306,7 @@ export default function Maintenance() {
           </DialogHeader>
           <MaintenanceForm
             onSubmit={handleCreateRequest}
+            units={availableUnits}
             onCancel={() => setShowRequestForm(false)}
             isLoading={isLoading}
           />
@@ -290,13 +321,13 @@ export default function Maintenance() {
           {selectedRequest && (
             <AssignmentForm
               request={selectedRequest}
-              employees={getEmployees()}
+              employees={eligibleEmployees}
               onSubmit={handleAssign}
               onCancel={() => {
                 setShowAssignForm(false);
                 setSelectedRequest(undefined);
               }}
-              isLoading={isLoading}
+              isLoading={isLoading || busy || assigneeLoading}
             />
           )}
         </DialogContent>
