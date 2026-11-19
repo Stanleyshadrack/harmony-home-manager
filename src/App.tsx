@@ -14,6 +14,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Locked from "./pages/Locked";
 import { SessionLockManager } from "@/components/auth/SessionLockManager";
+import { PresenceTracker } from "@/components/presence/PresenceTracker";
 import { SystemMaintenanceGate } from "@/components/auth/SystemMaintenanceGate";
 import Dashboard from "./pages/Dashboard";
 import RecentActivities from "./pages/RecentActivities";
@@ -54,6 +55,7 @@ const App = () => (
             <Sonner />
             <BrowserRouter>
               <SessionLockManager />
+              <PresenceTracker />
               <SystemMaintenanceGate>
               <Routes>
                 {/* Public routes */}
