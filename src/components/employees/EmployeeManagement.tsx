@@ -221,40 +221,51 @@ export function EmployeeManagement() {
   };
 
   const handleApproveRegistration = async (registration: Employee) => {
+    if (isProcessing) return;
     setIsProcessing(true);
     try {
-      await apiRequest<null, unknown>({
-        path: `/api/landlords/employees/${registration.id}/approve`, method: 'POST',
+      // Cached registrations can be stale after a successful approval whose
+      // previous HTTP response failed. Check the source-of-truth first.
+      const current = await apiRequest<null, { status: string }>({
+        path: `/api/employees/${registration.id}`, method: 'GET',
       });
-      await queryClient.invalidateQueries({ queryKey: ['employees'] });
-      
-      // In-app notification
-      // addNotification({
-      //   userId: registration.phone,
-      //   title: 'Registration Approved!',
-      //   message: 'Your employee account has been approved by the landlord. You can now log in.',
-      //   category: 'registration_approved',
-      //   priority: 'high',
-      //   link: '/auth',
-      // });
-
-      // Send SMS notification
-      if (registration.phone) {
-        await sendQuickNotification(
-          registration.phone,
-          `${registration.firstName} ${registration.lastName}`,
-          'registration_approved',
-          'sms',
-          {
-            name: registration.firstName,
-            role: 'employee'
-          }
-        );
+      if (current.status?.toUpperCase() !== 'PENDING') {
+        toast.info(`${registration.firstName} is already ${(current.status || 'not pending').toLowerCase()}. The list is being refreshed.`);
+        return;
       }
 
-      toast.success(`${registration.firstName} ${registration.lastName}'s employee account approved. Notification sent.`);
+      await apiRequest<null, void>({
+        path: `/api/landlords/employees/${registration.id}/approve`,
+        method: 'POST',
+      });
+
+      toast.success(`${registration.firstName} ${registration.lastName}'s employee account approved.`);
+
+      // An optional SMS must not turn a completed backend approval into an
+      // apparent failure or encourage the landlord to approve twice.
+      if (registration.phone) {
+        try {
+          await sendQuickNotification(
+            registration.phone,
+            `${registration.firstName} ${registration.lastName}`,
+            'registration_approved',
+            'sms',
+            { name: registration.firstName, role: 'employee' }
+          );
+        } catch (notificationError) {
+          toast.warning('Employee approved, but the optional SMS could not be sent.');
+        }
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Employee approval failed.');
     } finally {
-      setIsProcessing(false);
+      // Refresh even after a 400/500; previous requests may have already
+      // committed the approval before their HTTP response failed.
+      try {
+        await queryClient.invalidateQueries({ queryKey: ['employees'] });
+      } finally {
+        setIsProcessing(false);
+      }
     }
   };
 
