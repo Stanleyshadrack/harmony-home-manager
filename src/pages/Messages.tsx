@@ -102,7 +102,6 @@ export default function Messages() {
       conv.members.some(member => member.name.toLowerCase().includes(query)) ||
       (conv.lastMessage?.content.toLowerCase().includes(query) ?? false);
   });
-  const unread = conversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
   const directUnread = conversations.filter(conv => conv.type === 'DIRECT').reduce((sum, conv) => sum + conv.unreadCount, 0);
   const groupUnread = conversations.filter(conv => conv.type === 'GROUP').reduce((sum, conv) => sum + conv.unreadCount, 0);
 
