@@ -10,7 +10,7 @@ interface Preview {
   leaseId: number; tenantId: number; unitId: number; unitNumber: string;
   propertyName: string; year: number; month: number;
   newCharges: number; existingUnpaidBalance: number; totalPayable: number;
-  warning?: string; alreadyIssued: boolean; lines: Line[];
+  warning?: string; alreadyIssued: boolean; requiresReview: boolean; lines: Line[];
 }
 interface Props { onIssued: () => Promise<void> }
 const currency = (amount:number) => new Intl.NumberFormat('en-KE', {
@@ -57,7 +57,7 @@ export function BillingAutomationPanel({ onIssued }: Props) {
     } catch (e) {setError(e instanceof Error?e.message:'Invoice issue failed');}
     finally {setBusy(false);}
   };
-  const ready = preview?.filter(p=>!p.alreadyIssued && Number(p.newCharges)>0) ?? [];
+  const ready = preview?.filter(p=>!p.alreadyIssued && !p.requiresReview && Number(p.newCharges)>0) ?? [];
   return <Card className="min-w-0 overflow-hidden">
     <CardHeader><CardTitle className="flex items-center gap-2">
       <FileText className="h-5 w-5 text-primary"/> Automated Monthly Billing
