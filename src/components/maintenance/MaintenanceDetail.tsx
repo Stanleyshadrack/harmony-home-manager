@@ -88,19 +88,19 @@ export function MaintenanceDetail({ request, onAddNote, onClose, onTenantDecisio
   };
 
   return (
-    <div className="min-w-0 space-y-4 pb-4">
+    <div className="w-full min-w-0 max-w-full space-y-4 overflow-x-hidden pb-4">
       {/* Header */}
       <div className="space-y-4 pb-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="text-lg font-semibold">{request.ticketNumber}</h3>
+            <h3 className="text-lg font-semibold break-all">{request.ticketNumber}</h3>
             <p className="text-sm text-muted-foreground capitalize">{request.category}</p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex min-w-0 flex-wrap gap-2">
             <Badge variant="outline" className={priorityColors[request.priority]}>
               {t(`maintenance.${request.priority}`)}
             </Badge>
-            <Badge variant="outline" className={statusColors[request.status]}>
+            <Badge variant="outline" className={`${statusColors[request.status]} max-w-full whitespace-normal break-words text-left leading-relaxed`}>
               {request.status === 'resolved' ? 'Awaiting Tenant Confirmation'
                 : request.status === 'reopened' ? 'Reopened'
                 : request.status === 'confirmed' ? 'Confirmed / Closed'
@@ -110,22 +110,22 @@ export function MaintenanceDetail({ request, onAddNote, onClose, onTenantDecisio
         </div>
 
         <div>
-          <h4 className="font-medium">{request.title}</h4>
-          <p className="text-sm text-muted-foreground mt-1">{request.description}</p>
+          <h4 className="font-medium break-words">{request.title}</h4>
+          <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap break-words">{request.description}</p>
         </div>
 
         <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 sm:gap-4">
           <div>
             <span className="text-muted-foreground">Property:</span>
-            <p className="font-medium">{request.propertyName}</p>
+            <p className="font-medium break-words">{request.propertyName}</p>
           </div>
           <div>
             <span className="text-muted-foreground">Unit:</span>
-            <p className="font-medium">{request.unitNumber}</p>
+            <p className="font-medium break-words">{request.unitNumber}</p>
           </div>
           <div>
             <span className="text-muted-foreground">Tenant:</span>
-            <p className="font-medium">{request.tenantName}</p>
+            <p className="font-medium break-words">{request.tenantName}</p>
           </div>
           <div>
             <span className="text-muted-foreground">Created:</span>
@@ -139,7 +139,7 @@ export function MaintenanceDetail({ request, onAddNote, onClose, onTenantDecisio
             <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 sm:gap-4">
               <div>
                 <span className="text-muted-foreground">{t('maintenance.assignedTo')}:</span>
-                <p className="font-medium">{request.assignedToName}</p>
+                <p className="font-medium break-words">{request.assignedToName}</p>
               </div>
               {request.scheduledDate && (
                 <div>
@@ -172,7 +172,7 @@ export function MaintenanceDetail({ request, onAddNote, onClose, onTenantDecisio
             or reject it to send the issue back for further work.
           </p>
           <Textarea value={tenantReason} onChange={event => setTenantReason(event.target.value)}
-            maxLength={2000} placeholder="Reason if the problem is not fixed (required for rejection)" />
+            maxLength={2000} className="min-h-24 w-full resize-y" placeholder="Reason if the problem is not fixed (required for rejection)" />
           {decisionError && <p role="alert" className="text-sm text-destructive">{decisionError}</p>}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <Button className="w-full whitespace-normal" disabled={decisionPending} onClick={() => void submitTenantDecision(true)}>
@@ -203,19 +203,19 @@ export function MaintenanceDetail({ request, onAddNote, onClose, onTenantDecisio
                 const RoleIcon = roleIcons[note.userRole] || Wrench;
                 return (
                   <div key={note.id} className="flex gap-3">
-                    <Avatar className="h-8 w-8">
+                    <Avatar className="h-8 w-8 shrink-0">
                       <AvatarFallback className="bg-primary/10 text-primary">
                         <RoleIcon className="h-4 w-4" />
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">{note.userName}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <span className="font-medium text-sm break-words">{note.userName}</span>
                         <span className="text-xs text-muted-foreground capitalize">
                           ({note.userRole})
                         </span>
                       </div>
-                      <p className="text-sm mt-1">{note.content}</p>
+                      <p className="text-sm mt-1 whitespace-pre-wrap break-words">{note.content}</p>
                       <p className="text-xs text-muted-foreground mt-1">
                         {formatDate(note.createdAt)}
                       </p>
@@ -233,9 +233,10 @@ export function MaintenanceDetail({ request, onAddNote, onClose, onTenantDecisio
             placeholder="Add a note..."
             value={noteContent}
             onChange={(e) => setNoteContent(e.target.value)}
-            className="min-h-[60px]"
+            className="min-h-[60px] min-w-0 flex-1 resize-y"
           />
           <Button
+            className="shrink-0"
             size="icon"
             onClick={() => void handleSendNote()}
             disabled={!noteContent.trim() || sendingNote}
