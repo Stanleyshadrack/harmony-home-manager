@@ -12,8 +12,8 @@ export function MaintenanceStats({ requests }: MaintenanceStatsProps) {
 
   const pendingCount = requests.filter((r) => r.status === 'pending').length;
   const assignedCount = requests.filter((r) => r.status === 'assigned').length;
-  const inProgressCount = requests.filter((r) => r.status === 'in_progress').length;
-  const resolvedCount = requests.filter((r) => r.status === 'resolved').length;
+  const inProgressCount = requests.filter((r) => r.status === 'in_progress' || r.status === 'reopened').length;
+  const resolvedCount = requests.filter((r) => r.status === 'confirmed').length;
 
   const stats = [
     {
@@ -38,7 +38,7 @@ export function MaintenanceStats({ requests }: MaintenanceStatsProps) {
       bgColor: 'bg-primary/10',
     },
     {
-      label: t('maintenance.resolved'),
+      label: 'Tenant Confirmed',
       value: resolvedCount.toString(),
       icon: CheckCircle,
       color: 'text-success',
