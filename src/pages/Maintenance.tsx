@@ -253,10 +253,10 @@ export default function Maintenance() {
               {t('maintenance.pending')} ({requests.filter((r) => r.status === 'pending').length})
             </TabsTrigger>
             <TabsTrigger value="in_progress">
-              {t('maintenance.inProgress')} ({requests.filter((r) => r.status === 'assigned' || r.status === 'in_progress').length})
+              {t('maintenance.inProgress')} ({requests.filter((r) => r.status === 'assigned' || r.status === 'in_progress' || r.status === 'reopened').length})
             </TabsTrigger>
             <TabsTrigger value="resolved">
-              {t('maintenance.resolved')} ({requests.filter((r) => r.status === 'resolved').length})
+              Awaiting / Confirmed ({requests.filter((r) => r.status === 'resolved' || r.status === 'confirmed').length})
             </TabsTrigger>
           </TabsList>
 
