@@ -548,163 +548,128 @@ export default function WaterMeters() {
             resetForm();
           }
         }}>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
+          <DialogContent className="flex max-h-[min(92dvh,820px)] w-[calc(100vw-1.5rem)] max-w-[760px] flex-col gap-0 overflow-hidden p-0 sm:w-[calc(100vw-3rem)] sm:max-w-[760px]">
+            <DialogHeader className="shrink-0 border-b px-5 py-4 pr-12 sm:px-6">
               <DialogTitle>{showEditDialog ? 'Edit Water Meter' : 'Add Water Meter'}</DialogTitle>
               <DialogDescription>
                 {showEditDialog
-                  ? 'Update the water meter details below.'
-                  : 'Enter the details for the new water meter.'}
+                  ? 'Update meter details and status. Approved readings must be changed through Water Data.'
+                  : 'Register your meter, opening reading, and property before assigning it to a unit.'}
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="meterId">Meter Code</Label>
-                  <Input
-                    id="meterId"
-                    value={formData.meterName}
-                    onChange={(e) => setFormData({ ...formData, meterName: e.target.value })}
-                    placeholder="WM-001"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="serialNumber">Serial Number</Label>
-                  <Input
-                    id="serialNumber"
-                    value={formData.serialNumber}
-                    onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })}
-                    placeholder="SN-2024-001"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="propertyName">Property</Label>
-                  <Select
-                    value={formData.propertyId}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, propertyId: value })
-                    }
 
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Property" />
-                    </SelectTrigger>
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-5 py-4 sm:px-6">
+              <section className="space-y-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Meter identification</h3>
+                <div className="grid min-w-0 grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+                  <div className="min-w-0 space-y-1.5">
+                    <Label htmlFor="meterId">Meter code <span className="text-destructive">*</span></Label>
+                    <Input id="meterId" className="w-full" value={formData.meterName}
+                      onChange={e => setFormData({...formData, meterName: e.target.value})}
+                      placeholder="WM-001" />
+                  </div>
+                  <div className="min-w-0 space-y-1.5">
+                    <Label htmlFor="serialNumber">Serial number</Label>
+                    <Input id="serialNumber" className="w-full" value={formData.serialNumber}
+                      onChange={e => setFormData({...formData, serialNumber: e.target.value})}
+                      placeholder="SN-2026-001" />
+                  </div>
+                  <div className="min-w-0 space-y-1.5">
+                    <Label htmlFor="propertyName">Property <span className="text-destructive">*</span></Label>
+                    <Select value={String(formData.propertyId || '')}
+                      onValueChange={value => setFormData({...formData, propertyId: value})}>
+                      <SelectTrigger id="propertyName" className="w-full min-w-0">
+                        <SelectValue placeholder="Select property" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {properties.map(property => (
+                          <SelectItem key={property.id} value={String(property.id)}>{property.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="min-w-0 space-y-1.5">
+                    <Label htmlFor="meterType">Meter type</Label>
+                    <Select value={formData.meterType}
+                      onValueChange={(value: WaterMeter['meterType']) => setFormData({...formData, meterType: value})}>
+                      <SelectTrigger id="meterType" className="w-full min-w-0"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="SMART">Smart</SelectItem>
+                        <SelectItem value="DIGITAL">Digital</SelectItem>
+                        <SelectItem value="ANALOG">Analog</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="min-w-0 space-y-1.5">
+                    <Label htmlFor="manufacturer">Manufacturer</Label>
+                    <Input id="manufacturer" className="w-full" value={formData.manufacturer}
+                      onChange={e => setFormData({...formData, manufacturer: e.target.value})}
+                      placeholder="Manufacturer name" />
+                  </div>
+                  <div className="min-w-0 space-y-1.5">
+                    <Label htmlFor="model">Model</Label>
+                    <Input id="model" className="w-full" value={formData.model}
+                      onChange={e => setFormData({...formData, model: e.target.value})}
+                      placeholder="Meter model" />
+                  </div>
+                </div>
+              </section>
 
-                    <SelectContent>
-                      {properties.map((property) => (
-                        <SelectItem key={property.id} value={property.id}>
-                          {property.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              <section className="space-y-3 border-t pt-4">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Readings & status</h3>
+                <div className="grid min-w-0 grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+                  <div className="min-w-0 space-y-1.5">
+                    <Label htmlFor="lastReading">{showEditDialog ? 'Last approved reading (m³)' : 'Opening reading (m³)'}</Label>
+                    <Input id="lastReading" className="w-full" type="number" step="any" min={0}
+                      disabled={showEditDialog} value={formData.lastReading}
+                      onChange={e => setFormData({...formData, lastReading: Number(e.target.value)})} />
+                  </div>
+                  <div className="min-w-0 space-y-1.5">
+                    <Label htmlFor="lastReadingDate">{showEditDialog ? 'Last reading date' : 'Opening reading date'}</Label>
+                    <Input id="lastReadingDate" className="w-full" type="date" disabled={showEditDialog}
+                      value={formData.lastReadingDate || ''}
+                      onChange={e => setFormData({...formData, lastReadingDate: e.target.value})} />
+                  </div>
+                  <div className="min-w-0 space-y-1.5 sm:col-span-2">
+                    <Label htmlFor="meterStatus">Meter status</Label>
+                    <Select value={formData.status || 'ACTIVE'}
+                      onValueChange={(value: WaterMeter['status']) => setFormData({...formData, status: value})}
+                      disabled={!showEditDialog}>
+                      <SelectTrigger id="meterStatus" className="w-full min-w-0 sm:max-w-[340px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ACTIVE">Active</SelectItem>
+                        <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
+                        <SelectItem value="INACTIVE">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      {showEditDialog
+                        ? 'Meter readings are maintained in Water Data to protect billing history.'
+                        : 'New meters are registered as Active. Assign the meter to a unit after saving.'}
+                    </p>
+                  </div>
                 </div>
-                
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="meterType">Meter Type</Label>
-                  <Select
-                    value={formData.meterType}
-                    onValueChange={(value: WaterMeter['meterType']) =>
-                      setFormData({ ...formData, meterType: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="SMART">Smart</SelectItem>
-                      <SelectItem value="DIGITAL">Digital</SelectItem>
-                      <SelectItem value="ANALOG">Analog</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Meter status</Label>
-                  <Select value={formData.status || 'ACTIVE'}
-                    onValueChange={(value: WaterMeter['status']) =>
-                      setFormData({...formData,status:value})}
-                    disabled={!showEditDialog}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ACTIVE">Active</SelectItem>
-                      <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
-                      <SelectItem value="INACTIVE">Inactive</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="manufacturer">Manufacturer</Label>
-                  <Input
-                    id="manufacturer"
-                    value={formData.manufacturer}
-                    onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
-                    placeholder="Sensus"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="model">Model</Label>
-                <Input
-                  id="model"
-                  value={formData.model}
-                  onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                  placeholder="iPERL"
-                />
-              </div>
-              <div className="space-y-2">
-  <Label htmlFor="lastReading">Last Reading</Label>
+              </section>
 
-  <Input
-    id="lastReading"
-    type="number"
-    disabled={showEditDialog}
-    value={formData.lastReading}
-    onChange={(e) =>
-      setFormData({
-        ...formData,
-        lastReading: Number(e.target.value),
-      })
-    }
-    placeholder="0"
-  />
-
-  <p className="text-xs text-muted-foreground">
-    Opening reading only. Subsequent readings are recorded under Water Data.
-  </p>
-  {!showEditDialog && <div className="mt-2 space-y-1">
-    <Label htmlFor="lastReadingDate">Opening reading date</Label>
-    <Input id="lastReadingDate" type="date" value={formData.lastReadingDate || ''}
-      onChange={e => setFormData({...formData,lastReadingDate:e.target.value})}/>
-  </div>}
-</div>
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Input
-                  id="notes"
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="Optional notes..."
-                />
-              </div>
+              <section className="space-y-1.5 border-t pt-4">
+                <Label htmlFor="notes">Additional notes</Label>
+                <Input id="notes" className="w-full" value={formData.notes}
+                  onChange={e => setFormData({...formData, notes: e.target.value})}
+                  placeholder="Optional installation or maintenance details" />
+              </section>
             </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowAddDialog(false);
-                  setShowEditDialog(false);
-                  setSelectedMeter(null);
-                  resetForm();
-                }}
-              >
-                Cancel
-              </Button>
+
+            <DialogFooter className="shrink-0 flex-row justify-end gap-2 border-t bg-background px-5 py-3 sm:px-6">
+              <Button variant="outline" onClick={() => {
+                setShowAddDialog(false);
+                setShowEditDialog(false);
+                setSelectedMeter(null);
+                resetForm();
+              }}>Cancel</Button>
               <Button onClick={showEditDialog ? handleEditMeter : handleAddMeter}>
-                {showEditDialog ? 'Update Meter' : 'Add Meter'}
+                {showEditDialog ? 'Save changes' : 'Add meter'}
               </Button>
             </DialogFooter>
           </DialogContent>
