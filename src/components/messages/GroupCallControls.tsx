@@ -59,6 +59,7 @@ export function GroupCallControls({ conversation, conversations, onSelectConvers
   const activeRef = useRef<GroupCall | null>(null);
   const seq = useRef(0);
   const syncing = useRef(false);
+  const dismissed = useRef<Set<string>>(new Set());
 
   const reset = () => {
     peers.current.forEach(pc => pc.close());
@@ -226,7 +227,7 @@ export function GroupCallControls({ conversation, conversations, onSelectConvers
       if (activeRef.current) return;
       try {
         const calls = await groupCallApi.incoming();
-        if (!cancelled) setIncoming(calls[0] ?? null);
+        if (!cancelled) setIncoming(calls.find(call => !dismissed.current.has(call.callId)) ?? null);
       } catch { /* retry while authenticated */ }
     };
     void poll();
@@ -254,7 +255,13 @@ export function GroupCallControls({ conversation, conversations, onSelectConvers
         }
         await connect(room);
       } catch (error) {
-        if (!cancelled) setPhase(error instanceof Error ? error.message : 'Call disconnected');
+        if (!cancelled) {
+          const message = error instanceof Error ? error.message : 'Call disconnected';
+          if (message.includes('no longer active')) {
+            reset();
+            toast.info('The group call has ended');
+          } else setPhase(message);
+        }
       } finally {syncing.current = false;}
     };
     void sync();
@@ -285,7 +292,7 @@ export function GroupCallControls({ conversation, conversations, onSelectConvers
         <div className="flex flex-wrap justify-center gap-2">
           <Button disabled={busy || (incoming?.joinedUserIds.length ?? 0) >= 4}
             onClick={() => void join()}><Phone className="mr-2 h-4 w-4"/>Join call</Button>
-          <Button variant="outline" disabled={busy} onClick={() => setIncoming(null)}>Not now</Button>
+          <Button variant="outline" disabled={busy} onClick={() => { if (incoming) dismissed.current.add(incoming.callId); setIncoming(null); }}>Not now</Button>
         </div>
       </DialogContent>
     </Dialog>
