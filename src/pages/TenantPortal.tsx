@@ -1,4 +1,7 @@
 import { TenantDepositStatement } from '@/components/billing/TenantDepositStatement';
+import { TenantMoveInClearancePanel } from '@/components/tenants/TenantMoveInClearancePanel';
+import { TenantsApi } from '@/api/service/tenantsApi';
+import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -39,19 +42,18 @@ import { MaintenanceDetail } from '@/components/maintenance/MaintenanceDetail';
 import { Unit } from '@/types/property';
 import { useTenantAvailableUnits } from '@/hooks/useAvailableUnits';
 
-// Mock current tenant data - would come from auth context in real app
-const MOCK_TENANT = {
-  id: '1',
-  name: 'John Doe',
-  email: 'john.doe@email.com',
-  unitId: '1',
-  unitNumber: 'A101',
-  propertyName: 'Sunrise Apartments',
-};
-
 export default function TenantPortal() {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const tenantProfile = useQuery({
+    queryKey: ['tenant-portal-profile'],
+    queryFn: TenantsApi.getMe,
+    retry: 1,
+  });
+  const currentTenant = tenantProfile.data;
+  const tenantName = currentTenant
+    ? [currentTenant.firstName, currentTenant.lastName].filter(Boolean).join(' ')
+    : 'Tenant';
   const { invoices, recordPayment } = useBilling();
   const { requests, createRequest, addNote, tenantConfirmation, availableUnits, unitsLoadError, loadError: maintenanceError } = useMaintenance();
   const location = useLocation();
@@ -73,7 +75,7 @@ export default function TenantPortal() {
 
   // Filter data for current tenant
 const tenantInvoices = invoices.filter(
-  (inv) => inv.tenantId === Number(MOCK_TENANT.id)
+  (inv) => inv.tenantId === Number(currentTenant?.id)
 );
   // The server already limits GET /api/maintenance to this authenticated tenant.
   const tenantRequests = requests;
@@ -86,7 +88,7 @@ const tenantInvoices = invoices.filter(
     }
   }, [location.search, requests.length]);
   const tenantApplications = applications.filter(
-    (app) => app.applicantEmail === MOCK_TENANT.email
+    (app) => app.applicantEmail === currentTenant?.email
   );
   const {
   data: vacantUnits = [],
@@ -153,7 +155,7 @@ const tenantInvoices = invoices.filter(
   const handlePayment = async (data: any) => {
     setIsLoading(true);
     try {
-      recordPayment({
+      await recordPayment({
         invoiceId: data.invoiceId,
         amount: data.amount,
         paymentMethod: data.paymentMethod,
@@ -162,7 +164,7 @@ const tenantInvoices = invoices.filter(
       });
       toast({
         title: 'Payment Initiated',
-        description: `Payment of $${data.amount.toFixed(2)} has been initiated.`,
+        description: `Payment of KES ${data.amount.toFixed(2)} has been initiated.`,
       });
     } catch {
       toast({
@@ -196,9 +198,9 @@ const tenantInvoices = invoices.filter(
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-KE', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'KES',
     }).format(amount);
   };
 
@@ -211,12 +213,22 @@ const tenantInvoices = invoices.filter(
         {/* Welcome Section */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Welcome, {MOCK_TENANT.name}</h1>
+            <h1 className="text-2xl font-bold">Welcome, {tenantName}</h1>
             <p className="text-muted-foreground">
-              {MOCK_TENANT.unitNumber} • {MOCK_TENANT.propertyName}
+              {(currentTenant?.unitNumber || 'Awaiting move-in')} • {(currentTenant?.propertyName || 'Property not yet assigned')}
             </p>
           </div>
         </div>
+
+        {tenantProfile.isLoading && (
+          <p className="text-sm text-muted-foreground" role="status">Loading your tenant profile…</p>
+        )}
+        {tenantProfile.isError && (
+          <p className="rounded-md border border-destructive/30 p-3 text-sm text-destructive" role="alert">
+            Your tenant profile could not be loaded. Please refresh or contact the landlord.
+          </p>
+        )}
+        <TenantMoveInClearancePanel tenantView />
 
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
