@@ -8,8 +8,9 @@ import { useAuth } from '@/contexts/AuthContext';
 interface Props {
   conversations: Conversation[];
   onOpenConversation: (conversation: Conversation) => void;
+  compact?: boolean;
 }
-export function CallHistoryPanel({ conversations, onOpenConversation }: Props) {
+export function CallHistoryPanel({ conversations, onOpenConversation, compact = false }: Props) {
   const { user } = useAuth();
   const [history, setHistory] = useState<CallHistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -33,10 +34,10 @@ export function CallHistoryPanel({ conversations, onOpenConversation }: Props) {
   };
   return <div className="min-w-0 space-y-3">
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <div>
+      {!compact && <div>
         <h2 className="text-lg font-semibold">Call History</h2>
         <p className="text-xs text-muted-foreground">Your recent voice and video calls</p>
-      </div>
+      </div>}
       <Button type="button" size="sm" variant="outline" disabled={loading} onClick={() => void load()}>
         <RefreshCw className="mr-2 h-4 w-4" />Refresh
       </Button>
@@ -58,7 +59,7 @@ export function CallHistoryPanel({ conversations, onOpenConversation }: Props) {
           : item.status === 'ENDED' ? 'Completed'
           : item.status === 'ACCEPTED' ? 'In progress' : 'Ringing';
         const Icon = missed ? PhoneMissed : outgoing ? PhoneOutgoing : PhoneIncoming;
-        return <div key={item.callId} className="flex min-w-0 flex-wrap items-center gap-3 rounded-lg border p-3">
+        return <div key={item.callId} className="flex min-w-0 flex-wrap items-center gap-2 rounded-lg border p-2 sm:p-3">
           <div className="rounded-full bg-muted p-2">
             <Icon className={`h-4 w-4 ${missed ? 'text-destructive' : 'text-primary'}`} />
           </div>
@@ -71,7 +72,7 @@ export function CallHistoryPanel({ conversations, onOpenConversation }: Props) {
             </p>
             <p className="text-xs text-muted-foreground">{new Date(item.startedAt).toLocaleString()}</p>
           </div>
-          {conversation && <Button size="sm" variant="outline" onClick={() => onOpenConversation(conversation)}>
+          {conversation && <Button size="sm" variant="outline" className="shrink-0" onClick={() => onOpenConversation(conversation)}>
             Open chat
           </Button>}
         </div>;
