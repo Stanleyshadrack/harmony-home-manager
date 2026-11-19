@@ -239,7 +239,7 @@ const tenantInvoices = invoices.filter(
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Current Unit</p>
-                <p className="font-semibold">{MOCK_TENANT.unitNumber}</p>
+                <p className="font-semibold">{currentTenant?.unitNumber || 'Awaiting move-in'}</p>
               </div>
             </CardContent>
           </Card>
