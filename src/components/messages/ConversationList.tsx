@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserAvatar } from '@/components/profile/UserAvatar';
+import { LastSeen } from '@/components/presence/LastSeen';
 
 interface ConversationListProps {
   conversations: Conversation[];
@@ -33,6 +34,7 @@ export function ConversationList({ conversations, selectedId, onSelect }: Conver
             >
               <UserAvatar name={conversation.title}
                 avatarUrl={group ? conversation.avatarUrl : counterpart?.avatarUrl}
+                online={!group && counterpart?.online}
                 className="h-11 w-11" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
@@ -48,7 +50,11 @@ export function ConversationList({ conversations, selectedId, onSelect }: Conver
                     ? `${group ? conversation.lastMessage.senderName + ': ' : ''}${conversation.lastMessage.content}`
                     : group ? `${conversation.members.length} participants` : 'Start your conversation'}
                 </p>
-                {group && <span className="text-xs text-muted-foreground">Group</span>}
+                {group ? (
+                  <span className="text-xs text-muted-foreground">
+                    Group · {conversation.members.filter(member => member.online).length} online
+                  </span>
+                ) : <LastSeen online={counterpart?.online} lastSeenAt={counterpart?.lastSeenAt} />}
               </div>
               {conversation.unreadCount > 0 && (
                 <Badge className="min-w-6 justify-center rounded-full">
