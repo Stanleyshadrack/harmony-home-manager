@@ -131,6 +131,7 @@ export function useMeters() {
       });
 
       await loadStats();
+      return true;
     } catch (error) {
       console.error(error);
       toast({
