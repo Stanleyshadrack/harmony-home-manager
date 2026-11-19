@@ -38,6 +38,9 @@ export interface Message {
   readBy: number[];
   createdAt: string;
   forwarded?: boolean;
+  encrypted?: boolean;
+  crypto?: { cipherIv: string; ephemeralPublicKey: string; wrappedKey: string; wrapIv: string } | null;
+  decryptedAttachment?: { filename: string; contentType: string; fileIv: string };
   attachment?: MessageAttachment | null;
   senderAvatarUrl?: string | null;
 }
