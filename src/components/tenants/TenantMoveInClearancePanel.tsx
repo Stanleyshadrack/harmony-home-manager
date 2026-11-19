@@ -57,18 +57,21 @@ export function TenantMoveInClearancePanel({
   const nextStep = record?.checklist.find(step => !step.complete);
   const leaseApproved = record?.checklist.some(step => step.key === 'LEASE_APPROVED' && step.complete);
   const firstRentIssued = record?.checklist.some(step => step.key === 'FIRST_RENT_ISSUED' && step.complete);
+  const depositIncluded = record?.checklist.some(step => step.key === 'DEPOSIT_INVOICED' && step.complete);
 
   const issueFirstRent = async () => {
-    if (!tenantId || tenantView || !leaseApproved || firstRentIssued || busy) return;
-    if (!window.confirm('Create the first rent invoice for this approved lease? Check the agreed rent before proceeding.')) return;
+    if (!tenantId || tenantView || !leaseApproved || (firstRentIssued && depositIncluded) || busy) return;
+    if (!window.confirm(firstRentIssued
+      ? 'Add the missing refundable deposit to this existing unpaid first-rent invoice? This preserves its invoice number and requires no prior payment activity.'
+      : 'Create one first invoice showing monthly rent and refundable deposit separately?')) return;
     setBusy(true);
     try {
       const result = await apiRequest<null, MoveInClearance>({
         path: `/api/tenants/${tenantId}/move-in-clearance/first-rent`, method: 'POST',
       });
       setRecord(result);
-      toast({title: 'First rent invoice issued',
-        description: 'The invoice has been created. Confirm actual payment through Billing before clearing move-in.'});
+      toast({title: 'First invoice updated',
+        description: 'The bill now itemizes rent and refundable deposit. Confirm actual payment through Billing before clearing move-in.'});
     } catch (e) {
       toast({title: 'Could not issue first rent',
         description: e instanceof Error ? e.message : 'Please review the lease and existing invoices.',
@@ -181,10 +184,10 @@ export function TenantMoveInClearancePanel({
               </p>
             ) : (
               <div className="space-y-2">
-                {leaseApproved && !firstRentIssued && !record.cleared && (
+                {leaseApproved && (!firstRentIssued || !depositIncluded) && !record.cleared && (
                   <Button className="w-full" variant="outline" onClick={issueFirstRent}
                     disabled={busy}>
-                    {busy ? 'Issuing…' : 'Issue first rent invoice'}
+                    {busy ? 'Saving…' : firstRentIssued ? 'Add missing deposit to first invoice' : 'Issue rent + deposit invoice'}
                   </Button>
                 )}
                 <Button className="w-full" onClick={confirm}
