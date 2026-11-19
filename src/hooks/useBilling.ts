@@ -13,6 +13,10 @@ type ApiInvoice = {
   type: string; description?: string; amount: number; amountPaid: number;
   balance: number; status: string; dueDate?: string; issuedDate?: string;
   paidDate?: string; payments?: ApiPayment[];
+  lines?: {type:string;description:string;amount:number;waterReadingId?:number;periodYear?:number;periodMonth?:number}[];
+  priorBalanceAtIssue?: number; billingYear?: number; billingMonth?: number;
+  invoiceDisplayName?: string; paymentMethodLabel?: string; paybillNumber?: string;
+  paymentAccountReference?: string; paymentSupportContact?: string; paymentInstructions?: string;
 };
 type UnitRow = { id: number; propertyId: number };
 
@@ -30,6 +34,15 @@ function mapInvoice(i: ApiInvoice, propertyIds: Map<number, number>): Invoice {
     dueDate: i.dueDate || '', issuedDate: i.issuedDate || '',
     paidDate: i.paidDate || undefined,
     createdAt: i.issuedDate || '', updatedAt: i.issuedDate || '',
+    lines: (i.lines || []).map(line => ({ ...line, amount: Number(line.amount || 0) })),
+    priorBalanceAtIssue: Number(i.priorBalanceAtIssue || 0),
+    billingYear: i.billingYear, billingMonth: i.billingMonth,
+    invoiceDisplayName: i.invoiceDisplayName || undefined,
+    paymentMethodLabel: i.paymentMethodLabel || undefined,
+    paybillNumber: i.paybillNumber || undefined,
+    paymentAccountReference: i.paymentAccountReference || undefined,
+    paymentSupportContact: i.paymentSupportContact || undefined,
+    paymentInstructions: i.paymentInstructions || undefined,
   };
 }
 
