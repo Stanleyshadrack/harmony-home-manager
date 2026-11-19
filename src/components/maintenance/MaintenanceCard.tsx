@@ -78,19 +78,19 @@ export function MaintenanceCard({ request, onView, onAssign, onUpdateStatus }: M
   };
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card className="min-w-0 w-full overflow-hidden hover:shadow-md transition-shadow">
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg text-primary">
+        <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <div className="shrink-0 p-2 bg-primary/10 rounded-lg text-primary">
               {categoryIcons[request.category]}
             </div>
             <div>
-              <p className="font-semibold">{request.ticketNumber}</p>
+              <p className="font-semibold break-all">{request.ticketNumber}</p>
               <p className="text-sm text-muted-foreground capitalize">{request.category}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <Badge variant="outline" className={priorityColors[request.priority]}>
               {t(`maintenance.${request.priority}`)}
             </Badge>
@@ -141,10 +141,10 @@ export function MaintenanceCard({ request, onView, onAssign, onUpdateStatus }: M
         </div>
       </CardHeader>
       <CardContent>
-        <h4 className="font-medium mb-1">{request.title}</h4>
-        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{request.description}</p>
+        <h4 className="font-medium mb-1 break-words">{request.title}</h4>
+        <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words mb-3">{request.description}</p>
 
-        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground mb-3 break-words">
           <span>{request.propertyName}</span>
           <span>•</span>
           <span>Unit {request.unitNumber}</span>
@@ -152,8 +152,8 @@ export function MaintenanceCard({ request, onView, onAssign, onUpdateStatus }: M
           <span>{request.tenantName}</span>
         </div>
 
-        <div className="flex items-center justify-between pt-3 border-t">
-          <Badge variant="outline" className={statusColors[request.status]}>
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 pt-3 border-t">
+          <Badge variant="outline" className={`${statusColors[request.status]} max-w-full whitespace-normal break-words text-left leading-relaxed`}>
             {request.status === 'resolved' ? 'Awaiting Tenant Confirmation'
               : request.status === 'reopened' ? 'Reopened'
               : request.status === 'confirmed' ? 'Confirmed / Closed'
@@ -166,18 +166,18 @@ export function MaintenanceCard({ request, onView, onAssign, onUpdateStatus }: M
 
         {request.assignedToName && (
           <div className="mt-3 pt-3 border-t">
-            <div className="flex justify-between text-sm">
+            <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-sm">
               <span className="text-muted-foreground">{t('maintenance.assignedTo')}:</span>
-              <span className="font-medium">{request.assignedToName}</span>
+              <span className="font-medium break-words">{request.assignedToName}</span>
             </div>
             {request.scheduledDate && (
-              <div className="flex justify-between text-sm mt-1">
+              <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-sm mt-1">
                 <span className="text-muted-foreground">Scheduled:</span>
                 <span>{formatDate(request.scheduledDate)}</span>
               </div>
             )}
             {request.estimatedCost && (
-              <div className="flex justify-between text-sm mt-1">
+              <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-sm mt-1">
                 <span className="text-muted-foreground">{t('maintenance.estimatedCost')}:</span>
                 <span>${request.estimatedCost}</span>
               </div>
