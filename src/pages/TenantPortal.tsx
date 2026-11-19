@@ -571,8 +571,8 @@ const tenantInvoices = invoices.filter(
 
       <Dialog open={maintenanceDetailId !== null}
         onOpenChange={open => { if (!open) setMaintenanceDetailId(null); }}>
-        <DialogContent className="flex h-[min(85dvh,760px)] max-w-lg flex-col overflow-hidden">
-          <DialogHeader><DialogTitle>Maintenance request details</DialogTitle></DialogHeader>
+        <DialogContent className="grid h-[min(90dvh,820px)] w-[calc(100vw-2rem)] max-w-2xl grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden p-4 sm:p-6">
+          <DialogHeader className="shrink-0 pr-8 text-left"><DialogTitle>Maintenance request details</DialogTitle></DialogHeader>
           {selectedMaintenance && (
             <MaintenanceDetail request={selectedMaintenance}
               onTenantDecision={async (accepted, reason) => {
