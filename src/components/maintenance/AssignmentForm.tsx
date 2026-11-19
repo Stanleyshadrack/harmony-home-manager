@@ -85,6 +85,12 @@ export function AssignmentForm({ request, employees, onSubmit, onCancel, isLoadi
                   ))}
                 </SelectContent>
               </Select>
+              {employees.length === 0 && (
+                <p className="text-xs text-destructive">
+                  No active approved employees are assigned to this property.
+                  Assign an employee to the property first.
+                </p>
+              )}
               <FormMessage />
             </FormItem>
           )}
@@ -142,7 +148,7 @@ export function AssignmentForm({ request, employees, onSubmit, onCancel, isLoadi
           <Button type="button" variant="outline" onClick={onCancel}>
             {t('common.cancel')}
           </Button>
-          <Button type="submit" disabled={isLoading}>
+          <Button type="submit" disabled={isLoading || employees.length === 0}>
             {isLoading ? t('common.loading') : 'Assign Request'}
           </Button>
         </div>
