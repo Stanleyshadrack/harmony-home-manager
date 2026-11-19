@@ -62,6 +62,12 @@ assignUnit: (meterId: number | string, unitId: number | string) =>
     method: "PUT",
   }),
 
+  unassign: (meterId: number) =>
+    apiRequest<null, WaterMeter>({
+      path: `/api/water-meters/${meterId}/unassign`,
+      method: "PUT",
+    }),
+
   /* =========================
      ❌ Delete meter
   ========================= */
