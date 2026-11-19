@@ -25,6 +25,7 @@ export interface WaterReadingResponse {
   tenantName: string;
 
   property: string;
+  propertyName?: string;
 
   previousReading: number;
   currentReading: number;
