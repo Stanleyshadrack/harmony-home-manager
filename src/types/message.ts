@@ -60,6 +60,7 @@ export interface Conversation {
   createdAt: string;
   updatedAt: string;
   avatarUrl?: string | null;
+  e2eeEnabled?: boolean;
 }
 
 export interface NewConversationData {
