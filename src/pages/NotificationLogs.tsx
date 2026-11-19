@@ -51,6 +51,7 @@ export default function NotificationLogs() {
     total: logs.length,
     accepted: logs.filter(n => n.status === "accepted").length,
     failed: logs.filter(n => n.status === "failed").length,
+    skipped: logs.filter(n => n.status === "skipped").length,
     recorded: logs.filter(n => n.status === "recorded" || n.status === "in_app").length,
   };
 
@@ -83,7 +84,7 @@ export default function NotificationLogs() {
           ["Recently logged", stats.total, Clock],
           ["SMTP accepted", stats.accepted, CheckCircle2],
           ["Submission failed", stats.failed, AlertTriangle],
-          ["Other/legacy", stats.recorded, Mail],
+          ["Skipped/other", stats.skipped + stats.recorded, Mail],
         ] as const).map(([label, value, Icon]) => (
           <Card key={label}><CardContent className="p-5">
             <Icon className="h-5 w-5 text-muted-foreground mb-3" /><p className="text-2xl font-semibold">{value}</p>
@@ -109,7 +110,7 @@ export default function NotificationLogs() {
             <Select value={status} onValueChange={setStatus}>
               <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
               <SelectContent><SelectItem value="all">All statuses</SelectItem>
-                <SelectItem value="accepted">SMTP accepted</SelectItem><SelectItem value="failed">Failed</SelectItem>
+                <SelectItem value="accepted">SMTP accepted</SelectItem><SelectItem value="failed">Failed</SelectItem><SelectItem value="skipped">Skipped by preference</SelectItem>
                 <SelectItem value="recorded">Legacy/unverified</SelectItem><SelectItem value="in_app">In-app</SelectItem>
               </SelectContent>
             </Select>
