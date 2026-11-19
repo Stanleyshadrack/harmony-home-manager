@@ -1,10 +1,8 @@
 import type { Conversation } from '@/types/message';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
-import { UsersRound } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserAvatar } from '@/components/profile/UserAvatar';
 
@@ -33,16 +31,9 @@ export function ConversationList({ conversations, selectedId, onSelect }: Conver
                 selectedId === conversation.id ? 'bg-primary/10' : 'hover:bg-muted/60'
               )}
             >
-              {group ? (
-                <Avatar className="h-11 w-11 shrink-0">
-                  <AvatarFallback className="bg-primary/10 text-primary">
-                    <UsersRound className="h-5 w-5" aria-hidden="true" />
-                  </AvatarFallback>
-                </Avatar>
-              ) : (
-                <UserAvatar name={conversation.title}
-                  avatarUrl={counterpart?.avatarUrl} className="h-11 w-11" />
-              )}
+              <UserAvatar name={conversation.title}
+                avatarUrl={group ? conversation.avatarUrl : counterpart?.avatarUrl}
+                className="h-11 w-11" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
                   <span className="truncate font-semibold">{conversation.title}</span>
