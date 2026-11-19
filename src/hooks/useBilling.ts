@@ -5,7 +5,7 @@ import type { Invoice, Payment, InvoiceFormData, PaymentFormData, WaterReadingFo
 
 type ApiPayment = {
   id: number; invoiceId: number; invoiceNumber?: string; amount: number;
-  method: string; transactionRef?: string; paymentDate?: string; notes?: string;
+  method: string; status?: string; transactionRef?: string; paymentDate?: string; notes?: string;
 };
 type ApiInvoice = {
   id: number; invoiceNumber?: string; tenantId: number; tenantName?: string;
@@ -96,7 +96,10 @@ export function useBilling() {
       const mapped = invoiceRows.map(i => mapInvoice(i, propertyIds));
       setInvoices(mapped);
       setPayments(invoiceRows.flatMap((i, n) =>
-        (i.payments || []).map(p => mapPayment(p, mapped[n]))));
+        (i.payments || [])
+          .filter(p => p.status?.toUpperCase() === 'SUCCESS'
+            || (p.status == null && p.method?.toLowerCase() !== 'mpesa' && Number(p.amount) > 0))
+          .map(p => mapPayment(p, mapped[n]))));
       setLoadError(null);
     } catch (error) {
       setInvoices([]);
@@ -190,8 +193,16 @@ export function useBilling() {
     invoices.filter(i => i.status === status), [invoices]);
   const getPaymentsByInvoice = useCallback((invoiceId: number) =>
     payments.filter(p => p.invoiceId === invoiceId), [payments]);
+  // Only confirmed cash counts. Refundable deposits are liabilities, not
+  // rental revenue. For initial invoices, apply rent-first cash allocation.
   const getTotalRevenue = useCallback(() =>
-    payments.reduce((sum, p) => sum + p.amount, 0), [payments]);
+    invoices.reduce((sum, invoice) => {
+      const deposit = (invoice.lines || [])
+        .filter(line => line.type === 'DEPOSIT')
+        .reduce((value, line) => value + line.amount, 0);
+      const nonDeposit = Math.max(0, invoice.amount - deposit);
+      return sum + Math.min(Math.max(0, invoice.amountPaid), nonDeposit);
+    }, 0), [invoices]);
   const getTotalOutstanding = useCallback(() =>
     invoices.filter(i => i.status !== 'paid' && i.status !== 'cancelled')
       .reduce((sum, i) => sum + i.balance, 0), [invoices]);
