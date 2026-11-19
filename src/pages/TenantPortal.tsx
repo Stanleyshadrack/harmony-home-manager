@@ -1,3 +1,4 @@
+import { TenantDepositStatement } from '@/components/billing/TenantDepositStatement';
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -272,7 +273,7 @@ const tenantInvoices = invoices.filter(
 
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid h-auto w-full grid-cols-5 gap-1 p-1">
+          <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 p-1">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <Home className="h-4 w-4" />
               <span className="hidden sm:inline">Dashboard</span>
