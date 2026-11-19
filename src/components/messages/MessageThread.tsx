@@ -66,7 +66,10 @@ export function MessageThread({
             member.userId === message.senderId && member.admin);
           return (
             <div key={message.id} className={cn('flex items-end gap-2', own ? 'justify-end' : 'justify-start')}>
-              {!own && <UserAvatar name={message.senderName} avatarUrl={message.senderAvatarUrl} className="h-7 w-7" />}
+              {!own && <UserAvatar name={message.senderName}
+                avatarUrl={message.senderAvatarUrl}
+                online={members.some(member => member.userId === message.senderId && member.online)}
+                className="h-7 w-7" />}
               <div className={cn(
                 'group relative max-w-[88%] rounded-xl px-3 py-2 shadow-sm sm:max-w-[75%]',
                 own ? 'bg-primary text-primary-foreground' : 'border bg-background'
