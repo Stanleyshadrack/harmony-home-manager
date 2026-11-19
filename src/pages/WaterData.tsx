@@ -15,7 +15,8 @@ import {
   X,
   Clock,
   Plus,
-  User
+  User,
+  History
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -46,6 +47,7 @@ import {
 
 import { useAuth } from '@/contexts/AuthContext';
 import { WaterReadingForm } from '@/components/billing/WaterReadingForm';
+import { WaterReadingHistoryDialog } from '@/components/billing/WaterReadingHistoryDialog';
 import { useToast } from '@/hooks/use-toast';
 import { useWaterData } from '@/hooks/useWaterData';
 import { waterReadingsApi } from '@/api/service/water.readings.service';
@@ -83,6 +85,7 @@ export default function WaterData() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [selectedReading, setSelectedReading] = useState<WaterReading | null>(null);
+  const [comparisonReading, setComparisonReading] = useState<WaterReading | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [waterFeedback, setWaterFeedback] = useState<OperationFeedback | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
@@ -489,10 +492,12 @@ export default function WaterData() {
                     <TableHead>Unit</TableHead>
                     <TableHead>Tenant</TableHead>
                     <TableHead>Recorded By</TableHead>
-                    <TableHead className="text-right">Consumption</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="text-right">Previous (m³)</TableHead>
+                    <TableHead className="text-right">Current (m³)</TableHead>
+                    <TableHead className="text-right">Consumption (m³)</TableHead>
+                    <TableHead className="text-right">Total amount</TableHead>
                     <TableHead>Status</TableHead>
-                    {canApprove && <TableHead>Actions</TableHead>}
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -510,46 +515,40 @@ export default function WaterData() {
                           </Badge>
                         </div>
                       </TableCell>
+                      <TableCell className="text-right tabular-nums">{Number(reading.previousReading).toLocaleString('en-KE', {maximumFractionDigits: 3})}</TableCell>
+                      <TableCell className="text-right tabular-nums">{Number(reading.currentReading).toLocaleString('en-KE', {maximumFractionDigits: 3})}</TableCell>
                       <TableCell className="text-right">
                         <Badge variant={reading.consumption > 60 ? 'destructive' : 'outline'}>
-                          {reading.consumption} m³
+                          {Number(reading.consumption).toLocaleString('en-KE', {maximumFractionDigits: 3})} m³
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right font-medium">
                         {formatCurrency(Number(reading.amount))}
                       </TableCell>
                       <TableCell>{getStatusBadge(reading.status)}</TableCell>
-                      {canApprove && (
-                        <TableCell>
-                          <div className="flex gap-2">
-
-                            {reading.status === "PENDING" && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="text-success"
-                                  onClick={() => handleApprove(reading)}
-                                >
-                                  <Check className="h-4 w-4" />
-                                </Button>
-
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="text-destructive"
-                                  onClick={() => openRejectDialog(reading)}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </>
-                            )}
-
-                            {/* Readings are audit records: reject pending entries instead of deleting them. */}
-
-                          </div>
-                        </TableCell>
-                      )}
+                      <TableCell>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Button size="sm" variant="outline" className="gap-1 whitespace-nowrap"
+                            aria-label={`Compare reading history for unit ${reading.unitNumber}`}
+                            onClick={() => setComparisonReading(reading)}>
+                            <History className="h-4 w-4" /> Compare history
+                          </Button>
+                          {canApprove && reading.status === 'PENDING' && (
+                            <>
+                              <Button size="sm" variant="ghost" className="text-success"
+                                aria-label={`Approve reading for unit ${reading.unitNumber}`}
+                                onClick={() => handleApprove(reading)} disabled={actionBusy}>
+                                <Check className="h-4 w-4" />
+                              </Button>
+                              <Button size="sm" variant="ghost" className="text-destructive"
+                                aria-label={`Reject reading for unit ${reading.unitNumber}`}
+                                onClick={() => openRejectDialog(reading)} disabled={actionBusy}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
 
                     </TableRow>
                   ))}
@@ -607,8 +606,12 @@ export default function WaterData() {
                                 {formatCurrency(Number(reading.amount))}
                               </p>
                             </div>
-                            <div className="flex gap-2">
-                              <Button size="sm" variant="outline" className="gap-1" onClick={() => handleApprove(reading)}>
+                            <div className="flex flex-wrap gap-2">
+                              <Button size="sm" variant="outline" className="gap-1"
+                                onClick={() => setComparisonReading(reading)}>
+                                <History className="h-4 w-4" /> Compare history
+                              </Button>
+                              <Button size="sm" variant="outline" className="gap-1" onClick={() => handleApprove(reading)} disabled={actionBusy}>
                                 <Check className="h-4 w-4" />
                                 Approve
                               </Button>
@@ -785,6 +788,7 @@ export default function WaterData() {
         </DialogContent>
       </Dialog>
       <OperationFeedbackDialog feedback={waterFeedback} onClose={() => setWaterFeedback(null)} />
+      <WaterReadingHistoryDialog reading={comparisonReading} onClose={() => setComparisonReading(null)} />
     </DashboardLayout>
   );
 }
