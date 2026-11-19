@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -50,10 +51,18 @@ export default function TenantPortal() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { invoices, recordPayment } = useBilling();
-  const { requests, createRequest } = useMaintenance();
+  const { requests, createRequest, availableUnits, unitsLoadError, loadError: maintenanceError } = useMaintenance();
+  const location = useLocation();
   const { applications, submitApplication, withdrawApplication } = useApplications();
 
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState(
+    new URLSearchParams(location.search).get('tab') === 'maintenance' ? 'maintenance' : 'dashboard'
+  );
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get('tab') === 'maintenance') {
+      setActiveTab('maintenance');
+    }
+  }, [location.search]);
   const [showApplicationForm, setShowApplicationForm] = useState(false);
   const [showMaintenanceForm, setShowMaintenanceForm] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
@@ -63,7 +72,8 @@ export default function TenantPortal() {
 const tenantInvoices = invoices.filter(
   (inv) => inv.tenantId === Number(MOCK_TENANT.id)
 );
-  const tenantRequests = requests.filter((req) => req.tenantId === MOCK_TENANT.id);
+  // The server already limits GET /api/maintenance to this authenticated tenant.
+  const tenantRequests = requests;
   const tenantApplications = applications.filter(
     (app) => app.applicantEmail === MOCK_TENANT.email
   );
@@ -157,16 +167,16 @@ const tenantInvoices = invoices.filter(
   const handleMaintenanceSubmit = async (data: any) => {
     setIsLoading(true);
     try {
-      createRequest(data, MOCK_TENANT.id, MOCK_TENANT.name);
+      await createRequest(data);
       toast({
         title: 'Request Submitted',
         description: 'Your maintenance request has been submitted.',
       });
       setShowMaintenanceForm(false);
-    } catch {
+    } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to submit maintenance request.',
+        description: error instanceof Error ? error.message : 'Failed to submit maintenance request.',
         variant: 'destructive',
       });
     } finally {
@@ -489,6 +499,12 @@ const tenantInvoices = invoices.filter(
 
           {/* Maintenance Tab */}
           <TabsContent value="maintenance" className="space-y-4">
+            {maintenanceError && <p role="alert" className="text-sm text-destructive">
+              Maintenance requests could not be loaded: {maintenanceError}
+            </p>}
+            {unitsLoadError && <p role="alert" className="text-sm text-destructive">
+              Occupied units could not be loaded: {unitsLoadError}
+            </p>}
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-semibold">Maintenance Requests</h2>
@@ -549,6 +565,7 @@ const tenantInvoices = invoices.filter(
             <DialogTitle>Submit Maintenance Request</DialogTitle>
           </DialogHeader>
           <MaintenanceForm
+            units={availableUnits}
             onSubmit={handleMaintenanceSubmit}
             onCancel={() => setShowMaintenanceForm(false)}
             isLoading={isLoading}
