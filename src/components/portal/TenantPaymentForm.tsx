@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -20,16 +21,25 @@ const schema = z.object({
 });
 type PaymentFormData = z.infer<typeof schema>;
 
-export function TenantPaymentForm({ invoices, onSubmit, isLoading }: {
+export function TenantPaymentForm({ invoices, onSubmit, isLoading, selectedInvoiceId }: {
   invoices: Invoice[];
   onSubmit: (data: PaymentFormData) => void | Promise<void>;
   isLoading?: boolean;
+  selectedInvoiceId?: number | null;
 }) {
   const unpaid = invoices.filter(i => i.status !== 'paid' && i.status !== 'cancelled' && i.balance > 0);
   const form = useForm<PaymentFormData>({
     resolver: zodResolver(schema),
     defaultValues: {invoiceId: '', amount: 0, paymentMethod: 'mpesa', phoneNumber: '', reference: ''},
   });
+  useEffect(() => {
+    if (selectedInvoiceId == null) return;
+    const invoice = unpaid.find(i => i.id === selectedInvoiceId);
+    if (invoice) {
+      form.setValue('invoiceId', String(invoice.id), { shouldValidate: true });
+      form.setValue('amount', invoice.balance, { shouldValidate: true });
+    }
+  }, [selectedInvoiceId, invoices, form]);
   const chosen = unpaid.find(i => String(i.id) === form.watch('invoiceId'));
   const money = (value: number) => new Intl.NumberFormat('en-KE', {
     style:'currency', currency:'KES', maximumFractionDigits:2,
