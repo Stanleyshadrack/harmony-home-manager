@@ -89,15 +89,15 @@ export function MaintenanceDetail({ request, onAddNote, onClose, onTenantDecisio
   };
 
   return (
-    <div className="flex flex-col h-full max-h-[80vh]">
+    <div className="min-h-0 overflow-y-auto overscroll-contain pr-1 pb-5 sm:pr-2">
       {/* Header */}
       <div className="space-y-4 pb-4">
-        <div className="flex items-start justify-between">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h3 className="text-lg font-semibold">{request.ticketNumber}</h3>
             <p className="text-sm text-muted-foreground capitalize">{request.category}</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Badge variant="outline" className={priorityColors[request.priority]}>
               {t(`maintenance.${request.priority}`)}
             </Badge>
@@ -115,7 +115,7 @@ export function MaintenanceDetail({ request, onAddNote, onClose, onTenantDecisio
           <p className="text-sm text-muted-foreground mt-1">{request.description}</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 text-sm">
+        <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 sm:gap-4">
           <div>
             <span className="text-muted-foreground">Property:</span>
             <p className="font-medium">{request.propertyName}</p>
@@ -166,7 +166,7 @@ export function MaintenanceDetail({ request, onAddNote, onClose, onTenantDecisio
       </div>
 
       {onTenantDecision && request.status === 'resolved' && (
-        <div className="space-y-3 rounded-lg border p-3">
+        <div className="mt-4 space-y-3 rounded-lg border p-3 sm:p-4">
           <p className="font-medium">Confirm the maintenance repair</p>
           <p className="text-sm text-muted-foreground">
             The employee has marked the repair resolved. Confirm it is fixed to close the request,
@@ -175,11 +175,11 @@ export function MaintenanceDetail({ request, onAddNote, onClose, onTenantDecisio
           <Textarea value={tenantReason} onChange={event => setTenantReason(event.target.value)}
             maxLength={2000} placeholder="Reason if the problem is not fixed (required for rejection)" />
           {decisionError && <p role="alert" className="text-sm text-destructive">{decisionError}</p>}
-          <div className="flex flex-wrap gap-2">
-            <Button disabled={decisionPending} onClick={() => void submitTenantDecision(true)}>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Button className="w-full whitespace-normal" disabled={decisionPending} onClick={() => void submitTenantDecision(true)}>
               Confirm Repair & Close
             </Button>
-            <Button variant="destructive" disabled={decisionPending || !tenantReason.trim()}
+            <Button className="w-full whitespace-normal" variant="destructive" disabled={decisionPending || !tenantReason.trim()}
               onClick={() => void submitTenantDecision(false)}>
               Not Fixed — Reopen
             </Button>
@@ -190,10 +190,10 @@ export function MaintenanceDetail({ request, onAddNote, onClose, onTenantDecisio
       <Separator />
 
       {/* Notes Section */}
-      <div className="flex-1 flex flex-col min-h-0 pt-4">
+      <div className="pt-4">
         <h4 className="font-medium mb-3">Activity & Notes</h4>
         
-        <ScrollArea className="flex-1 pr-4">
+        <ScrollArea className="max-h-56 pr-4">
           {request.notes.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">
               No notes yet. Add a note below.
