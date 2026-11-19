@@ -3,6 +3,7 @@ import type { UserRole } from '@/contexts/AuthContext';
 /** Navigation labels describe the API scope, never grant permissions. */
 const scopedLabels: Record<string, { landlord?: string; employee?: string; tenant?: string }> = {
   '/properties': { landlord: 'My Properties' },
+  '/assigned-properties': { employee: 'Assigned Properties' },
   '/units': { landlord: 'My Units', employee: 'Assigned Units', tenant: 'My Unit' },
   '/tenants': { landlord: 'My Tenants', employee: 'Assigned Tenants' },
   '/employees': { landlord: 'My Employees' },
