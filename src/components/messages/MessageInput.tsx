@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Image as ImageIcon, Paperclip, Send, X, FileText } from 'lucide-react';
 import { EmojiPicker } from './EmojiPicker';
+import { VoiceNoteRecorder } from './VoiceNoteRecorder';
 import { toast } from 'sonner';
 
 interface MessageInputProps {
@@ -150,6 +151,7 @@ export function MessageInput({
           onClick={() => fileRef.current?.click()}>
           <Paperclip className="h-5 w-5" />
         </Button>
+        <VoiceNoteRecorder disabled={disabled || sending} onSend={onUploadFile} />
         <Textarea
           aria-label="Type a message"
           ref={textareaRef}
