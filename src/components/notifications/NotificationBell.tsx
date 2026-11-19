@@ -27,6 +27,7 @@ const categoryColors: Record<string, string> = {
   water_reading_approved: 'bg-success/10 text-success',
   water_reading_rejected: 'bg-destructive/10 text-destructive',
   new_message: 'bg-info/10 text-info',
+  missed_call: 'bg-destructive/10 text-destructive',
   general: 'bg-muted text-muted-foreground',
 };
 
