@@ -111,10 +111,15 @@ export async function apiRequest<TReq, TRes>({
     "/api/auth/validate-set-password", "/api/auth/onboarding",
     "/api/auth/set-password", "/api/auth/force-password-change",
   ];
-  const token = publicAuthPaths.includes(path) ? null : tokenService.getAccessToken();
+  // A public endpoint can carry query parameters (e.g. an onboarding invite
+  // token). Match only the pathname; never treat a non-public endpoint as
+  // public merely because it has the name of a public route in its query.
+  const requestPathname = path.split(/[?#]/, 1)[0];
+  const isPublicAuthPath = publicAuthPaths.includes(requestPathname);
+  const token = isPublicAuthPath ? null : tokenService.getAccessToken();
   // Do not hit business endpoints with an empty Bearer session. This prevents
   // a cascade of 401s while protected components are unmounting after logout.
-  if (!publicAuthPaths.includes(path) && !token) {
+  if (!isPublicAuthPath && !token) {
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("apartment:session-expired"));
     }
@@ -159,7 +164,7 @@ export async function apiRequest<TReq, TRes>({
   /* =========================
      🔄 Handle expired token
   ========================= */
-  if (res.status === 401 && retry && !publicAuthPaths.includes(path)) {
+  if (res.status === 401 && retry && !isPublicAuthPath) {
     // A different in-flight request or tab might have refreshed or removed
     // this session while this original request was being processed.
     const latestToken = tokenService.getAccessToken();
@@ -206,7 +211,7 @@ export async function apiRequest<TReq, TRes>({
     throw new ApiHttpError(401, path, "Session expired. Please sign in again.");
   }
 
-  if (res.status === 401 && !publicAuthPaths.includes(path) && !retry &&
+  if (res.status === 401 && !isPublicAuthPath && !retry &&
       tokenService.getAccessToken() === token && token) {
     // /me is authoritative; avoid recursive /me checks here.
     const sessionState = path === "/api/auth/me"
