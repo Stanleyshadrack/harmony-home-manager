@@ -72,7 +72,7 @@ export function MaintenanceForm({ onSubmit, onCancel, isLoading, units }: Mainte
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="min-w-0 max-w-full space-y-4">
         <FormField
           control={form.control}
           name="unitId"
@@ -186,7 +186,7 @@ export function MaintenanceForm({ onSubmit, onCancel, isLoading, units }: Mainte
           )}
         />
 
-        <div className="flex justify-end gap-3 pt-4">
+        <div className="flex flex-col-reverse gap-2 pt-4 sm:flex-row sm:justify-end">
           <Button type="button" variant="outline" onClick={onCancel}>
             {t('common.cancel')}
           </Button>
