@@ -272,7 +272,7 @@ const tenantInvoices = invoices.filter(
 
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid h-auto w-full grid-cols-5 gap-1 p-1">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <Home className="h-4 w-4" />
               <span className="hidden sm:inline">Dashboard</span>
@@ -515,8 +515,8 @@ const tenantInvoices = invoices.filter(
             {unitsLoadError && <p role="alert" className="text-sm text-destructive">
               Occupied units could not be loaded: {unitsLoadError}
             </p>}
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
                 <h2 className="text-xl font-semibold">Maintenance Requests</h2>
                 <p className="text-muted-foreground">
                   Submit and track maintenance requests
