@@ -18,11 +18,13 @@ function notify(title: string, body: string, conversationId: number) {
 /** Foreground browser/desktop alerts. Closed-browser push requires a separate push subscription service. */
 export function DeviceCallNotifications() {
   const { user } = useAuth();
-  const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>('default');
+  const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>('unsupported');
+  const [secure, setSecure] = useState(false);
   const observed = useRef<Set<string> | null>(null);
 
   useEffect(() => {
     setPermission('Notification' in window ? Notification.permission : 'unsupported');
+    setSecure(window.isSecureContext);
   }, []);
 
   useEffect(() => {
@@ -65,7 +67,7 @@ export function DeviceCallNotifications() {
     const status = await Notification.requestPermission();
     setPermission(status);
   };
-  if (!user || permission !== 'default' || !window.isSecureContext) return null;
+  if (!user || permission !== 'default' || !secure) return null;
   return <Button variant="ghost" size="sm" className="gap-1 text-xs" onClick={() => void enable()}
     title="Enable device notifications for calls while PropManager is open">
     <BellRing className="h-4 w-4" /><span className="hidden sm:inline">Enable call alerts</span>
