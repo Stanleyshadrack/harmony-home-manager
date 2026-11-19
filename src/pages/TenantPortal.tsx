@@ -2,6 +2,7 @@ import { TenantDepositStatement } from '@/components/billing/TenantDepositStatem
 import { TenantMoveInClearancePanel } from '@/components/tenants/TenantMoveInClearancePanel';
 import { TenantDocumentCorrectionPanel } from '@/components/tenants/TenantDocumentCorrectionPanel';
 import { TenantsApi } from '@/api/service/tenantsApi';
+import { apiRequest } from '@/api/https';
 import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
@@ -55,7 +56,7 @@ export default function TenantPortal() {
   const tenantName = currentTenant
     ? [currentTenant.firstName, currentTenant.lastName].filter(Boolean).join(' ')
     : 'Tenant';
-  const { invoices, recordPayment } = useBilling();
+  const { invoices } = useBilling();
   const { requests, createRequest, addNote, tenantConfirmation, availableUnits, unitsLoadError, loadError: maintenanceError } = useMaintenance();
   const location = useLocation();
   const { applications, submitApplication, withdrawApplication } = useApplications();
@@ -153,24 +154,32 @@ const tenantInvoices = invoices.filter(
     }
   };
 
-  const handlePayment = async (data: any) => {
+  const handlePayment = async (data: {invoiceId:string;amount:number;phoneNumber:string}) => {
     setIsLoading(true);
     try {
-      await recordPayment({
-        invoiceId: data.invoiceId,
-        amount: data.amount,
-        paymentMethod: data.paymentMethod,
-        transactionRef: data.reference || `PAY-${Date.now()}`,
-        paymentDate: new Date().toISOString().split('T')[0],
+      const invoice = tenantInvoices.find(i => i.id === Number(data.invoiceId));
+      if (!invoice || !currentTenant || invoice.tenantId !== Number(currentTenant.id))
+        throw new Error('Invoice is not assigned to your tenant account.');
+      if (!Number.isFinite(data.amount) || data.amount <= 0 || data.amount > invoice.balance)
+        throw new Error('Amount must be positive and no greater than the outstanding balance.');
+      const params = new URLSearchParams({
+        invoiceId: String(invoice.id),
+        phone: data.phoneNumber.trim(),
+        amount: String(data.amount),
+      });
+      const response = await apiRequest<null, {checkoutRequestId:string;status:string}>({
+        path: `/api/billing/pay/mpesa?${params.toString()}`, method: 'POST',
       });
       toast({
-        title: 'Payment Initiated',
-        description: `Payment of KES ${data.amount.toFixed(2)} has been initiated.`,
+        title: 'M-Pesa confirmation requested',
+        description: response.status === 'pending'
+          ? 'Check your phone for the STK prompt. The invoice will be marked paid only after M-Pesa confirms the transaction.'
+          : 'Payment request sent. Check the invoice status before retrying.',
       });
-    } catch {
+    } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Failed to process payment.',
+        title: 'Unable to initiate payment',
+        description: error instanceof Error ? error.message : 'Please try again later.',
         variant: 'destructive',
       });
     } finally {
