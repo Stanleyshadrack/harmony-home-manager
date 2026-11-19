@@ -9,6 +9,17 @@ export interface ChatCall {
   status: 'RINGING' | 'ACCEPTED' | 'DECLINED' | 'ENDED';
   createdAt: string;
 }
+export interface CallHistoryEntry {
+  callId: string;
+  conversationId: number;
+  callerId: number;
+  recipientId: number;
+  video: boolean;
+  status: 'RINGING' | 'ACCEPTED' | 'DECLINED' | 'ENDED' | 'MISSED' | 'CANCELLED';
+  startedAt: string;
+  answeredAt: string | null;
+  endedAt: string | null;
+}
 export interface SignalEvent {
   sequence: number;
   senderId: number;
@@ -19,6 +30,9 @@ const root = (id: number, callId: string) =>
   `/api/chat/conversations/${id}/calls/${encodeURIComponent(callId)}`;
 
 export const callApi = {
+  history: () => apiRequest<null, CallHistoryEntry[]>({
+    path: '/api/chat/calls/history', method: 'GET',
+  }),
   start: (id: number, video: boolean) =>
     apiRequest<{ video: boolean }, ChatCall>({
       path: `/api/chat/conversations/${id}/calls`, method: 'POST', body: { video },
