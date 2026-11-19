@@ -124,7 +124,7 @@ export function InvoiceCard({ invoice, onView, onRecordPayment }: InvoiceCardPro
             <span className="break-words">{line.description}</span>
             <span className="shrink-0 font-medium">{formatCurrency(line.amount)}</span>
           </div>)}
-        </div>
+        </div>}
         
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
           <span>{invoice.propertyName}</span>
