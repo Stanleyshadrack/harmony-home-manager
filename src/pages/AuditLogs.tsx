@@ -25,21 +25,20 @@ export default function AuditLogs() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [mode, setMode] = useViewMode('auditlogs', 'list');
-  const load = async () => {
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const load = async (nextPage = 0) => {
     setLoading(true);
     try {
-      const isAdmin = user?.role === 'super_admin';
-      const response = isAdmin
-        ? await apiRequest<null, {content: LogEntry[]}>({
-            path:'/api/audit-logs?page=0&size=200', method:'GET'
-          })
-        : null;
-      const data = isAdmin ? (response?.content ?? []) :
-        await apiRequest<null, LogEntry[]>({path:'/api/audit-logs/recent',method:'GET'});
-      setLogs(data);
+      const response = await apiRequest<null, {
+        content: LogEntry[]; number: number; last: boolean
+      }>({path:`/api/audit-logs/mine?page=${nextPage}&size=50`, method:'GET'});
+      setLogs(prev => nextPage === 0 ? response.content : [...prev, ...response.content]);
+      setPage(response.number);
+      setHasMore(!response.last);
       setError('');
     } catch(e) {
-      setLogs([]);
+      if (nextPage === 0) setLogs([]);
       setError(e instanceof Error ? e.message : 'Unable to fetch audit events');
     } finally {setLoading(false);}
   };
@@ -74,7 +73,7 @@ export default function AuditLogs() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
+          <Button variant="outline" size="sm" onClick={() => void load(0)} disabled={loading}>
             <RefreshCw className="mr-2 h-4 w-4"/>Refresh
           </Button>
           <Button variant="outline" size="sm" onClick={exportCsv} disabled={!filtered.length}>
