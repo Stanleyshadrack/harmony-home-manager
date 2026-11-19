@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Plus, Search, UsersRound, ArrowLeft, Settings2, Trash2 } from 'lucide-react';
+import { MessageSquare, Plus, Search, UsersRound, ArrowLeft, Settings2, Trash2, Lock, LockOpen } from 'lucide-react';
 import { useConversations, useMessages } from '@/hooks/useMessages';
 import { ConversationList } from '@/components/messages/ConversationList';
 import { MessageThread } from '@/components/messages/MessageThread';
@@ -16,6 +16,7 @@ import { ForwardMessageDialog } from '@/components/messages/ForwardMessageDialog
 import { ConfirmActionDialog } from '@/components/messages/ConfirmActionDialog';
 import { chatApi } from '@/api/service/chatApi';
 import { UserAvatar } from '@/components/profile/UserAvatar';
+import { encryptionSupported } from '@/services/chatE2EE';
 import type { Conversation, Message, NewConversationData } from '@/types/message';
 import { useToast } from '@/hooks/use-toast';
 
@@ -23,7 +24,7 @@ export default function Messages() {
   const { toast } = useToast();
   const location = useLocation();
   const {
-    conversations, isLoading: loadingConversations, error: conversationsError,
+    conversations, isLoading: loadingConversations, error: conversationsError, encryptionError,
     createConversation, markAsRead, refreshConversations,
   } = useConversations();
 
@@ -41,7 +42,7 @@ export default function Messages() {
   const {
     messages, isLoading: loadingMessages, error: messagesError,
     sendMessage, uploadAttachment, forwardMessage, deleteMessage,
-  } = useMessages(selectedId);
+  } = useMessages(selectedId, !!selectedConversation?.e2eeEnabled);
 
   useEffect(() => {
     if (selectedId == null) return;
@@ -126,7 +127,9 @@ export default function Messages() {
   };
 
   const forward = async (message: Message, destinationId: number) => {
-    await forwardMessage(message.id, destinationId);
+    const destination = conversations.find(c => c.id === destinationId);
+    if (!destination) throw new Error('Destination conversation no longer available');
+    await forwardMessage(message, destinationId, !!destination.e2eeEnabled);
     await refreshConversations();
     toast({ title: 'Message forwarded', description: 'Sent to the selected conversation.' });
   };
@@ -159,16 +162,38 @@ export default function Messages() {
     void refreshConversations();
   };
 
-  const canSend = !selectedConversation ||
+  const enableEncryption = async () => {
+    if (!selectedConversation) return;
+    try {
+      const updated = await chatApi.enableE2EE(selectedConversation.id);
+      setSelectedSnapshot(updated);
+      await refreshConversations();
+      toast({ title: 'Encryption enabled', description:
+        'New messages are now encrypted on participants’ devices. Earlier messages remain unencrypted.' });
+    } catch (error) {
+      toast({ title: 'Cannot enable encryption',
+        description: error instanceof Error ? error.message : 'Try again.',
+        variant: 'destructive' });
+    }
+  };
+
+  const canSend = (!selectedConversation?.e2eeEnabled || encryptionSupported()) &&
+    (!selectedConversation ||
     selectedConversation.type === 'DIRECT' ||
     !selectedConversation.adminsOnlySend ||
-    selectedConversation.currentUserAdmin;
+    selectedConversation.currentUserAdmin);
 
   return (
     <DashboardLayout
       title="Messages"
       breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Messages' }]}
     >
+      {encryptionError && (
+        <p role="alert" className="mb-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+          <Lock className="mr-2 inline-block h-4 w-4" />
+          {encryptionError}
+        </p>
+      )}
       <div className="flex h-[calc(100dvh-11rem)] min-h-[29rem] gap-3 lg:gap-5">
         {/* Conversation navigation on desktop; replaces thread on narrow phones. */}
         <Card className={`min-h-0 w-full flex-col overflow-hidden lg:flex lg:w-[340px] lg:shrink-0 ${!showMobileList ? 'hidden' : 'flex'}`}>
@@ -260,6 +285,25 @@ export default function Messages() {
                 </div>
               </CardHeader>
 
+              {selectedConversation.e2eeEnabled ? (
+                <p className="flex shrink-0 items-center gap-2 border-b bg-emerald-500/5 p-2 text-xs text-muted-foreground">
+                  <Lock className="h-4 w-4 shrink-0" />
+                  <span>End-to-end encrypted on this browser (beta). The server cannot read new message text or attachments.
+                    Older history and group details may be unencrypted. No multi-device key recovery yet.</span>
+                </p>
+              ) : (
+                <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b bg-amber-500/5 p-2 text-xs">
+                  <span className="flex items-center gap-2"><LockOpen className="h-4 w-4" />
+                    Legacy chat: messages are not end-to-end encrypted.</span>
+                  {(selectedConversation.type === 'DIRECT' || selectedConversation.currentUserAdmin) && (
+                    <Button type="button" size="sm" variant="outline"
+                      disabled={!encryptionSupported()}
+                      onClick={() => void enableEncryption()}>
+                      Enable encryption
+                    </Button>
+                  )}
+                </div>
+              )}
               {messagesError && (
                 <p role="alert" className="border-b p-2 text-sm text-destructive">
                   {messagesError}
@@ -279,7 +323,8 @@ export default function Messages() {
                 </p>
               )}
               <MessageInput onSend={send} onUploadFile={uploadFile} disabled={!canSend}
-                placeholder={canSend ? 'Type a message…' : 'Only admins can send'} />
+                placeholder={canSend ? 'Type a message…' : selectedConversation.e2eeEnabled &&
+                  !encryptionSupported() ? 'HTTPS required for encrypted messages' : 'Only admins can send'} />
             </>
           ) : (
             <CardContent className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 text-center">
