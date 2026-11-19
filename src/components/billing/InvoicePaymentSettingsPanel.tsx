@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 interface Settings {
   propertyId?: number;
   dueDay?: number;
+  autoGenerate?: boolean;
+  remindersEnabled?: boolean;
   displayName?: string;
   paymentMethod?: string;
   paybillNumber?: string;
@@ -72,6 +74,19 @@ export function InvoicePaymentSettingsPanel() {
           <Input type="number" min={1} max={28} value={settings.dueDay ?? 7}
             onChange={e=>setSettings(prev=>({...prev,dueDay:Number(e.target.value)}))}/>
         </label>
+        <div className="space-y-2 rounded-md border p-3 text-sm">
+          <label className="flex items-start gap-2">
+            <input type="checkbox" checked={Boolean(settings.autoGenerate)}
+              onChange={e=>setSettings(prev=>({...prev,autoGenerate:e.target.checked}))} className="mt-1"/>
+            Automatically issue this property's monthly rent + approved previous-month water invoice,
+            after balances are reconciled and the deployment-level automation switch is enabled.
+          </label>
+          <label className="flex items-start gap-2">
+            <input type="checkbox" checked={Boolean(settings.remindersEnabled)}
+              onChange={e=>setSettings(prev=>({...prev,remindersEnabled:e.target.checked}))} className="mt-1"/>
+            Automatically send due-date and overdue rent reminders for this property.
+          </label>
+        </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {fields.map(field=><label key={field.key} className="flex min-w-0 flex-col gap-1 text-sm">
             {field.label}
