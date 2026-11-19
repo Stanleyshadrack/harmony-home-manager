@@ -75,7 +75,12 @@ export function useConversations() {
     await ensureChatIdentity(Number(user.id));
     // The first message must never be handed to the server as plaintext.
     const { initialMessage, ...details } = data;
-    const created = await chatApi.create(details);
+    let created = await chatApi.create(details);
+    // An existing direct chat may predate E2EE. Upgrade only after every
+    // participant has registered a key; old history remains visibly legacy.
+    if (!created.e2eeEnabled && created.type === 'DIRECT') {
+      created = await chatApi.enableE2EE(created.id);
+    }
     if (initialMessage?.trim()) {
       const keys = await chatApi.recipientKeys(created.id);
       const { payload } = await encryptChatMessage(created.id, Number(user.id), keys, initialMessage.trim());
