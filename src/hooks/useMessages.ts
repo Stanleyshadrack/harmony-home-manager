@@ -193,6 +193,10 @@ export function useMessages(conversationId: number | null, e2eeEnabled = false) 
   const forwardMessage = useCallback(async (message: Message, destinationId: number,
     destinationEncrypted: boolean) => {
     if (conversationId == null || !user) throw new Error('Select a conversation');
+    if (message.encrypted && (!message.crypto ||
+        message.content === '🔒 Encrypted message unavailable on this device')) {
+      throw new Error('This device cannot decrypt the original message, so it cannot be forwarded.');
+    }
     if (message.encrypted && !destinationEncrypted)
       throw new Error('Encrypted messages cannot be forwarded to an unencrypted chat. Enable encryption on the destination first.');
     if (destinationEncrypted) {
