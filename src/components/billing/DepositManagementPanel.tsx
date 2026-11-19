@@ -69,8 +69,21 @@ export function DepositManagementPanel() {
       </p>
     </CardHeader>
     <CardContent className="space-y-4">
+      {canManage && <Button variant="outline" disabled={busy} onClick={async()=>{
+        if(!window.confirm('Initialize missing deposit accounts for active leases? Existing deposits are NOT marked as paid.'))return;
+        setBusy(true);setNotice('');
+        try{
+          const result=await apiRequest<null,{created:number}>({
+            path:'/api/deposits/initialize-existing',method:'POST'
+          });
+          await load();
+          setNotice(`Initialized ${result.created} lease deposit account(s). Verify historical receipts separately.`);
+        }catch(e){setNotice(e instanceof Error?e.message:'Unable to initialize leases');}
+        finally{setBusy(false);}
+      }}>Initialize Existing Lease Deposits (unpaid until verified)</Button>}
       {accounts.length===0 && <p className="text-sm text-muted-foreground">
-        No deposit accounts yet. A new lease receives its deposit account on approval.
+        No deposit accounts yet. New approved leases receive an account automatically.
+        Existing leases can be initialized without assuming their deposits were paid.
       </p>}
       {accounts.length>0 && <select className="h-10 w-full rounded-md border bg-background px-3"
         value={selectedId??''} onChange={e=>setSelectedId(e.target.value?Number(e.target.value):null)}>
