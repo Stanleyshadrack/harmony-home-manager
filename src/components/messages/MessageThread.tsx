@@ -72,7 +72,7 @@ export function MessageThread({
                 )}
                 {!message.deleted && message.attachment && (
                   <MessageAttachment conversationId={message.conversationId}
-                    attachment={message.attachment} />
+                    message={message} />
                 )}
                 <div className={cn('mt-1 flex items-center justify-end gap-2 text-[11px]', own ? 'text-primary-foreground/80' : 'text-muted-foreground')}>
                   {!message.deleted && onForward && (
