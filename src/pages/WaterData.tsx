@@ -48,6 +48,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { WaterReadingForm } from '@/components/billing/WaterReadingForm';
 import { useToast } from '@/hooks/use-toast';
 import { useWaterData } from '@/hooks/useWaterData';
+import { waterReadingsApi } from '@/api/service/water.readings.service';
+import { OperationFeedbackDialog, type OperationFeedback } from '@/components/ui/OperationFeedbackDialog';
+import { waterReadingFailure } from '@/utils/waterReadingFeedback';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--info))', 'hsl(var(--warning))', 'hsl(var(--success))'];
 
@@ -66,10 +69,6 @@ export default function WaterData() {
     canAddReading,
     canApprove,
 
-    addReading,
-    approveReading,
-    rejectReading,
-
     getPendingReadings,
     getApprovedReadings,
 
@@ -85,6 +84,8 @@ export default function WaterData() {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [selectedReading, setSelectedReading] = useState<WaterReading | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [waterFeedback, setWaterFeedback] = useState<OperationFeedback | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
 
   const pendingReadings = getPendingReadings();
 
@@ -140,41 +141,43 @@ export default function WaterData() {
   };
 
   const handleApprove = async (reading: WaterReading) => {
+    if (actionBusy) return;
+    setActionBusy(true);
     try {
-      const success = await approveReading(Number(reading.id));
-
-      if (!success) return;
-
-      toast({
-        title: 'Reading Approved',
-        description: `Water reading for ${reading.unitNumber} has been approved.`,
+      await waterReadingsApi.approve(Number(reading.id));
+      await reload();
+      setWaterFeedback({
+        kind: 'success',
+        title: 'Reading approved',
+        message: `The reading for unit ${reading.unitNumber} is approved and the meter balance has been updated.`,
+        guidance: 'Approved consumption can be included with the following month’s rent invoice.',
       });
-
     } catch (error) {
-      toast({
-        title: "Approval Failed",
-        description: "Could not approve water reading.",
-        variant: "destructive",
-      });
+      setWaterFeedback(waterReadingFailure(error));
+    } finally {
+      setActionBusy(false);
     }
   };
 
   const handleReject = async () => {
-    if (!selectedReading || !rejectionReason.trim()) return;
-
-    const success = await rejectReading(Number(selectedReading.id), rejectionReason);
-
-    if (success) {
-      toast({
-        title: "Reading Rejected",
-        description: `Water reading for ${selectedReading.unitNumber} has been rejected.`,
-        variant: "destructive",
+    if (!selectedReading || !rejectionReason.trim() || actionBusy) return;
+    setActionBusy(true);
+    try {
+      await waterReadingsApi.reject(Number(selectedReading.id), rejectionReason);
+      await reload();
+      setShowRejectDialog(false);
+      setSelectedReading(null);
+      setRejectionReason('');
+      setWaterFeedback({
+        kind: 'info', title: 'Reading rejected',
+        message: 'The reading was rejected, with your reason retained in the audit history.',
+        guidance: 'The employee can now submit a corrected reading for this date.',
       });
+    } catch (error) {
+      setWaterFeedback(waterReadingFailure(error));
+    } finally {
+      setActionBusy(false);
     }
-
-    setShowRejectDialog(false);
-    setSelectedReading(null);
-    setRejectionReason("");
   };
 
   const openRejectDialog = (reading: WaterReading) => {
@@ -183,27 +186,32 @@ export default function WaterData() {
   };
 
   const handleAddReading = async (data: any) => {
-
-    const result = await addReading({
-      unitId: data.unitId,
-      meterId: data.meterId,
-      currentReading: data.currentReading,
-      ratePerUnit: data.ratePerUnit,
-      readingDate: data.readingDate,
-      billingPeriod: data.billingPeriod,
-    });
-
-    if (result) {
-      toast({
-        title: "Water Reading Added",
-        description: `Reading for unit ${result.unitNumber} recorded successfully`,
+    if (actionBusy) return;
+    setActionBusy(true);
+    try {
+      const result = await waterReadingsApi.create({
+        unitId: data.unitId,
+        meterId: data.meterId,
+        currentReading: data.currentReading,
+        ratePerUnit: data.ratePerUnit,
+        readingDate: data.readingDate,
+        billingPeriod: data.billingPeriod,
       });
-
+      await reload();
       setShowAddDialog(false);
-      reload();
+      setWaterFeedback({
+        kind: 'success', title: 'Water reading recorded',
+        message: `Reading for unit ${result.unitNumber} has been saved as ${result.status.toLowerCase()}.`,
+        guidance: result.status === 'PENDING'
+          ? 'The property landlord must approve it before the water charge can be billed.'
+          : 'The approved water charge is eligible for the next month’s combined invoice.',
+      });
+    } catch (error) {
+      setWaterFeedback(waterReadingFailure(error));
+    } finally {
+      setActionBusy(false);
     }
   };
-
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -739,6 +747,7 @@ export default function WaterData() {
           <WaterReadingForm
             onSubmit={handleAddReading}
             onCancel={() => setShowAddDialog(false)}
+            isLoading={actionBusy}
           />
         </DialogContent>
       </Dialog>
@@ -769,12 +778,13 @@ export default function WaterData() {
             <Button variant="outline" onClick={() => setShowRejectDialog(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleReject} disabled={!rejectionReason.trim()}>
+            <Button variant="destructive" onClick={handleReject} disabled={!rejectionReason.trim() || actionBusy}>
               Reject Reading
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <OperationFeedbackDialog feedback={waterFeedback} onClose={() => setWaterFeedback(null)} />
     </DashboardLayout>
   );
 }
