@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useLocation, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiRequest } from '@/api/https';
@@ -53,6 +54,7 @@ interface EmployeeProfile {
 
 export default function EmployeePortal() {
   const { user } = useAuth();
+  const location = useLocation();
   const { t } = useTranslation();
   const { toast } = useToast();
   const { requests, updateStatus, loadError: maintenanceError } = useMaintenance();
@@ -70,7 +72,12 @@ export default function EmployeePortal() {
     || [profile.data?.firstName, profile.data?.lastName].filter(Boolean).join(' ')
     || user?.email || 'Employee';
 
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState(
+    new URLSearchParams(location.search).get('tab') === 'water' ? 'water' : 'dashboard'
+  );
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get('tab') === 'water') setActiveTab('water');
+  }, [location.search]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showWaterReadingForm, setShowWaterReadingForm] = useState(false);
@@ -180,7 +187,7 @@ export default function EmployeePortal() {
               <p className="text-muted-foreground">{profile.data?.jobTitle || 'Employee'}</p>
             </div>
           </div>
-          <Badge variant="outline" className="text-sm">
+          <Badge variant="outline" className="text-sm max-w-full whitespace-normal break-words">
             {profile.isLoading ? 'Loading properties...' : `${propertyIds.length} Properties Assigned`}
           </Badge>
         </div>
@@ -188,6 +195,9 @@ export default function EmployeePortal() {
         {profile.isError && <p role="alert" className="text-sm text-destructive">
           Employee profile could not be loaded: {profile.error instanceof Error ? profile.error.message : 'Please retry.'}
         </p>}
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" asChild><Link to="/assigned-properties">View Assigned Properties</Link></Button>
+        </div>
         {/* Quick Stats */}
         <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Card>
