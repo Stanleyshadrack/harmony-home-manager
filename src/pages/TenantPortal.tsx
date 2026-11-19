@@ -206,7 +206,7 @@ const tenantInvoices = invoices.filter(
       breadcrumbs={[{ label: 'Tenant Portal' }]}
       title="Tenant Portal"
     >
-      <div className="space-y-6">
+      <div className="min-w-0 max-w-full space-y-6">
         {/* Welcome Section */}
         <div className="flex items-center justify-between">
           <div>
@@ -466,7 +466,7 @@ const tenantInvoices = invoices.filter(
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
               {tenantInvoices.map((invoice) => (
                 <InvoiceCard key={invoice.id} invoice={invoice} />
               ))}
@@ -528,7 +528,7 @@ const tenantInvoices = invoices.filter(
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
               {tenantRequests.map((request) => (
                 <MaintenanceCard key={request.id} request={request}
                   onView={() => setMaintenanceDetailId(request.id)} />
@@ -596,7 +596,7 @@ const tenantInvoices = invoices.filter(
 
       {/* Maintenance Form Dialog */}
       <Dialog open={showMaintenanceForm} onOpenChange={setShowMaintenanceForm}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-h-[90dvh] w-[calc(100vw-2rem)] max-w-lg overflow-y-auto overflow-x-hidden p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Submit Maintenance Request</DialogTitle>
           </DialogHeader>
