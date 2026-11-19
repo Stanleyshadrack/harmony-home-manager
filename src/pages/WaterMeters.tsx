@@ -77,7 +77,8 @@ export default function WaterMeters() {
     serialNumber: "",
     notes: "",
     lastReading:0,
-      lastReadingDate: ''
+      lastReadingDate: '',
+    status: "ACTIVE"
   });
 
   const resetForm = () => {
@@ -203,6 +204,7 @@ export default function WaterMeters() {
   notes: formData.notes,
   lastReading: formData.lastReading,
       lastReadingDate: formData.lastReadingDate || undefined,
+      status: "ACTIVE",
     };
 
     const created = await createMeter(newMeter as WaterMeter);
@@ -228,6 +230,7 @@ export default function WaterMeters() {
       serialNumber: formData.serialNumber,
       notes: formData.notes,
        lastReading: formData.lastReading,
+       status: formData.status ?? selectedMeter.status,
     };
 
     const saved = await updateMeter(Number(selectedMeter.id), {
@@ -287,6 +290,7 @@ export default function WaterMeters() {
   notes: meter.notes ?? "",
   lastReading: meter.lastReading ?? 0,
   lastReadingDate: meter.lastReadingDate ?? '',
+  status: meter.status,
 });
 
     setShowEditDialog(true);
