@@ -7,7 +7,7 @@ export type NotificationCategory =
   | 'registration_approved' | 'registration_rejected' | 'payment_received'
   | 'maintenance_update' | 'rent_reminder' | 'lease_expiry'
   | 'task_assigned' | 'water_reading_pending' | 'water_reading_approved'
-  | 'water_reading_rejected' | 'new_message' | 'general';
+  | 'water_reading_rejected' | 'new_message' | 'missed_call' | 'general';
 
 export interface InAppNotification {
   id: string;
