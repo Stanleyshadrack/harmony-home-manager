@@ -14,6 +14,7 @@ import { MessageThread } from '@/components/messages/MessageThread';
 import { TypingIndicator } from '@/components/messages/TypingIndicator';
 import { MessageInput } from '@/components/messages/MessageInput';
 import { ChatCallControls } from '@/components/messages/ChatCallControls';
+import { GroupCallControls } from '@/components/messages/GroupCallControls';
 import { CallHistoryPanel } from '@/components/messages/CallHistoryPanel';
 import { NewConversationDialog } from '@/components/messages/NewConversationDialog';
 import { GroupManagementDialog } from '@/components/messages/GroupManagementDialog';
@@ -216,6 +217,8 @@ export default function Messages() {
       )}
       <div className="mb-2 flex justify-end">
         <ChatCallControls conversation={selectedConversation}
+          conversations={conversations} onSelectConversation={select} />
+        <GroupCallControls conversation={selectedConversation}
           conversations={conversations} onSelectConversation={select} />
       </div>
       <div className="flex h-[calc(100dvh-11rem)] min-h-[29rem] gap-3 lg:gap-5">
