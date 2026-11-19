@@ -206,6 +206,10 @@ export default function Messages() {
           {encryptionError}
         </p>
       )}
+      <div className="mb-2 flex justify-end">
+        <ChatCallControls conversation={selectedConversation}
+          conversations={conversations} onSelectConversation={select} />
+      </div>
       <div className="flex h-[calc(100dvh-11rem)] min-h-[29rem] gap-3 lg:gap-5">
         {/* Conversation navigation on desktop; replaces thread on narrow phones. */}
         <Card className={`min-h-0 w-full flex-col overflow-hidden lg:flex lg:w-[340px] lg:shrink-0 ${!showMobileList ? 'hidden' : 'flex'}`}>
@@ -280,8 +284,6 @@ export default function Messages() {
                         : <LastSeen online={directPartner?.online} lastSeenAt={directPartner?.lastSeenAt} />}
                     </p>
                   </div>
-                  <ChatCallControls conversation={selectedConversation}
-                    conversations={conversations} onSelectConversation={select} />
                   <Button type="button" size="icon" variant="outline"
                     className="h-10 w-10 shrink-0"
                     title="Delete conversation for me"
