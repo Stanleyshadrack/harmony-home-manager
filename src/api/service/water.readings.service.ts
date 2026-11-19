@@ -12,6 +12,9 @@ import { apiRequest } from "../https";
    Water Readings API
 ================================ */
 
+// Normalize the backend propertyName field for the existing Water Data UI.
+const normalize = (r: WaterReadingResponse): WaterReadingResponse =>
+  ({...r, property: r.property || r.propertyName || ''});
 export const waterReadingsApi = {
   /* ===============================
      Fetch All Readings
@@ -20,7 +23,7 @@ export const waterReadingsApi = {
     apiRequest<null, WaterReadingResponse[]>({
       path: API_PATHS.WATER_READINGS,
       method: "GET",
-    }),
+    }).then(rows => rows.map(normalize)),
 
   /* ===============================
      Fetch Reading By ID
@@ -29,7 +32,7 @@ export const waterReadingsApi = {
     apiRequest<null, WaterReadingResponse>({
       path: API_PATHS.WATER_READING_BY_ID(id),
       method: "GET",
-    }),
+    }).then(normalize),
 
   /* ===============================
      Create Reading
@@ -39,7 +42,7 @@ export const waterReadingsApi = {
       path: API_PATHS.CREATE_WATER_READING,
       method: "POST",
       body: data,
-    }),
+    }).then(normalize),
 
   /* ===============================
      Approve Reading
@@ -53,10 +56,11 @@ export const waterReadingsApi = {
   /* ===============================
      Reject Reading
   =============================== */
-  reject: (id: number) =>
-    apiRequest<null, void>({
+  reject: (id: number, reason: string) =>
+    apiRequest<{reason:string}, void>({
       path: API_PATHS.REJECT_WATER_READING(id),
       method: "PUT",
+      body: {reason},
     }),
 
   /* ===============================
@@ -75,7 +79,7 @@ export const waterReadingsApi = {
     apiRequest<null, WaterReadingResponse[]>({
       path: API_PATHS.WATER_READINGS_BY_UNIT(unitId),
       method: "GET",
-    }),
+    }).then(rows => rows.map(normalize)),
 
   /* ===============================
      Get Last Reading for Unit
@@ -84,7 +88,7 @@ export const waterReadingsApi = {
     apiRequest<null, WaterReadingResponse>({
       path: API_PATHS.LAST_READING_BY_UNIT(unitId),
       method: "GET",
-    }),
+    }).then(normalize),
 
   /* ===============================
      Get Readings By Property
@@ -93,7 +97,7 @@ export const waterReadingsApi = {
     apiRequest<null, WaterReadingResponse[]>({
       path: API_PATHS.WATER_READINGS_BY_PROPERTY(propertyName),
       method: "GET",
-    }),
+    }).then(rows => rows.map(normalize)),
 
   /* ===============================
      High Usage Detection
