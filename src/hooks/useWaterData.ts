@@ -184,9 +184,9 @@ export function useWaterData() {
      Reject Reading
   ================================= */
 
-  const rejectReading = useCallback(async (id: number) => {
+  const rejectReading = useCallback(async (id: number, reason: string) => {
     try {
-      await waterReadingsApi.reject(id);
+      await waterReadingsApi.reject(id, reason);
       await loadReadings();
       return true;
     } catch (error) {
