@@ -119,7 +119,7 @@ export default function EmployeePortal() {
       await updateStatus(requestId, 'resolved');
       toast({
         title: 'Task Completed',
-        description: 'The maintenance task has been marked as completed.',
+        description: 'Work has been marked resolved. The tenant must confirm before the request closes.',
       });
     } catch (error) {
       toast({ title: 'Maintenance action failed',
