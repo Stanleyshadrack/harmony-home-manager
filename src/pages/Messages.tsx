@@ -13,6 +13,7 @@ import { MessageThread } from '@/components/messages/MessageThread';
 import { TypingIndicator } from '@/components/messages/TypingIndicator';
 import { MessageInput } from '@/components/messages/MessageInput';
 import { ChatCallControls } from '@/components/messages/ChatCallControls';
+import { CallHistoryPanel } from '@/components/messages/CallHistoryPanel';
 import { NewConversationDialog } from '@/components/messages/NewConversationDialog';
 import { GroupManagementDialog } from '@/components/messages/GroupManagementDialog';
 import { ForwardMessageDialog } from '@/components/messages/ForwardMessageDialog';
@@ -42,6 +43,7 @@ export default function Messages() {
   const [forwardCandidate, setForwardCandidate] = useState<Message | null>(null);
   const [showMobileList, setShowMobileList] = useState(true);
   const [confirmDeleteChat, setConfirmDeleteChat] = useState(false);
+  const [showCallHistory, setShowCallHistory] = useState(false);
 
   const selectedConversation = selectedSnapshot?.id === selectedId
     ? selectedSnapshot : conversations.find(item => item.id === selectedId) ?? null;
@@ -206,10 +208,20 @@ export default function Messages() {
           {encryptionError}
         </p>
       )}
-      <div className="mb-2 flex justify-end">
+      <div className="mb-2 flex flex-wrap items-center justify-end gap-2">
+        <Button type="button" size="sm" variant={showCallHistory ? 'default' : 'outline'}
+          onClick={() => setShowCallHistory(!showCallHistory)}>
+          {showCallHistory ? 'Back to chats' : 'Call History'}
+        </Button>
         <ChatCallControls conversation={selectedConversation}
           conversations={conversations} onSelectConversation={select} />
       </div>
+      {showCallHistory && <div className="mb-3 max-h-[50dvh] overflow-y-auto rounded-lg border bg-card p-3 sm:p-4">
+        <CallHistoryPanel conversations={conversations} onOpenConversation={conversation => {
+          select(conversation);
+          setShowCallHistory(false);
+        }} />
+      </div>}
       <div className="flex h-[calc(100dvh-11rem)] min-h-[29rem] gap-3 lg:gap-5">
         {/* Conversation navigation on desktop; replaces thread on narrow phones. */}
         <Card className={`min-h-0 w-full flex-col overflow-hidden lg:flex lg:w-[340px] lg:shrink-0 ${!showMobileList ? 'hidden' : 'flex'}`}>
