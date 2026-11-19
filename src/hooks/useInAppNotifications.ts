@@ -26,7 +26,7 @@ type ServerNotification = {
   read: boolean; createdAt: string;
 };
 
-const REFRESH_MS = 15000;
+const REFRESH_MS = 4000;
 
 export function useInAppNotifications(userId?: string) {
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
