@@ -69,7 +69,6 @@ export default function WaterData() {
     addReading,
     approveReading,
     rejectReading,
-    deleteReading,
 
     getPendingReadings,
     getApprovedReadings,
@@ -134,9 +133,9 @@ export default function WaterData() {
   });
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-KE', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'KES',
     }).format(amount);
   };
 
@@ -163,7 +162,7 @@ export default function WaterData() {
   const handleReject = async () => {
     if (!selectedReading || !rejectionReason.trim()) return;
 
-    const success = await rejectReading(Number(selectedReading.id));
+    const success = await rejectReading(Number(selectedReading.id), rejectionReason);
 
     if (success) {
       toast({
@@ -538,14 +537,7 @@ export default function WaterData() {
                               </>
                             )}
 
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-muted-foreground"
-                              onClick={() => deleteReading(reading.id)}
-                            >
-                              Delete
-                            </Button>
+                            {/* Readings are audit records: reject pending entries instead of deleting them. */}
 
                           </div>
                         </TableCell>
