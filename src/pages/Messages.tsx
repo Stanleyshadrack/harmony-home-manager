@@ -12,6 +12,7 @@ import { ConversationList } from '@/components/messages/ConversationList';
 import { MessageThread } from '@/components/messages/MessageThread';
 import { TypingIndicator } from '@/components/messages/TypingIndicator';
 import { MessageInput } from '@/components/messages/MessageInput';
+import { ChatCallControls } from '@/components/messages/ChatCallControls';
 import { NewConversationDialog } from '@/components/messages/NewConversationDialog';
 import { GroupManagementDialog } from '@/components/messages/GroupManagementDialog';
 import { ForwardMessageDialog } from '@/components/messages/ForwardMessageDialog';
@@ -279,6 +280,8 @@ export default function Messages() {
                         : <LastSeen online={directPartner?.online} lastSeenAt={directPartner?.lastSeenAt} />}
                     </p>
                   </div>
+                  <ChatCallControls conversation={selectedConversation}
+                    conversations={conversations} onSelectConversation={select} />
                   <Button type="button" size="icon" variant="outline"
                     className="h-10 w-10 shrink-0"
                     title="Delete conversation for me"
