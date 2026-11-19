@@ -110,20 +110,21 @@ export function MaintenanceCard({ request, onView, onAssign, onUpdateStatus }: M
                     Assign
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuSeparator />
-                {request.status === 'assigned' && (
+                {(onUpdateStatus || canAssign) && <DropdownMenuSeparator />}
+                {onUpdateStatus && request.status === 'assigned' && (
                   <DropdownMenuItem onClick={() => onUpdateStatus?.(request, 'in_progress')}>
                     <Play className="h-4 w-4 mr-2" />
                     Start Work
                   </DropdownMenuItem>
                 )}
-                {request.status === 'in_progress' && (
+                {onUpdateStatus && request.status === 'in_progress' && (
                   <DropdownMenuItem onClick={() => onUpdateStatus?.(request, 'resolved')}>
                     <CheckCircle className="h-4 w-4 mr-2" />
                     Mark Resolved
                   </DropdownMenuItem>
                 )}
-                {request.status !== 'resolved' && request.status !== 'cancelled' && canAssign && (
+                {request.status !== 'resolved' && request.status !== 'cancelled'
+                  && canAssign && onUpdateStatus && (
                   <DropdownMenuItem
                     onClick={() => onUpdateStatus?.(request, 'cancelled')}
                     className="text-destructive"
