@@ -10,6 +10,7 @@ import { AppSidebar } from './AppSidebar';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { IncomingCallBanner } from '@/components/messages/IncomingCallBanner';
 import { Separator } from '@/components/ui/separator';
 import {
   Breadcrumb,
@@ -103,6 +104,8 @@ export function DashboardLayout({ children, title, breadcrumbs }: DashboardLayou
               <ThemeSwitcher />
             </div>
           </header>
+
+          <IncomingCallBanner />
 
           {/* Main Content */}
           <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
