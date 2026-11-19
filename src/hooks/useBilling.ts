@@ -13,6 +13,7 @@ type ApiInvoice = {
   type: string; description?: string; amount: number; amountPaid: number;
   balance: number; status: string; dueDate?: string; issuedDate?: string;
   paidDate?: string; payments?: ApiPayment[];
+  waterReading?: {id:number;unitId:number;meterId:string;previousReading:number;currentReading:number;consumption:number;ratePerUnit:number;amount:number;billingPeriod:string;readingDate:string;status?:'APPROVED'|'PENDING'|'REJECTED'};
   lines?: {type:string;description:string;amount:number;waterReadingId?:number;periodYear?:number;periodMonth?:number}[];
   priorBalanceAtIssue?: number; billingYear?: number; billingMonth?: number;
   invoiceDisplayName?: string; paymentMethodLabel?: string; paybillNumber?: string;
@@ -33,6 +34,10 @@ function mapInvoice(i: ApiInvoice, propertyIds: Map<number, number>): Invoice {
     status: (i.status || 'pending').toLowerCase() as Invoice['status'],
     dueDate: i.dueDate || '', issuedDate: i.issuedDate || '',
     paidDate: i.paidDate || undefined,
+    waterReading: i.waterReading ? { ...i.waterReading,
+      ratePerUnit: Number(i.waterReading.ratePerUnit),
+      amount: Number(i.waterReading.amount),
+      property: i.propertyName || '' } : undefined,
     createdAt: i.issuedDate || '', updatedAt: i.issuedDate || '',
     lines: (i.lines || []).map(line => ({ ...line, amount: Number(line.amount || 0) })),
     priorBalanceAtIssue: Number(i.priorBalanceAtIssue || 0),
