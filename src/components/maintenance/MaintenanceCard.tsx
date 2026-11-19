@@ -113,7 +113,7 @@ export function MaintenanceCard({ request, onView, onAssign, onUpdateStatus }: M
                   </DropdownMenuItem>
                 )}
                 {(onUpdateStatus || canAssign) && <DropdownMenuSeparator />}
-                {onUpdateStatus && request.status === 'assigned' && (
+                {onUpdateStatus && (request.status === 'assigned' || request.status === 'reopened') && (
                   <DropdownMenuItem onClick={() => onUpdateStatus?.(request, 'in_progress')}>
                     <Play className="h-4 w-4 mr-2" />
                     Start Work
