@@ -88,7 +88,6 @@ export default function AssignedProperties() {
       <div className="min-w-0 max-w-full space-y-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-2xl font-bold">Assigned Properties</h1>
             <p className="text-sm text-muted-foreground">Your assigned buildings, units, tenants and maintenance work. Read-only property access.</p>
           </div>
           <Badge variant="outline">{loading ? 'Loading...' : `${properties.length} assigned`}</Badge>
