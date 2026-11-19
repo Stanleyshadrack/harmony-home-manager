@@ -69,6 +69,7 @@ const statusIcons: Record<Invoice['status'], React.ReactNode> = {
 };
 
 const typeIcons: Record<Invoice['type'], React.ReactNode> = {
+  combined: <Home className="h-5 w-5" />,
   rent: <Home className="h-5 w-5" />,
   water: <Droplets className="h-5 w-5" />,
   utilities: <FileText className="h-5 w-5" />,
@@ -77,6 +78,7 @@ const typeIcons: Record<Invoice['type'], React.ReactNode> = {
 };
 
 const typeLabels: Record<Invoice['type'], string> = {
+  combined: 'Rent + Water',
   rent: 'Rent',
   water: 'Water Bill',
   utilities: 'Utilities',
@@ -122,13 +124,13 @@ export function InvoiceDetail({
     downloadInvoicePDF({
       invoice,
       tenantName: invoice.tenantName,
-      tenantEmail: 'tenant@email.com',
+      tenantEmail: invoice.tenantEmail || '',
       unitNumber: invoice.unitNumber,
       propertyName: invoice.propertyName,
-      propertyAddress: '123 Property Street, Nairobi',
-      landlordName: 'Property Manager',
-      landlordPhone: '+254 712 345 678',
-      landlordEmail: 'manager@property.com',
+      propertyAddress: '',
+      landlordName: invoice.invoiceDisplayName || invoice.propertyName,
+      landlordPhone: '',
+      landlordEmail: invoice.paymentSupportContact || '',
     });
     toast({
       title: 'Invoice Downloaded',
@@ -225,6 +227,21 @@ export function InvoiceDetail({
 
           <Separator />
 
+          {invoice.lines && invoice.lines.length > 0 && <>
+            <h3 className="font-semibold">Invoice breakdown</h3>
+            <div className="space-y-2">
+              {invoice.lines.map((line, index) => <div key={index}
+                className="flex flex-wrap justify-between gap-2 rounded-md border p-3 text-sm">
+                <span className="min-w-0 break-words">{line.description}</span>
+                <span className="font-semibold">{formatCurrency(line.amount)}</span>
+              </div>)}
+              {Number(invoice.priorBalanceAtIssue || 0) > 0 && <div
+                className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
+                Prior outstanding at invoice issue: {formatCurrency(invoice.priorBalanceAtIssue || 0)}.
+                This remains on earlier invoices and is not billed again.
+              </div>}
+            </div>
+          </>}
           {/* Invoice Details */}
           <div className="space-y-4">
             <h3 className="font-semibold flex items-center gap-2">
