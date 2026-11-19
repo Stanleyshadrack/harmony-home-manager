@@ -4,7 +4,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Send, User, Wrench, Building2 } from 'lucide-react';
 import type { MaintenanceRequest } from '@/types/maintenance';
@@ -89,7 +88,7 @@ export function MaintenanceDetail({ request, onAddNote, onClose, onTenantDecisio
   };
 
   return (
-    <div className="min-h-0 overflow-y-auto overscroll-contain pr-1 pb-5 sm:pr-2">
+    <div className="min-w-0 space-y-4 pb-4">
       {/* Header */}
       <div className="space-y-4 pb-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -137,7 +136,7 @@ export function MaintenanceDetail({ request, onAddNote, onClose, onTenantDecisio
         {request.assignedToName && (
           <>
             <Separator />
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 sm:gap-4">
               <div>
                 <span className="text-muted-foreground">{t('maintenance.assignedTo')}:</span>
                 <p className="font-medium">{request.assignedToName}</p>
@@ -193,7 +192,7 @@ export function MaintenanceDetail({ request, onAddNote, onClose, onTenantDecisio
       <div className="pt-4">
         <h4 className="font-medium mb-3">Activity & Notes</h4>
         
-        <ScrollArea className="max-h-56 pr-4">
+        <div className="space-y-2">
           {request.notes.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">
               No notes yet. Add a note below.
@@ -226,7 +225,7 @@ export function MaintenanceDetail({ request, onAddNote, onClose, onTenantDecisio
               })}
             </div>
           )}
-        </ScrollArea>
+        </div>
 
         {/* Add Note */}
         <div className="flex gap-2 pt-4 mt-4 border-t">
