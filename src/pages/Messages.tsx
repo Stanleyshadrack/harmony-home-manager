@@ -18,12 +18,15 @@ import { ForwardMessageDialog } from '@/components/messages/ForwardMessageDialog
 import { ConfirmActionDialog } from '@/components/messages/ConfirmActionDialog';
 import { chatApi } from '@/api/service/chatApi';
 import { UserAvatar } from '@/components/profile/UserAvatar';
+import { LastSeen } from '@/components/presence/LastSeen';
+import { useAuth } from '@/contexts/AuthContext';
 import { encryptionSupported } from '@/services/chatE2EE';
 import type { Conversation, Message, NewConversationData } from '@/types/message';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Messages() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const location = useLocation();
   const {
     conversations, isLoading: loadingConversations, error: conversationsError, encryptionError,
@@ -41,6 +44,10 @@ export default function Messages() {
 
   const selectedConversation = selectedSnapshot?.id === selectedId
     ? selectedSnapshot : conversations.find(item => item.id === selectedId) ?? null;
+  const directPartner = selectedConversation?.type === 'DIRECT'
+    ? selectedConversation.members.find(member => member.userId !== Number(user?.id))
+    : undefined;
+  const onlineCount = selectedConversation?.members.filter(member => member.online).length ?? 0;
   const {
     messages, isLoading: loadingMessages, error: messagesError,
     sendMessage, uploadAttachment, forwardMessage, deleteMessage,
@@ -256,18 +263,20 @@ export default function Messages() {
                     onClick={() => setShowMobileList(true)}>
                     <ArrowLeft className="h-5 w-5" />
                   </Button>
-                  {selectedConversation.type === 'GROUP' && (
-                    <UserAvatar name={selectedConversation.title}
-                      avatarUrl={selectedConversation.avatarUrl} className="h-10 w-10" />
-                  )}
+                  <UserAvatar
+                    name={selectedConversation.title}
+                    avatarUrl={selectedConversation.type === 'GROUP'
+                      ? selectedConversation.avatarUrl : directPartner?.avatarUrl}
+                    online={selectedConversation.type === 'DIRECT' && directPartner?.online}
+                    className="h-10 w-10" />
                   <div className="min-w-0 flex-1">
                     <CardTitle className="truncate text-base sm:text-lg">
                       {selectedConversation.title}
                     </CardTitle>
                     <p className="truncate text-xs text-muted-foreground">
                       {selectedConversation.type === 'GROUP'
-                        ? `${selectedConversation.members.length} participants${selectedConversation.currentUserAdmin ? ' · You are an admin' : ''}`
-                        : 'One-to-one conversation'}
+                        ? `${selectedConversation.members.length} participants · ${onlineCount} online${selectedConversation.currentUserAdmin ? ' · You are an admin' : ''}`
+                        : <LastSeen online={directPartner?.online} lastSeenAt={directPartner?.lastSeenAt} />}
                     </p>
                   </div>
                   <Button type="button" size="icon" variant="outline"
