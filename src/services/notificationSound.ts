@@ -31,6 +31,17 @@ const notes: Record<NotificationTune, Note[]> = {
 
 let audioContext: AudioContext | undefined;
 
+/** Browsers need a user gesture before they permit message sounds. */
+export async function armNotificationSound(): Promise<void> {
+  try {
+    if (!window.AudioContext) return;
+    audioContext ??= new window.AudioContext();
+    await audioContext.resume();
+  } catch {
+    // Badge notifications work even when browser audio is blocked.
+  }
+}
+
 export async function playNotificationTune(settings: NotificationSoundSettings, preview = false): Promise<void> {
   if ((!settings.enabled && !preview) || settings.volume <= 0) return;
   const Context = window.AudioContext;
