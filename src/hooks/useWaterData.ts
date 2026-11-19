@@ -20,9 +20,9 @@ export function useWaterData() {
   const [isLoading, setIsLoading] = useState(true);
 
   const canAddReading =
-    user?.role === "employee" || user?.role === "landlord";
+    user?.role === "employee" || user?.role === "landlord" || user?.role === "super_admin";
 
-  const canApprove = user?.role === "landlord";
+  const canApprove = user?.role === "landlord" || user?.role === "super_admin";
 
   /* =================================
      Load All Water Readings
