@@ -54,11 +54,11 @@ export function AssignmentForm({ request, employees, onSubmit, onCancel, isLoadi
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="min-w-0 max-w-full space-y-4">
         <div className="bg-muted/50 rounded-lg p-4 mb-4">
-          <p className="text-sm font-medium">{request.ticketNumber}</p>
-          <p className="text-sm text-muted-foreground">{request.title}</p>
-          <div className="flex gap-2 mt-2 text-xs text-muted-foreground">
+          <p className="text-sm font-medium break-all">{request.ticketNumber}</p>
+          <p className="text-sm text-muted-foreground break-words">{request.title}</p>
+          <div className="flex flex-wrap gap-2 mt-2 text-xs text-muted-foreground">
             <span>{request.propertyName}</span>
             <span>•</span>
             <span>Unit {request.unitNumber}</span>
@@ -144,7 +144,7 @@ export function AssignmentForm({ request, employees, onSubmit, onCancel, isLoadi
           )}
         />
 
-        <div className="flex justify-end gap-3 pt-4">
+        <div className="flex flex-col-reverse gap-2 pt-4 sm:flex-row sm:justify-end">
           <Button type="button" variant="outline" onClick={onCancel}>
             {t('common.cancel')}
           </Button>
