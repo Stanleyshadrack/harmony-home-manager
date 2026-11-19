@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 
 interface Settings {
   propertyId?: number;
+  dueDay?: number;
   displayName?: string;
   paymentMethod?: string;
   paybillNumber?: string;
@@ -66,6 +67,11 @@ export function InvoicePaymentSettingsPanel() {
         {properties.map(property=><option key={property.id} value={property.id}>{property.name}</option>)}
       </select>
       {!!propertyId && <>
+        <label className="flex max-w-xs flex-col gap-1 text-sm">
+          Monthly invoice due day (1–28)
+          <Input type="number" min={1} max={28} value={settings.dueDay ?? 7}
+            onChange={e=>setSettings(prev=>({...prev,dueDay:Number(e.target.value)}))}/>
+        </label>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {fields.map(field=><label key={field.key} className="flex min-w-0 flex-col gap-1 text-sm">
             {field.label}
