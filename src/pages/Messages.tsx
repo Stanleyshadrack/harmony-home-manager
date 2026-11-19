@@ -7,8 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { MessageSquare, Plus, Search, UsersRound, ArrowLeft, Settings2, Trash2, Lock, LockOpen } from 'lucide-react';
 import { useConversations, useMessages } from '@/hooks/useMessages';
+import { useTypingPresence } from '@/hooks/useTypingPresence';
 import { ConversationList } from '@/components/messages/ConversationList';
 import { MessageThread } from '@/components/messages/MessageThread';
+import { TypingIndicator } from '@/components/messages/TypingIndicator';
 import { MessageInput } from '@/components/messages/MessageInput';
 import { NewConversationDialog } from '@/components/messages/NewConversationDialog';
 import { GroupManagementDialog } from '@/components/messages/GroupManagementDialog';
@@ -183,6 +185,8 @@ export default function Messages() {
     !selectedConversation.adminsOnlySend ||
     selectedConversation.currentUserAdmin);
 
+  const { typingUsers, updateTyping } = useTypingPresence(selectedId, canSend);
+
   return (
     <DashboardLayout
       title="Messages"
@@ -315,14 +319,18 @@ export default function Messages() {
                 onDelete={removeMessage}
                 onForward={setForwardCandidate}
                 canDeleteOthers={selectedConversation.type === 'GROUP' && selectedConversation.currentUserAdmin}
-                totalParticipants={selectedConversation.members.length}
+                members={selectedConversation.members}
+                isGroup={selectedConversation.type === 'GROUP'}
               />
               {!canSend && (
                 <p className="border-t bg-muted p-3 text-center text-sm text-muted-foreground">
                   Only group admins can send messages in this group.
                 </p>
               )}
-              <MessageInput onSend={send} onUploadFile={uploadFile} disabled={!canSend}
+              <TypingIndicator typingUsers={typingUsers.map(member => member.name)}
+                className="shrink-0 border-t bg-muted/25" />
+              <MessageInput onSend={send} onUploadFile={uploadFile}
+                onTypingChange={updateTyping} disabled={!canSend}
                 placeholder={canSend ? 'Type a message…' : selectedConversation.e2eeEnabled &&
                   !encryptionSupported() ? 'HTTPS required for encrypted messages' : 'Only admins can send'} />
             </>
