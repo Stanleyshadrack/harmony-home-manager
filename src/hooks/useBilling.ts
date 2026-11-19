@@ -76,11 +76,23 @@ export function useBilling() {
     setIsLoading(true);
     try {
       // Backend /invoice/my enforces tenant, employee, landlord and admin scope.
-      const [invoiceRows, units] = await Promise.all([
-        apiRequest<null, ApiInvoice[]>({ path: '/api/billing/invoice/my', method: 'GET' }),
-        apiRequest<null, UnitRow[]>({ path: '/api/units', method: 'GET' }),
-      ]);
-      const propertyIds = new Map(units.map(u => [u.id, u.propertyId]));
+      // The authenticated invoice endpoint is the source of truth. Tenant accounts
+      // are not entitled to the global unit directory, and a 403 there must never
+      // turn real issued invoices into an empty list.
+      const invoiceRows = await apiRequest<null, ApiInvoice[]>({
+        path: '/api/billing/invoice/my', method: 'GET',
+      });
+      let propertyIds = new Map<number, number>();
+      if (user.role !== 'tenant') {
+        try {
+          const units = await apiRequest<null, UnitRow[]>({
+            path: '/api/units', method: 'GET',
+          });
+          propertyIds = new Map(units.map(u => [u.id, u.propertyId]));
+        } catch {
+          // Optional display enrichment only; invoice loading must still succeed.
+        }
+      }
       const mapped = invoiceRows.map(i => mapInvoice(i, propertyIds));
       setInvoices(mapped);
       setPayments(invoiceRows.flatMap((i, n) =>
