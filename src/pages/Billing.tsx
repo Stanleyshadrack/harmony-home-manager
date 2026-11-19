@@ -22,7 +22,9 @@ import {
 } from '@/components/ui/select';
 import { Plus, Search, Droplets, FileText, Filter, Zap, Download, CheckCircle, Mail, Loader2, Edit } from 'lucide-react';
 import { useBilling } from '@/hooks/useBilling';
-import { useAutoInvoice } from '@/hooks/useAutoInvoice';
+import { BillingAutomationPanel } from '@/components/billing/BillingAutomationPanel';
+import { DepositManagementPanel } from '@/components/billing/DepositManagementPanel';
+import { InvoicePaymentSettingsPanel } from '@/components/billing/InvoicePaymentSettingsPanel';
 import { BillingStats } from '@/components/billing/BillingStats';
 import { InvoiceCard } from '@/components/billing/InvoiceCard';
 import { InvoiceDetail } from '@/components/billing/InvoiceDetail';
@@ -54,8 +56,6 @@ export default function Billing() {
     getTotalOutstanding,
   } = useBilling();
 
-  const { generateMonthlyRentInvoices, getTenantsWithoutInvoice } = useAutoInvoice();
-  const tenantsWithoutInvoice = getTenantsWithoutInvoice();
 
   const [activeTab, setActiveTab] = useState('invoices');
   const [searchQuery, setSearchQuery] = useState('');
@@ -187,15 +187,6 @@ export default function Billing() {
     }
   };
 
-  const handleAutoGenerateInvoices = async () => {
-    try {
-      const { generated, skipped } = await generateMonthlyRentInvoices();
-      await reload();
-      toast({ title: 'Generation Complete', description: `Generated ${generated} invoice(s); skipped ${skipped}.` });
-    } catch (error) {
-      toast({ title: 'Generation Failed', description: error instanceof Error ? error.message : 'Unable to generate invoices', variant: 'destructive' });
-    }
-  };
 
   const handleViewInvoice = (invoice: Invoice) => {
     setViewingInvoice(invoice);
@@ -220,7 +211,7 @@ export default function Billing() {
         { label: t('billing.title') },
       ]}
     >
-      <div className="space-y-6">
+      <div className="min-w-0 space-y-6">
         {loadError && <div role="alert" className="rounded-lg border border-destructive/50 p-3 text-sm text-destructive">
           Billing data could not be loaded: {loadError}
         </div>}
@@ -261,13 +252,8 @@ export default function Billing() {
             </Select>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <Button 
-              variant="secondary" 
-              onClick={handleAutoGenerateInvoices}
-              disabled={tenantsWithoutInvoice.length === 0}
-            >
-              <Zap className="h-4 w-4 mr-2" />
-              Auto-Generate ({tenantsWithoutInvoice.length})
+            <Button variant="secondary" onClick={() => setActiveTab('automation')}>
+              <Zap className="h-4 w-4 mr-2" />Monthly Billing Automation
             </Button>
             <Button variant="outline" onClick={() => setShowWaterForm(true)}>
               <Droplets className="h-4 w-4 mr-2" />
@@ -282,7 +268,7 @@ export default function Billing() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
+          <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 p-1">
             <TabsTrigger value="invoices" className="gap-2">
               <FileText className="h-4 w-4" />
               {t('billing.invoices')} ({invoices.length})
@@ -291,6 +277,9 @@ export default function Billing() {
               <FileText className="h-4 w-4" />
               {t('billing.payments')} ({payments.length})
             </TabsTrigger>
+            <TabsTrigger value="automation">Monthly Billing</TabsTrigger>
+            <TabsTrigger value="deposits">Deposits</TabsTrigger>
+            <TabsTrigger value="payment-settings">Invoice Settings</TabsTrigger>
           </TabsList>
 
       <div className="flex justify-end mb-3"><ViewModeToggle value={viewMode} onChange={setViewMode} /></div>
@@ -327,6 +316,15 @@ export default function Billing() {
             )}
           </TabsContent>
 
+          <TabsContent value="automation" className="mt-6">
+            <BillingAutomationPanel onIssued={reload}/>
+          </TabsContent>
+          <TabsContent value="deposits" className="mt-6">
+            <DepositManagementPanel/>
+          </TabsContent>
+          <TabsContent value="payment-settings" className="mt-6">
+            <InvoicePaymentSettingsPanel/>
+          </TabsContent>
           <TabsContent value="payments" className="mt-6">
             {filteredPayments.length === 0 ? (
               <Card>
