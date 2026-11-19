@@ -100,7 +100,7 @@ export default function WaterData() {
 
 
 
-  const propertyConsumption = readings.reduce((acc, r) => {
+  const propertyConsumption = readings.filter(r => r.status === 'APPROVED').reduce((acc, r) => {
     if (!acc[r.property]) acc[r.property] = 0;
     acc[r.property] += r.consumption;
     return acc;
