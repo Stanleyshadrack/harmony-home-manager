@@ -17,6 +17,7 @@ interface InvoiceCardProps {
   invoice: Invoice;
   onView?: (invoice: Invoice) => void;
   onRecordPayment?: (invoice: Invoice) => void;
+  paymentActionLabel?: string;
 }
 
 const statusColors: Record<Invoice['status'], string> = {
@@ -37,7 +38,7 @@ const typeIcons: Record<Invoice['type'], React.ReactNode> = {
   other: <FileText className="h-4 w-4" />,
 };
 
-export function InvoiceCard({ invoice, onView, onRecordPayment }: InvoiceCardProps) {
+export function InvoiceCard({ invoice, onView, onRecordPayment, paymentActionLabel = 'Record Payment' }: InvoiceCardProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
 
@@ -98,18 +99,18 @@ export function InvoiceCard({ invoice, onView, onRecordPayment }: InvoiceCardPro
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onView?.(invoice)}>
+                {onView && <DropdownMenuItem onClick={() => onView(invoice)}>
                   <Eye className="h-4 w-4 mr-2" />
                   View Details
-                </DropdownMenuItem>
+                </DropdownMenuItem>}
                 <DropdownMenuItem onClick={handleDownloadPDF}>
                   <Download className="h-4 w-4 mr-2" />
                   Download PDF
                 </DropdownMenuItem>
-                {invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
-                  <DropdownMenuItem onClick={() => onRecordPayment?.(invoice)}>
+                {onRecordPayment && invoice.balance > 0 && invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
+                  <DropdownMenuItem onClick={() => onRecordPayment(invoice)}>
                     <CreditCard className="h-4 w-4 mr-2" />
-                    Record Payment
+                    {paymentActionLabel}
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>
