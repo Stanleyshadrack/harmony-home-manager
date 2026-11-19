@@ -4,7 +4,7 @@ import { TenantDocumentCorrectionPanel } from '@/components/tenants/TenantDocume
 import { TenantsApi } from '@/api/service/tenantsApi';
 import { apiRequest } from '@/api/https';
 import { useQuery } from '@tanstack/react-query';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -56,7 +56,7 @@ export default function TenantPortal() {
   const tenantName = currentTenant
     ? [currentTenant.firstName, currentTenant.lastName].filter(Boolean).join(' ')
     : 'Tenant';
-  const { invoices } = useBilling();
+  const { invoices, isLoading: invoicesLoading, loadError: invoicesError, reload: reloadInvoices } = useBilling();
   const { requests, createRequest, addNote, tenantConfirmation, availableUnits, unitsLoadError, loadError: maintenanceError } = useMaintenance();
   const location = useLocation();
   const { applications, submitApplication, withdrawApplication } = useApplications();
@@ -74,11 +74,12 @@ export default function TenantPortal() {
   const [maintenanceDetailId, setMaintenanceDetailId] = useState<string | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [pendingCheckout, setPendingCheckout] = useState<{id: string; invoiceId: number} | null>(null);
+  const [paymentNotice, setPaymentNotice] = useState('');
 
-  // Filter data for current tenant
-const tenantInvoices = invoices.filter(
-  (inv) => inv.tenantId === Number(currentTenant?.id)
-);
+  // /api/billing/invoice/my is already restricted to the authenticated tenant
+  // by the backend. An empty/incomplete profile load must not hide valid invoices.
+  const tenantInvoices = invoices;
   // The server already limits GET /api/maintenance to this authenticated tenant.
   const tenantRequests = requests;
   const selectedMaintenance = tenantRequests.find(item => item.id === maintenanceDetailId) ?? null;
@@ -158,8 +159,7 @@ const tenantInvoices = invoices.filter(
     setIsLoading(true);
     try {
       const invoice = tenantInvoices.find(i => i.id === Number(data.invoiceId));
-      if (!invoice || !currentTenant || invoice.tenantId !== Number(currentTenant.id))
-        throw new Error('Invoice is not assigned to your tenant account.');
+      if (!invoice) throw new Error('Invoice is not available in your account. Refresh the invoice list.');
       if (!Number.isFinite(data.amount) || data.amount <= 0 || data.amount > invoice.balance)
         throw new Error('Amount must be positive and no greater than the outstanding balance.');
       const params = new URLSearchParams({
@@ -170,11 +170,12 @@ const tenantInvoices = invoices.filter(
       const response = await apiRequest<null, {checkoutRequestId:string;status:string}>({
         path: `/api/billing/pay/mpesa?${params.toString()}`, method: 'POST',
       });
+      if (!response.checkoutRequestId) throw new Error('The payment provider did not return a tracking ID.');
+      setPendingCheckout({id: response.checkoutRequestId, invoiceId: invoice.id});
+      setPaymentNotice('Payment request submitted. Check your phone and approve the M-Pesa prompt. Payment is not yet confirmed.');
       toast({
         title: 'M-Pesa confirmation requested',
-        description: response.status === 'pending'
-          ? 'Check your phone for the STK prompt. The invoice will be marked paid only after M-Pesa confirms the transaction.'
-          : 'Payment request sent. Check the invoice status before retrying.',
+        description: 'Check your phone. We will check the payment outcome; do not pay again while confirmation is pending.',
       });
     } catch (error) {
       toast({
@@ -186,6 +187,48 @@ const tenantInvoices = invoices.filter(
       setIsLoading(false);
     }
   };
+
+  // Check the server's persisted provider result, not a UI assumption.
+  // Stop polling after 2 minutes; pending is never treated as paid.
+  useEffect(() => {
+    if (!pendingCheckout) return;
+    let stopped = false;
+    let attempts = 0;
+    const timer = window.setInterval(() => {
+      if (stopped) return;
+      attempts += 1;
+      void apiRequest<null, {status: string; method: string; amount?: number}>({
+        path: `/api/billing/payment/status/${encodeURIComponent(pendingCheckout.id)}`,
+        method: 'GET',
+      }).then(async result => {
+        if (stopped) return;
+        if (result.status === 'success') {
+          stopped = true;
+          window.clearInterval(timer);
+          await reloadInvoices().catch(() => {});
+          setPaymentNotice('M-Pesa payment confirmed by the backend. The invoice list has been refreshed.');
+          setPendingCheckout(null);
+          toast({title: 'Payment confirmed', description: 'Your invoice payment has been recorded.'});
+        } else if (result.status === 'failed') {
+          stopped = true;
+          window.clearInterval(timer);
+          await reloadInvoices().catch(() => {});
+          setPaymentNotice('M-Pesa payment was not completed. Check your M-Pesa messages before retrying.');
+          setPendingCheckout(null);
+          toast({title: 'Payment not completed', variant: 'destructive'});
+        }
+      }).catch(() => {
+        // Intermittent polling failure must not invent a successful or failed payment.
+      });
+      if (attempts >= 24) {
+        stopped = true;
+        window.clearInterval(timer);
+        setPaymentNotice('Confirmation is taking longer than expected. Refresh invoices or check your M-Pesa transaction history before retrying.');
+        setPendingCheckout(null);
+      }
+    }, 5000);
+    return () => { stopped = true; window.clearInterval(timer); };
+  }, [pendingCheckout?.id, pendingCheckout?.invoiceId, reloadInvoices, toast]);
 
   const handleMaintenanceSubmit = async (data: any) => {
     setIsLoading(true);
@@ -362,7 +405,7 @@ const tenantInvoices = invoices.filter(
                       </div>
                     </div>
                   ))}
-                  {tenantInvoices.length === 0 && (
+                  {!invoicesLoading && !invoicesError && tenantInvoices.length === 0 && (
                     <p className="text-center text-muted-foreground py-4">No invoices yet</p>
                   )}
                 </CardContent>
@@ -495,6 +538,18 @@ const tenantInvoices = invoices.filter(
               )}
             </div>
 
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button variant="outline" size="sm" disabled={invoicesLoading}
+                onClick={() => { void reloadInvoices().catch(() => {}); }}>
+                {invoicesLoading ? 'Refreshing…' : 'Refresh invoices'}
+              </Button>
+              {tenantInvoices.some(invoice => invoice.balance > 0 && invoice.status !== 'cancelled') &&
+                <Button size="sm" onClick={() => setActiveTab('payments')}>Pay outstanding invoice</Button>}
+            </div>
+            {invoicesError && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">
+              Unable to load invoices: {invoicesError}. Please refresh or contact the landlord.
+            </p>}
+            {invoicesLoading && <p role="status" className="text-sm text-muted-foreground">Loading invoices…</p>}
             <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
               {tenantInvoices.map((invoice) => (
                 <InvoiceCard key={invoice.id} invoice={invoice} />
@@ -520,6 +575,17 @@ const tenantInvoices = invoices.filter(
               </p>
             </div>
 
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="sm" disabled={invoicesLoading}
+                onClick={() => { void reloadInvoices().catch(() => {}); }}>
+                {invoicesLoading ? 'Refreshing…' : 'Refresh payment balances'}
+              </Button>
+              {pendingCheckout && <Badge variant="outline">Waiting for M-Pesa confirmation</Badge>}
+            </div>
+            {paymentNotice && <p role="status" className="rounded-md border p-3 text-sm">{paymentNotice}</p>}
+            {invoicesError && <p role="alert" className="text-sm text-destructive">
+              Unable to load payable invoices: {invoicesError}
+            </p>}
             <div className="max-w-xl">
               <Card>
                 <CardHeader>
@@ -529,7 +595,7 @@ const tenantInvoices = invoices.filter(
                   <TenantPaymentForm
                     invoices={tenantInvoices}
                     onSubmit={handlePayment}
-                    isLoading={isLoading}
+                    isLoading={isLoading || invoicesLoading || !!pendingCheckout}
                   />
                 </CardContent>
               </Card>
