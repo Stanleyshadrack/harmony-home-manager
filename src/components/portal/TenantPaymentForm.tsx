@@ -1,233 +1,96 @@
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useTranslation } from 'react-i18next';
+import { Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
+  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from '@/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CreditCard, Smartphone, Building2 } from 'lucide-react';
-import { Invoice } from '@/types/billing';
+import type { Invoice } from '@/types/billing';
 
-const paymentSchema = z.object({
-  invoiceId: z.string().min(1, 'Please select an invoice'),
-  amount: z.number().min(1, 'Amount must be greater than 0'),
-  paymentMethod: z.enum(['mpesa', 'card', 'bank_transfer']),
-  phoneNumber: z.string().optional(),
+const schema = z.object({
+  invoiceId: z.string().min(1, 'Select an unpaid invoice'),
+  amount: z.number().positive('Amount must be positive'),
+  paymentMethod: z.literal('mpesa'),
+  phoneNumber: z.string().min(10, 'Enter a valid M-Pesa phone number'),
   reference: z.string().optional(),
 });
+type PaymentFormData = z.infer<typeof schema>;
 
-type PaymentFormData = z.infer<typeof paymentSchema>;
-
-interface TenantPaymentFormProps {
+export function TenantPaymentForm({ invoices, onSubmit, isLoading }: {
   invoices: Invoice[];
-  onSubmit: (data: PaymentFormData) => void;
+  onSubmit: (data: PaymentFormData) => void | Promise<void>;
   isLoading?: boolean;
-}
-
-const paymentMethods = [
-  { value: 'mpesa', label: 'M-PESA', icon: Smartphone },
-  { value: 'card', label: 'Credit/Debit Card', icon: CreditCard },
-  { value: 'bank_transfer', label: 'Bank Transfer', icon: Building2 },
-];
-
-export function TenantPaymentForm({ invoices, onSubmit, isLoading }: TenantPaymentFormProps) {
-  const { t } = useTranslation();
-  const [selectedMethod, setSelectedMethod] = useState<string>('mpesa');
-
-  const unpaidInvoices = invoices.filter(
-    (inv) => inv.status !== 'paid' && inv.status !== 'cancelled'
-  );
-
+}) {
+  const unpaid = invoices.filter(i => i.status !== 'paid' && i.status !== 'cancelled' && i.balance > 0);
   const form = useForm<PaymentFormData>({
-    resolver: zodResolver(paymentSchema),
-    defaultValues: {
-      invoiceId: '',
-      amount: 0,
-      paymentMethod: 'mpesa',
-      phoneNumber: '',
-      reference: '',
-    },
+    resolver: zodResolver(schema),
+    defaultValues: {invoiceId: '', amount: 0, paymentMethod: 'mpesa', phoneNumber: '', reference: ''},
   });
+  const chosen = unpaid.find(i => String(i.id) === form.watch('invoiceId'));
+  const money = (value: number) => new Intl.NumberFormat('en-KE', {
+    style:'currency', currency:'KES', maximumFractionDigits:2,
+  }).format(value);
 
-  const selectedInvoice = unpaidInvoices.find(
-    (inv) => String(inv.id) === form.watch('invoiceId')
-  );
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
-
-  const handleInvoiceChange = (invoiceId: string) => {
-    const invoice = unpaidInvoices.find((inv) => String(inv.id) === invoiceId);
-    if (invoice) {
-      form.setValue('amount', invoice.balance);
-    }
-  };
-
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <FormField
-          control={form.control}
-          name="invoiceId"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Select Invoice to Pay</FormLabel>
-              <Select
-                onValueChange={(value) => {
-                  field.onChange(value);
-                  handleInvoiceChange(value);
-                }}
-                defaultValue={field.value}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose an invoice" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {unpaidInvoices.length === 0 ? (
-                    <SelectItem value="none" disabled>
-                      No unpaid invoices
-                    </SelectItem>
-                  ) : (
-                    unpaidInvoices.map((invoice) => (
-                      <SelectItem key={invoice.id} value={String(invoice.id)}>
-                        {invoice.invoiceNumber} - {formatCurrency(invoice.balance)} ({invoice.type})
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {selectedInvoice && (
-          <Card className="bg-muted/50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Invoice Details</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm space-y-1">
-              <p><span className="text-muted-foreground">Description:</span> {selectedInvoice.description}</p>
-              <p><span className="text-muted-foreground">Total Amount:</span> {formatCurrency(selectedInvoice.amount)}</p>
-              <p><span className="text-muted-foreground">Balance Due:</span> <span className="font-semibold text-destructive">{formatCurrency(selectedInvoice.balance)}</span></p>
-            </CardContent>
-          </Card>
-        )}
-
-        <FormField
-          control={form.control}
-          name="amount"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Payment Amount (USD)</FormLabel>
-              <FormControl>
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  {...field}
-                  onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="paymentMethod"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Payment Method</FormLabel>
-              <div className="grid grid-cols-3 gap-3">
-                {paymentMethods.map((method) => {
-                  const Icon = method.icon;
-                  const isSelected = field.value === method.value;
-                  return (
-                    <Card
-                      key={method.value}
-                      className={`cursor-pointer transition-all ${
-                        isSelected
-                          ? 'border-primary bg-primary/5'
-                          : 'hover:border-primary/50'
-                      }`}
-                      onClick={() => {
-                        field.onChange(method.value);
-                        setSelectedMethod(method.value);
-                      }}
-                    >
-                      <CardContent className="p-4 flex flex-col items-center gap-2">
-                        <Icon className={`h-6 w-6 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
-                        <span className={`text-sm ${isSelected ? 'font-medium' : ''}`}>
-                          {method.label}
-                        </span>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {selectedMethod === 'mpesa' && (
-          <FormField
-            control={form.control}
-            name="phoneNumber"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>M-PESA Phone Number</FormLabel>
-                <FormControl>
-                  <Input placeholder="+254 7XX XXX XXX" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
-
-        {selectedMethod === 'bank_transfer' && (
-          <Card className="bg-muted/50">
-            <CardContent className="p-4 text-sm space-y-2">
-              <p className="font-medium">Bank Transfer Details:</p>
-              <p><span className="text-muted-foreground">Bank:</span> Example Bank</p>
-              <p><span className="text-muted-foreground">Account:</span> 1234567890</p>
-              <p><span className="text-muted-foreground">Reference:</span> {selectedInvoice?.invoiceNumber || 'INV-XXXX'}</p>
-            </CardContent>
-          </Card>
-        )}
-
-        <Button
-          type="submit"
-          className="w-full"
-          disabled={isLoading || unpaidInvoices.length === 0}
-        >
-          {isLoading ? t('common.loading') : `Pay ${formatCurrency(form.watch('amount') || 0)}`}
-        </Button>
-      </form>
-    </Form>
-  );
+  return <Form {...form}>
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <div className="flex items-center gap-2 rounded-lg border bg-muted/30 p-3">
+        <Smartphone className="h-5 w-5 text-primary" />
+        <div>
+          <p className="font-semibold">M-Pesa STK Push</p>
+          <p className="text-xs text-muted-foreground">Confirm on your phone. Payment stays pending until the provider verifies it.</p>
+        </div>
+      </div>
+      <FormField control={form.control} name="invoiceId" render={({field}) => (
+        <FormItem>
+          <FormLabel>Invoice to pay</FormLabel>
+          <Select value={field.value} onValueChange={value => {
+            field.onChange(value);
+            const inv = unpaid.find(i => String(i.id) === value);
+            form.setValue('amount', inv?.balance ?? 0);
+          }}>
+            <FormControl><SelectTrigger><SelectValue placeholder="Select unpaid invoice" /></SelectTrigger></FormControl>
+            <SelectContent>{unpaid.length === 0
+              ? <SelectItem value="none" disabled>No outstanding invoices</SelectItem>
+              : unpaid.map(i => <SelectItem key={i.id} value={String(i.id)}>
+                  {i.invoiceNumber} — {money(i.balance)}
+                </SelectItem>)}
+            </SelectContent>
+          </Select>
+          <FormMessage/>
+        </FormItem>
+      )}/>
+      {chosen && <Card className="bg-muted/30">
+        <CardHeader className="pb-2"><CardTitle className="text-sm">Invoice summary</CardTitle></CardHeader>
+        <CardContent className="space-y-1 text-sm">
+          <p>Invoice: {chosen.invoiceNumber}</p>
+          <p>Balance: <strong>{money(chosen.balance)}</strong></p>
+        </CardContent>
+      </Card>}
+      <FormField control={form.control} name="amount" render={({field}) => (
+        <FormItem><FormLabel>Amount (KES)</FormLabel>
+          <FormControl><Input type="number" min="1" step="0.01" max={chosen?.balance}
+            value={field.value} onChange={e => field.onChange(Number(e.target.value))}/></FormControl>
+          <FormMessage/>
+        </FormItem>
+      )}/>
+      <FormField control={form.control} name="phoneNumber" render={({field}) => (
+        <FormItem><FormLabel>M-Pesa phone number</FormLabel>
+          <FormControl><Input type="tel" placeholder="07XXXXXXXX or 2547XXXXXXXX" {...field}/></FormControl>
+          <FormMessage/>
+        </FormItem>
+      )}/>
+      <Button type="submit" className="w-full" disabled={isLoading || !chosen ||
+          form.watch('amount') <= 0 || form.watch('amount') > (chosen?.balance ?? 0)}>
+        {isLoading ? 'Sending STK request…' : `Request M-Pesa payment · ${money(form.watch('amount') || 0)}`}
+      </Button>
+      <p className="text-xs text-muted-foreground">
+        Do not retry repeatedly. Confirm the M-Pesa prompt or check the invoice status first.
+        Card and manual bank-transfer verification are not enabled in this form.
+      </p>
+    </form>
+  </Form>;
 }
