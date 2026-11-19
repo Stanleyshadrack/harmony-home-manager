@@ -204,7 +204,9 @@ export default function Onboarding() {
 
       await completeOnboardingService(payload);
       setCompleted(true);
-      toast.success("Onboarding completed. Awaiting approval.");
+      toast.success(invite.role === "TENANT"
+        ? "Application submitted. The landlord will review your documents and lease."
+        : "Onboarding completed. Awaiting account approval.");
     } catch (err: any) {
       toast.error(err?.message ?? "Failed to complete onboarding");
     } finally {
@@ -261,7 +263,9 @@ export default function Onboarding() {
             <CheckCircle className="h-10 w-10 text-success mx-auto" />
             <h2 className="text-xl font-semibold">Onboarding Complete</h2>
             <p className="text-muted-foreground">
-              Your account is pending admin approval.
+              {invite?.role === "TENANT"
+                ? "Your tenant application and documents have been submitted for landlord review. The unit remains reserved while approvals and initial payments are completed. You may move in only after the landlord confirms final clearance."
+                : "Your account is awaiting approval."}
             </p>
             <Button onClick={() => navigate("/auth")} className="w-full">
               Go to Login
