@@ -67,6 +67,26 @@ import { useAllEmployeesData } from '@/hooks/use.employees.hook';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/api/https';
 
+/**
+ * Employee hireDate is nullable in the backend. Never pass an invalid Date
+ * into date-fns during rendering, particularly for pending registrations.
+ */
+function validHireDate(value: string | null | undefined): Date | null {
+  if (!value || typeof value !== 'string') return null;
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date : null;
+}
+
+function relativeHireDate(value: string | null | undefined): string {
+  const date = validHireDate(value);
+  return date ? formatDistanceToNow(date, { addSuffix: true }) : 'Not provided';
+}
+
+function displayHireDate(value: string | null | undefined): string {
+  const date = validHireDate(value);
+  return date ? date.toLocaleDateString() : 'Not provided';
+}
+
 export function EmployeeManagement() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -634,7 +654,7 @@ export function EmployeeManagement() {
                             </span>
                             <span className="flex items-center gap-1">
                               <Clock className="h-3 w-3" />
-                              Applied {formatDistanceToNow(new Date(registration.hiredAt), { addSuffix: true })}
+                              Hire date: {relativeHireDate(registration.hiredAt)}
                             </span>
                           </div>
                         </div>
@@ -743,7 +763,7 @@ export function EmployeeManagement() {
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Clock className="h-4 w-4 text-muted-foreground" />
-                  Joined {(new Date(selectedEmployee.hiredAt)).toLocaleDateString()}
+                  Hire date: {displayHireDate(selectedEmployee.hiredAt)}
                 </div>
               </div>
             </div>
