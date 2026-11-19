@@ -52,7 +52,7 @@ export default function TenantPortal() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { invoices, recordPayment } = useBilling();
-  const { requests, createRequest, addNote, availableUnits, unitsLoadError, loadError: maintenanceError } = useMaintenance();
+  const { requests, createRequest, addNote, tenantConfirmation, availableUnits, unitsLoadError, loadError: maintenanceError } = useMaintenance();
   const location = useLocation();
   const { applications, submitApplication, withdrawApplication } = useApplications();
 
@@ -98,7 +98,7 @@ const tenantInvoices = invoices.filter(
     .filter((inv) => inv.status !== 'paid' && inv.status !== 'cancelled')
     .reduce((sum, inv) => sum + inv.balance, 0);
   const pendingRequests = tenantRequests.filter(
-    (req) => req.status !== 'resolved' && req.status !== 'cancelled'
+    (req) => req.status !== 'confirmed' && req.status !== 'cancelled'
   ).length;
   const pendingApplications = tenantApplications.filter(
     (app) => app.status === 'pending'
@@ -354,7 +354,7 @@ const tenantInvoices = invoices.filter(
                       className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
                     >
                     <div className="flex items-center gap-3">
-                        {request.status === 'resolved' ? (
+                        {request.status === 'confirmed' ? (
                           <CheckCircle2 className="h-5 w-5 text-success" />
                         ) : (
                           <AlertCircle className="h-5 w-5 text-warning" />
@@ -575,6 +575,15 @@ const tenantInvoices = invoices.filter(
           <DialogHeader><DialogTitle>Maintenance request details</DialogTitle></DialogHeader>
           {selectedMaintenance && (
             <MaintenanceDetail request={selectedMaintenance}
+              onTenantDecision={async (accepted, reason) => {
+                await tenantConfirmation(selectedMaintenance.id, accepted, reason);
+                toast({
+                  title: accepted ? 'Repair confirmed' : 'Issue reopened',
+                  description: accepted
+                    ? 'The maintenance request is now closed.'
+                    : 'The employee and landlord will be informed.',
+                });
+              }}
               onClose={() => setMaintenanceDetailId(null)}
               onAddNote={async content => {
                 await addNote(selectedMaintenance.id, content);
