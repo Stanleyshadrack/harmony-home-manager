@@ -32,6 +32,11 @@ export function useMaintenance() {
       maintenanceApi.updateStatus(payload.id, payload.status),
     onSuccess: invalidate,
   });
+  const tenantDecisionMutation = useMutation({
+    mutationFn: ({ id, accepted, reason }: { id: string; accepted: boolean; reason?: string }) =>
+      maintenanceApi.tenantConfirmation(id, accepted, reason),
+    onSuccess: invalidate,
+  });
   const noteMutation = useMutation({
     mutationFn: (payload: { id: string; content: string }) =>
       maintenanceApi.addNote(payload.id, payload.content),
@@ -47,6 +52,9 @@ export function useMaintenance() {
   const updateStatus = useCallback(async (id: string, status: MaintenanceStatus) =>
     statusMutation.mutateAsync({ id, status }), [statusMutation]);
 
+  const tenantConfirmation = useCallback(async (id: string, accepted: boolean, reason?: string) =>
+    tenantDecisionMutation.mutateAsync({ id, accepted, reason }), [tenantDecisionMutation]);
+
   const addNote = useCallback(async (id: string, content: string) =>
     noteMutation.mutateAsync({ id, content }), [noteMutation]);
 
@@ -55,11 +63,11 @@ export function useMaintenance() {
   return {
     requests,
     isLoading: requestQuery.isLoading || createMutation.isPending ||
-      assignMutation.isPending || statusMutation.isPending || noteMutation.isPending,
+      assignMutation.isPending || statusMutation.isPending || tenantDecisionMutation.isPending || noteMutation.isPending,
     loadError: requestQuery.error instanceof Error ? requestQuery.error.message : null,
     availableUnits: unitsQuery.data ?? [],
     unitsLoadError: unitsQuery.error instanceof Error ? unitsQuery.error.message : null,
-    createRequest, assignRequest, updateStatus, addNote,
+    createRequest, assignRequest, updateStatus, tenantConfirmation, addNote,
     getEmployees: maintenanceApi.assignees,
     getRequestsByStatus: (status: MaintenanceStatus) =>
       requests.filter(request => request.status === status),
