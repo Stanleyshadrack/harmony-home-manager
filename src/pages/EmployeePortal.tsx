@@ -69,7 +69,9 @@ export default function EmployeePortal() {
   });
   const propertyIds = profile.data?.propertyIds ?? [];
   const assignedUnits = units.filter(unit => propertyIds.includes(Number(unit.propertyId)));
-  const occupiedAssignedUnits = assignedUnits.filter(unit => unit.status === 'occupied');
+  // Meter usage is recorded for a unit even during vacancy. Occupancy determines
+  // tenant billing, not whether the water meter can be read.
+  const waterReadingUnits = assignedUnits;
   const profileName = profile.data?.fullName?.trim()
     || [profile.data?.firstName, profile.data?.lastName].filter(Boolean).join(' ')
     || user?.email || 'Employee';
@@ -141,11 +143,11 @@ export default function EmployeePortal() {
   };
 
   const handleWaterReading = async (data: WaterReadingFormData) => {
-    if (!occupiedAssignedUnits.some(unit => Number(unit.id) === Number(data.unitId))) {
+    if (!waterReadingUnits.some(unit => Number(unit.id) === Number(data.unitId))) {
       setWaterFeedback({
         kind: 'warning',
         title: 'Unit not assigned to you',
-        message: 'This unit is not part of your assigned occupied units.',
+        message: 'This unit is not part of your assigned properties.',
         guidance: 'Choose a unit assigned to you, or ask the landlord to check your property assignment.',
       });
       return;
@@ -441,9 +443,9 @@ export default function EmployeePortal() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
                 <h2 className="text-xl font-semibold">Water Meter Readings</h2>
-                <p className="text-muted-foreground">Record water consumption for units</p>
+                <p className="text-muted-foreground">Record readings for occupied and vacant units. Vacant-period water is retained for review and must not be billed to the next tenant.</p>
               </div>
-              <Button disabled={profile.isLoading || profile.isError || occupiedAssignedUnits.length === 0} onClick={() => setShowWaterReadingForm(true)}>
+              <Button disabled={profile.isLoading || profile.isError || waterReadingUnits.length === 0} onClick={() => setShowWaterReadingForm(true)}>
                 <Droplets className="h-4 w-4 mr-2" />
                 New Reading
               </Button>
@@ -452,13 +454,16 @@ export default function EmployeePortal() {
             {unitsError && <p role="alert" className="text-sm text-destructive">{unitsError}</p>}
             {(profile.isLoading || unitsLoading) && <p className="text-sm text-muted-foreground">Loading assigned units...</p>}
             <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
-              {occupiedAssignedUnits.map((unit) => (
+              {waterReadingUnits.map((unit) => (
                 <Card key={unit.id}>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-3">
                       <div>
                         <p className="font-semibold">Unit {unit.unitNumber}</p>
-                        <p className="text-sm text-muted-foreground">Meter: {unit.meterId}</p>
+                        <p className="text-sm text-muted-foreground">Meter: {unit.meterId || 'Check assigned meter'}</p>
+                        <Badge variant="outline" className="mt-2 text-xs">
+                          {unit.status === 'vacant' ? 'Vacant unit' : unit.status === 'occupied' ? 'Occupied' : String(unit.status)}
+                        </Badge>
                       </div>
                       <Droplets className="h-5 w-5 text-info" />
                     </div>
@@ -502,7 +507,7 @@ export default function EmployeePortal() {
           </DialogHeader>
           <WaterReadingForm
             onSubmit={handleWaterReading}
-            allowedUnitIds={occupiedAssignedUnits.map(unit => Number(unit.id))}
+            allowedUnitIds={waterReadingUnits.map(unit => Number(unit.id))}
             onCancel={() => setShowWaterReadingForm(false)}
             isLoading={isLoading}
           />
