@@ -23,7 +23,7 @@ export interface InAppNotification {
 
 type ServerNotification = {
   id: number; title: string; message: string; category: NotificationCategory;
-  read: boolean; createdAt: string;
+  read: boolean; createdAt: string; link?: string;
 };
 
 const REFRESH_MS = 4000;
