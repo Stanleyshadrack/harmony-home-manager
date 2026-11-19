@@ -132,7 +132,11 @@ const filteredProperties = properties.filter((property) => {
 
       <div className="flex justify-end mb-3"><ViewModeToggle value={viewMode} onChange={setViewMode} /></div>
       {/* Properties Grid */}
-      {filteredProperties.length > 0 ? (
+      {isLoading ? (
+        <div role="status" className="py-16 text-center text-muted-foreground">Loading your properties…</div>
+      ) : loadError ? (
+        <div role="alert" className="py-16 text-center text-destructive">Unable to display properties until the backend connection is restored.</div>
+      ) : filteredProperties.length > 0 ? (
         <div className={viewMode === 'grid' ? "grid gap-4 md:grid-cols-2 lg:grid-cols-3" : "grid grid-cols-1 gap-3"}>
           {filteredProperties.map((property) => {
   const landlord = getLandlordById(Number(property.landlordId));
