@@ -1,5 +1,5 @@
 export type MaintenancePriority = 'low' | 'medium' | 'high' | 'urgent';
-export type MaintenanceStatus = 'pending' | 'assigned' | 'in_progress' | 'resolved' | 'cancelled';
+export type MaintenanceStatus = 'pending' | 'assigned' | 'in_progress' | 'resolved' | 'reopened' | 'confirmed' | 'cancelled';
 export type MaintenanceCategory = 'plumbing' | 'electrical' | 'hvac' | 'appliance' | 'structural' | 'pest' | 'cleaning' | 'other';
 
 export interface MaintenanceRequest {
