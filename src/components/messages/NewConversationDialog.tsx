@@ -16,9 +16,10 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: NewConversationData) => Promise<Conversation>;
+  initialType?: ChatType;
 }
 
-export function NewConversationDialog({ open, onOpenChange, onSubmit }: Props) {
+export function NewConversationDialog({ open, onOpenChange, onSubmit, initialType = 'DIRECT' }: Props) {
   const [type, setType] = useState<ChatType>('DIRECT');
   const [contacts, setContacts] = useState<ChatContact[]>([]);
   const [selected, setSelected] = useState<ChatContact[]>([]);
@@ -31,13 +32,13 @@ export function NewConversationDialog({ open, onOpenChange, onSubmit }: Props) {
 
   useEffect(() => {
     if (!open) return;
-    setType('DIRECT');
+    setType(initialType);
     setSelected([]);
     setSearch('');
     setTitle('');
     setDescription('');
     setInitialMessage('');
-  }, [open]);
+  }, [open, initialType]);
 
   useEffect(() => {
     if (!open) return;
