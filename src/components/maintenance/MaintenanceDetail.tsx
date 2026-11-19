@@ -11,7 +11,7 @@ import type { MaintenanceRequest } from '@/types/maintenance';
 
 interface MaintenanceDetailProps {
   request: MaintenanceRequest;
-  onAddNote: (content: string) => void;
+  onAddNote: (content: string) => Promise<void>;
   onClose: () => void;
 }
 
@@ -34,11 +34,14 @@ const roleIcons = {
   landlord: Building2,
   employee: Wrench,
   tenant: User,
+  system: Wrench,
+  super_admin: Building2,
 };
 
 export function MaintenanceDetail({ request, onAddNote, onClose }: MaintenanceDetailProps) {
   const { t } = useTranslation();
   const [noteContent, setNoteContent] = useState('');
+  const [sendingNote, setSendingNote] = useState(false);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -50,11 +53,15 @@ export function MaintenanceDetail({ request, onAddNote, onClose }: MaintenanceDe
     });
   };
 
-  const handleSendNote = () => {
-    if (noteContent.trim()) {
-      onAddNote(noteContent.trim());
+  const handleSendNote = async () => {
+    if (!noteContent.trim() || sendingNote) return;
+    setSendingNote(true);
+    try {
+      await onAddNote(noteContent.trim());
       setNoteContent('');
-    }
+    } catch {
+      // Keep the text available to retry, and let parent show the API error.
+    } finally { setSendingNote(false); }
   };
 
   return (
@@ -145,7 +152,7 @@ export function MaintenanceDetail({ request, onAddNote, onClose }: MaintenanceDe
           ) : (
             <div className="space-y-4">
               {request.notes.map((note) => {
-                const RoleIcon = roleIcons[note.userRole];
+                const RoleIcon = roleIcons[note.userRole] || Wrench;
                 return (
                   <div key={note.id} className="flex gap-3">
                     <Avatar className="h-8 w-8">
@@ -182,8 +189,8 @@ export function MaintenanceDetail({ request, onAddNote, onClose }: MaintenanceDe
           />
           <Button
             size="icon"
-            onClick={handleSendNote}
-            disabled={!noteContent.trim()}
+            onClick={() => void handleSendNote()}
+            disabled={!noteContent.trim() || sendingNote}
           >
             <Send className="h-4 w-4" />
           </Button>
