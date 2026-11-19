@@ -13,9 +13,17 @@ interface Props {
   onSelectConversation: (conversation: Conversation) => void;
 }
 const rtcConfig: RTCConfiguration = {
-  // STUN is sufficient for some networks. Configure a TURN relay for reliable
-  // cross-network production calls; this first version is single-node signaling.
-  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+  // STUN is suitable for basic tests. Production must have TURN credentials
+  // provisioned securely, ideally via short-lived authenticated server tokens.
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    ...(process.env.NEXT_PUBLIC_TURN_URL && process.env.NEXT_PUBLIC_TURN_USERNAME &&
+      process.env.NEXT_PUBLIC_TURN_CREDENTIAL
+      ? [{ urls: process.env.NEXT_PUBLIC_TURN_URL,
+           username: process.env.NEXT_PUBLIC_TURN_USERNAME,
+           credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL }]
+      : []),
+  ],
 };
 export function ChatCallControls({ conversation, conversations, onSelectConversation }: Props) {
   const { user } = useAuth();
@@ -267,7 +275,7 @@ export function ChatCallControls({ conversation, conversations, onSelectConversa
         <p role="status" className="text-sm text-muted-foreground">{phase}</p>
         <audio ref={remoteAudio} autoPlay playsInline className="hidden" />
         {active?.video && <div className="relative min-h-40 overflow-hidden rounded-lg bg-slate-900">
-          <video ref={remoteVideo} autoPlay playsInline className="h-56 w-full object-contain" />
+          <video ref={remoteVideo} autoPlay muted playsInline className="h-56 w-full object-contain" />
           <video ref={localVideo} autoPlay muted playsInline
             className="absolute bottom-2 right-2 h-24 w-24 rounded-lg border object-cover" />
         </div>}
