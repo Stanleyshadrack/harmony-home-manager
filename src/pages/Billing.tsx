@@ -277,9 +277,6 @@ export default function Billing() {
                 Approve preceding-month water first. The backend blocks issuance when relevant water readings are pending.
                 Current-month rent and previously approved unbilled water are combined without duplicating old arrears.
               </p>
-              <Button size="sm" variant="outline" className="mt-3" onClick={() => setShowWaterForm(true)}>
-                <Droplets className="mr-2 h-4 w-4"/>Record missing water reading
-              </Button>
             </div>
             <BillingAutomationPanel onIssued={reload}/>
             <p className="text-xs text-muted-foreground">
