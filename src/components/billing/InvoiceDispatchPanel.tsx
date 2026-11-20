@@ -18,7 +18,12 @@ export function InvoiceDispatchPanel({ invoices }: { invoices: Invoice[] }) {
   const [error, setError] = useState('');
   const eligible = useMemo(() => invoices.filter(i => i.status !== 'cancelled'), [invoices]);
   const ids = useMemo(() => new Set(eligible.map(i => i.id)), [eligible]);
-  useEffect(() => { setSelected(current => current.filter(id => ids.has(id))); }, [ids]);
+  useEffect(() => {
+    setSelected(current => {
+      const kept = current.filter(id => ids.has(id));
+      return kept.length === current.length ? current : kept;
+    });
+  }, [ids]);
   const allSelected = eligible.length > 0 && eligible.every(i => selected.includes(i.id));
   const toggle = (id: number) => {
     setConfirmed(false); setResult(null);
