@@ -20,6 +20,7 @@ import {
   getMaxAttempts,
 } from '@/services/loginSecurityService';
 import { loginService } from '@/api/service/login.service';
+import { GoogleSignIn } from '@/components/auth/GoogleSignIn';
 import { tokenService } from '@/services/tokenService';
 import { consumeUnlockDestination } from '@/services/sessionLock';
 import { jwtDecode } from 'jwt-decode';
@@ -48,6 +49,7 @@ export function LoginForm({ onSwitchToRegister, onForgotPassword, onRequireOTP, 
   const { completeLogin, isLoading } = useAuth();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [lockoutInfo, setLockoutInfo] = useState<{ locked: boolean; remainingMs: number }>({ locked: false, remainingMs: 0 });
   const [attemptsWarning, setAttemptsWarning] = useState<string | null>(null);
 
@@ -102,6 +104,7 @@ export function LoginForm({ onSwitchToRegister, onForgotPassword, onRequireOTP, 
 
   
 
+  setIsSubmitting(true);
   try {
     const res = await loginService({
   email: data.email,
@@ -169,6 +172,8 @@ navigate(restoredPath, { replace: true });
       );
       toast.error(err.message || "Invalid credentials");
     }
+  } finally {
+    setIsSubmitting(false);
   }
 };
 
@@ -259,11 +264,11 @@ navigate(restoredPath, { replace: true });
       </div>
 
       <div className="flex gap-2">
-        <Button type="submit" className="flex-1" disabled={isLoading || lockoutInfo.locked}>
-          {isLoading ? (
+        <Button type="submit" className="flex-1" disabled={isSubmitting || isLoading || lockoutInfo.locked}>
+          {isSubmitting || isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {t('common.loading')}
+              Signing in…
             </>
           ) : (
             <>
@@ -274,6 +279,8 @@ navigate(restoredPath, { replace: true });
         </Button>
 
       </div>
+
+      <GoogleSignIn onRequireOTP={email => onRequireOTP?.(email, null)} />
 
       <p className="text-center text-sm text-muted-foreground">
         {t('auth.noAccount')}{' '}
