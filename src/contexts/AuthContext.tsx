@@ -219,6 +219,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ========================= */
 
   const logout = useCallback(() => {
+    const accessToken = tokenService.getAccessToken();
+    // Best-effort authenticated, keepalive request: an immediate navigation
+    // must not cancel the logout audit write or refresh-token revocation.
+    if (accessToken && typeof window !== 'undefined') {
+      void fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+        keepalive: true,
+      }).catch(() => {
+        // Local sign-out is still required when the server is offline.
+      });
+    }
     authGeneration.current += 1;
     setUser(null);
     tokenService.clearTokens();
