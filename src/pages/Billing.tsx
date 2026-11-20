@@ -20,8 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Droplets, FileText, Filter, Zap, Download, CheckCircle, Mail, Loader2, Edit } from 'lucide-react';
+import { Plus, Search, Droplets, FileText, Filter, Download, CheckCircle, Mail, Loader2, Edit, MoreHorizontal, CreditCard, Settings, LayoutDashboard, ArrowRight, AlertCircle } from 'lucide-react';
 import { useBilling } from '@/hooks/useBilling';
+import { useAuth } from '@/contexts/AuthContext';
 import { BillingAutomationPanel } from '@/components/billing/BillingAutomationPanel';
 import { InvoiceDispatchPanel } from '@/components/billing/InvoiceDispatchPanel';
 import { DepositManagementPanel } from '@/components/billing/DepositManagementPanel';
@@ -42,6 +43,8 @@ export default function Billing() {
   const [viewMode, setViewMode] = useViewMode('billing');
   const { t } = useTranslation();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const canManageBilling = user?.role === 'landlord' || user?.role === 'super_admin';
   const {
     invoices,
     payments,
@@ -58,7 +61,8 @@ export default function Billing() {
   } = useBilling();
 
 
-  const [activeTab, setActiveTab] = useState('invoices');
+  const [activeTab, setActiveTab] = useState('overview');
+  const [showInvoiceActions, setShowInvoiceActions] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | 'all'>('all');
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
@@ -79,6 +83,9 @@ export default function Billing() {
     const matchesStatus = statusFilter === 'all' || invoice.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const unpaidInvoices = invoices.filter(invoice => invoice.status !== 'paid' && invoice.status !== 'cancelled' && invoice.balance > 0);
+  const undeliveredCount = invoices.filter(invoice => invoice.status === 'pending' && invoice.balance > 0).length;
 
   const filteredPayments = payments.filter((payment) => {
     return (
@@ -223,67 +230,110 @@ export default function Billing() {
           totalOutstanding={getTotalOutstanding()}
         />
 
-        {/* Actions Bar */}
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <div className="flex flex-1 gap-3 w-full sm:w-auto">
-            <div className="relative flex-1 sm:max-w-xs">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder={t('common.search')}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select
-              value={statusFilter}
-              onValueChange={(value) => setStatusFilter(value as InvoiceStatus | 'all')}
-            >
-              <SelectTrigger className="w-[140px]">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder={t('common.filter')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('common.all')}</SelectItem>
-                <SelectItem value="pending">{t('billing.pending')}</SelectItem>
-                <SelectItem value="paid">{t('billing.paid')}</SelectItem>
-                <SelectItem value="partial">{t('billing.partial')}</SelectItem>
-                <SelectItem value="overdue">{t('billing.overdue')}</SelectItem>
-              </SelectContent>
-            </Select>
+        {/* One primary billing action; operational search belongs to the relevant tab. */}
+        <div className="flex flex-col gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Billing workspace</h2>
+            <p className="text-sm text-muted-foreground">
+              Review water, reconcile charges, issue monthly invoices, then monitor tenant payments.
+            </p>
           </div>
-          <div className="flex gap-2 flex-wrap">
-            <Button variant="secondary" onClick={() => setActiveTab('automation')}>
-              <Zap className="h-4 w-4 mr-2" />Monthly Billing Automation
+          {canManageBilling && (
+            <Button onClick={() => setActiveTab('monthly')} className="shrink-0">
+              <FileText className="mr-2 h-4 w-4" />Run Monthly Billing
             </Button>
-            <Button variant="outline" onClick={() => setShowWaterForm(true)}>
-              <Droplets className="h-4 w-4 mr-2" />
-              Water Reading
-            </Button>
-            <Button onClick={() => setShowInvoiceForm(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              {t('billing.createInvoice')}
-            </Button>
-          </div>
+          )}
         </div>
 
-        {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 p-1">
-            <TabsTrigger value="invoices" className="gap-2">
-              <FileText className="h-4 w-4" />
-              {t('billing.invoices')} ({invoices.length})
-            </TabsTrigger>
-            <TabsTrigger value="payments" className="gap-2">
-              <FileText className="h-4 w-4" />
-              {t('billing.payments')} ({payments.length})
-            </TabsTrigger>
-            <TabsTrigger value="automation">Monthly Billing</TabsTrigger>
+            <TabsTrigger value="overview" className="gap-2"><LayoutDashboard className="h-4 w-4"/>Overview</TabsTrigger>
+            {canManageBilling && <TabsTrigger value="monthly" className="gap-2"><FileText className="h-4 w-4"/>Monthly Billing</TabsTrigger>}
+            <TabsTrigger value="invoices" className="gap-2"><FileText className="h-4 w-4"/>{t('billing.invoices')} ({invoices.length})</TabsTrigger>
+            <TabsTrigger value="payments" className="gap-2"><CreditCard className="h-4 w-4"/>{t('billing.payments')} ({payments.length})</TabsTrigger>
             <TabsTrigger value="deposits">Deposits</TabsTrigger>
-            <TabsTrigger value="payment-settings">Invoice Settings</TabsTrigger>
+            {canManageBilling && <TabsTrigger value="payment-settings" className="gap-2"><Settings className="h-4 w-4"/>Settings</TabsTrigger>}
           </TabsList>
 
-      <div className="flex justify-end mb-3"><ViewModeToggle value={viewMode} onChange={setViewMode} /></div>
+          <TabsContent value="overview" className="mt-6 space-y-5">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Outstanding balance</p><p className="mt-1 text-xl font-semibold">KES {getTotalOutstanding().toLocaleString('en-KE')}</p></CardContent></Card>
+              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Unpaid invoices</p><p className="mt-1 text-xl font-semibold">{unpaidInvoices.length}</p></CardContent></Card>
+              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Pending invoice balances</p><p className="mt-1 text-xl font-semibold">{undeliveredCount}</p><p className="text-xs text-muted-foreground">Not a delivery-status count</p></CardContent></Card>
+              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Recorded payments</p><p className="mt-1 text-xl font-semibold">{payments.length}</p></CardContent></Card>
+            </div>
+            <Card>
+              <CardHeader><CardTitle className="text-base">Monthly billing checklist</CardTitle></CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <p>1. Record and approve water readings for the preceding month.</p>
+                <p>2. Review balances and unresolved billing warnings.</p>
+                <p>3. Preview and confirm the consolidated monthly invoices.</p>
+                <p>4. Issued invoices are made available in the tenant portal; app and email notices are attempted after posting.</p>
+                <p>5. Review unpaid invoices, payments and delivery logs.</p>
+                {canManageBilling && <div className="flex flex-wrap gap-2 pt-2">
+                  <Button onClick={() => setActiveTab('monthly')}>Start monthly billing <ArrowRight className="ml-2 h-4 w-4"/></Button>
+                  <Button variant="outline" onClick={() => setShowWaterForm(true)}><Droplets className="mr-2 h-4 w-4"/>Record water reading</Button>
+                </div>}
+              </CardContent>
+            </Card>
+            {loadError && <p role="alert" className="flex items-center gap-2 text-sm text-destructive"><AlertCircle className="h-4 w-4"/>{loadError}</p>}
+          </TabsContent>
+
+          {canManageBilling && <TabsContent value="monthly" className="mt-6 space-y-4">
+            <div className="rounded-lg border bg-muted/20 p-4">
+              <h3 className="font-semibold">Monthly Billing · Review → Preview → Issue</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Approve preceding-month water first. The backend blocks issuance when relevant water readings are pending.
+                Current-month rent and previously approved unbilled water are combined without duplicating old arrears.
+              </p>
+              <Button size="sm" variant="outline" className="mt-3" onClick={() => setShowWaterForm(true)}>
+                <Droplets className="mr-2 h-4 w-4"/>Record missing water reading
+              </Button>
+            </div>
+            <BillingAutomationPanel onIssued={reload}/>
+            <p className="text-xs text-muted-foreground">
+              After issue, tenants can view invoices in their portal. For exceptional resends, open Invoices.
+            </p>
+          </TabsContent>}
+
+          {(activeTab === 'invoices' || activeTab === 'payments') && (
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 flex-1 flex-wrap gap-2">
+                <div className="relative w-full sm:max-w-xs">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/>
+                  <Input className="pl-9" placeholder="Search invoices or payments"
+                    value={searchQuery} onChange={e => setSearchQuery(e.target.value)}/>
+                </div>
+                {activeTab === 'invoices' && <Select value={statusFilter} onValueChange={value=>setStatusFilter(value as InvoiceStatus | 'all')}>
+                  <SelectTrigger className="w-[155px]"><Filter className="mr-2 h-4 w-4"/><SelectValue placeholder="Status"/></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="partial">Partial</SelectItem>
+                    <SelectItem value="overdue">Overdue</SelectItem>
+                  </SelectContent>
+                </Select>}
+              </div>
+              <div className="flex items-center gap-2">
+                <ViewModeToggle value={viewMode} onChange={setViewMode}/>
+                {activeTab === 'invoices' && canManageBilling && (
+                  <div className="relative">
+                    <Button variant="outline" aria-expanded={showInvoiceActions}
+                      onClick={() => setShowInvoiceActions(open => !open)}>
+                      <MoreHorizontal className="mr-2 h-4 w-4"/>More actions
+                    </Button>
+                    {showInvoiceActions && <div className="absolute right-0 z-20 mt-1 min-w-52 rounded-md border bg-popover p-1 shadow-lg">
+                      <button className="w-full rounded px-3 py-2 text-left text-sm hover:bg-accent"
+                        onClick={()=>{setShowInvoiceForm(true);setShowInvoiceActions(false);}}>
+                        Create special invoice
+                      </button>
+                    </div>}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           <TabsContent value="invoices" className="mt-6">
             <InvoiceDispatchPanel invoices={filteredInvoices} />
             {filteredInvoices.length === 0 ? (
@@ -296,12 +346,11 @@ export default function Billing() {
                   <p className="text-muted-foreground mb-4 max-w-md">
                     {searchQuery || statusFilter !== 'all'
                       ? 'Try adjusting your search or filter criteria.'
-                      : 'Create your first invoice to get started.'}
+                      : 'Use Monthly Billing to generate regular rent and water invoices.'}
                   </p>
-                  <Button onClick={() => setShowInvoiceForm(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    {t('billing.createInvoice')}
-                  </Button>
+                  {canManageBilling && <Button onClick={() => setActiveTab('monthly')}>
+                    Open Monthly Billing <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>}
                 </CardContent>
               </Card>
             ) : (
@@ -318,9 +367,6 @@ export default function Billing() {
             )}
           </TabsContent>
 
-          <TabsContent value="automation" className="mt-6">
-            <BillingAutomationPanel onIssued={reload}/>
-          </TabsContent>
           <TabsContent value="deposits" className="mt-6">
             <DepositManagementPanel/>
           </TabsContent>
