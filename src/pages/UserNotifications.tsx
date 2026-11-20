@@ -19,6 +19,7 @@ const categoryColors: Record<string, string> = {
   maintenance_update: 'bg-info/10 text-info',
   rent_reminder: 'bg-warning/10 text-warning',
   invoice_dispatch: 'bg-primary/10 text-primary',
+  water_reading_follow_up: 'bg-warning/10 text-warning',
   lease_expiry: 'bg-warning/10 text-warning',
   task_assigned: 'bg-primary/10 text-primary',
   general: 'bg-muted text-muted-foreground',
@@ -95,6 +96,7 @@ export default function UserNotifications() {
               <SelectItem value="maintenance_update">Maintenance</SelectItem>
               <SelectItem value="rent_reminder">Rent Reminders</SelectItem>
               <SelectItem value="invoice_dispatch">Invoices</SelectItem>
+              <SelectItem value="water_reading_follow_up">Water confirmations</SelectItem>
               <SelectItem value="task_assigned">Task Assigned</SelectItem>
               <SelectItem value="general">General</SelectItem>
             </SelectContent>
