@@ -53,7 +53,7 @@ export function BillingAutomationPanel({ onIssued }: Props) {
       setConfirmIssue(false);
       setPreview(null);
       await onIssued();
-      setError(`Issued ${rows.length} consolidated invoice(s). Tenant app notices and email submissions are queued after posting commits; check Notification Logs for failures. Existing rent invoices were skipped.`);
+      setError(`Issued ${rows.length} consolidated invoice(s). Tenant app notices and email submissions are attempted after posting commits; check Notification Logs for outcomes. Existing rent invoices were skipped.`);
     } catch (e) {setError(e instanceof Error?e.message:'Invoice issue failed');}
     finally {setBusy(false);}
   };
