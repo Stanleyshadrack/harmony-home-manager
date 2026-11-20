@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { apiRequest } from '@/api/https';
+import { useProperties } from '@/hooks/useProperties';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -18,6 +19,7 @@ const currency = (amount:number) => new Intl.NumberFormat('en-KE', {
 }).format(Number(amount||0));
 
 export function BillingAutomationPanel({ onIssued }: Props) {
+  const { properties, isLoading: propertiesLoading } = useProperties();
   const today = new Date();
   const [period, setPeriod] = useState(
     `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`);
@@ -29,8 +31,6 @@ export function BillingAutomationPanel({ onIssued }: Props) {
   const params = () => {
     const [year, month] = period.split('-').map(Number);
     if (!year || !month || month < 1 || month > 12) throw new Error('Select a valid billing month');
-    if (propertyId.trim() && (!Number.isSafeInteger(Number(propertyId)) || Number(propertyId) <= 0))
-      throw new Error('Property ID must be a positive integer');
     return `year=${year}&month=${month}${propertyId ? `&propertyId=${encodeURIComponent(propertyId)}` : ''}`;
   };
   const load = async () => {
@@ -60,7 +60,7 @@ export function BillingAutomationPanel({ onIssued }: Props) {
   const ready = preview?.filter(p=>!p.alreadyIssued && !p.requiresReview && Number(p.newCharges)>0) ?? [];
   return <Card className="min-w-0 overflow-hidden">
     <CardHeader><CardTitle className="flex items-center gap-2">
-      <FileText className="h-5 w-5 text-primary"/> Automated Monthly Billing
+      <FileText className="h-5 w-5 text-primary"/> Monthly Billing · Preview & Issue
     </CardTitle>
     <p className="text-sm text-muted-foreground">
       One invoice per active lease: current-month rent plus approved previous-month water.
@@ -71,9 +71,13 @@ export function BillingAutomationPanel({ onIssued }: Props) {
         <label className="flex min-w-[160px] flex-1 flex-col gap-1 text-sm">Billing month
           <Input type="month" value={period} onChange={e=>{setPeriod(e.target.value);setPreview(null);}}/>
         </label>
-        <label className="flex min-w-[160px] flex-1 flex-col gap-1 text-sm">Property ID (optional)
-          <Input inputMode="numeric" placeholder="All my properties" value={propertyId}
-            onChange={e=>{setPropertyId(e.target.value);setPreview(null);}}/>
+        <label className="flex min-w-[160px] flex-1 flex-col gap-1 text-sm">Property
+          <select className="h-10 rounded-md border bg-background px-3 text-sm" value={propertyId}
+            disabled={propertiesLoading || busy}
+            onChange={e=>{setPropertyId(e.target.value);setPreview(null);setConfirmIssue(false);}}>
+            <option value="">All permitted properties</option>
+            {properties.map(property=><option key={property.id} value={String(property.id)}>{property.name}</option>)}
+          </select>
         </label>
         <Button className="self-end" variant="outline" disabled={busy} onClick={()=>void load()}>
           Preview invoices
@@ -116,8 +120,8 @@ export function BillingAutomationPanel({ onIssued }: Props) {
         </div>}
       </div>}
       <p className="text-xs text-muted-foreground">
-        Automatic first-of-month posting stays disabled until migration checks are complete.
-        It can then be enabled using the backend billing automation setting.
+        Scheduled monthly posting is disabled by default until reconciliation is complete.
+        When enabled for an individual property and at deployment level, the backend retries daily at 6 AM Kenya time.
       </p>
     </CardContent>
   </Card>;
