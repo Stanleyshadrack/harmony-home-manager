@@ -5,12 +5,14 @@ import type { Invoice } from '@/types/billing';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-type Result = { sent: number; failed: number; skipped: number; failedInvoiceIds: number[] };
+type Result = { sent: number; failed: number; skipped: number; failedInvoiceIds: number[]; emailAccepted: number; inAppCreated: number };
+type Channel = "BOTH" | "IN_APP" | "EMAIL";
 
 export function InvoiceDispatchPanel({ invoices }: { invoices: Invoice[] }) {
   const { user } = useAuth();
   const [selected, setSelected] = useState<number[]>([]);
   const [busy, setBusy] = useState(false);
+  const [channel, setChannel] = useState<Channel>("BOTH");
   const [confirmed, setConfirmed] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState('');
@@ -26,8 +28,8 @@ export function InvoiceDispatchPanel({ invoices }: { invoices: Invoice[] }) {
     if (!confirmed || busy || selected.length === 0) return;
     setBusy(true); setError(''); setResult(null);
     try {
-      const response = await apiRequest<{ invoiceIds: number[] }, Result>({
-        path: '/api/billing/invoice/dispatch', method: 'POST', body: { invoiceIds: selected }
+      const response = await apiRequest<{ invoiceIds: number[]; channel: Channel }, Result>({
+        path: '/api/billing/invoice/dispatch', method: 'POST', body: { invoiceIds: selected, channel }
       });
       setResult(response);
       setConfirmed(false);
@@ -39,7 +41,7 @@ export function InvoiceDispatchPanel({ invoices }: { invoices: Invoice[] }) {
   if (user?.role !== 'super_admin' && user?.role !== 'landlord') return null;
   return <Card className="mb-5">
     <CardHeader><CardTitle className="text-base">Dispatch invoices to tenants</CardTitle>
-      <p className="text-sm text-muted-foreground">Choose individual invoices or all invoices currently visible under the billing filters. Each recipient is checked by the backend; SMTP attempts appear in My Notification Logs.</p>
+      <p className="text-sm text-muted-foreground">Choose individual invoices or all invoices currently visible under the billing filters. Each recipient is checked by the backend. Email attempts and in-app dispatches appear in My Notification Logs.</p>
     </CardHeader>
     <CardContent className="space-y-3">
       <label className="flex items-center gap-2 text-sm">
@@ -55,15 +57,23 @@ export function InvoiceDispatchPanel({ invoices }: { invoices: Invoice[] }) {
         </label>)}
         {!eligible.length && <p className="p-3 text-sm text-muted-foreground">No invoices available in the current filter.</p>}
       </div>
+      <label className="flex max-w-sm flex-col gap-1 text-sm font-medium">Delivery channel
+        <select className="h-10 rounded-md border bg-background px-3" value={channel}
+          disabled={busy} onChange={e => { setChannel(e.target.value as Channel); setConfirmed(false); setResult(null); }}>
+          <option value="BOTH">In-app + Email</option>
+          <option value="IN_APP">In-app only</option>
+          <option value="EMAIL">Email only</option>
+        </select>
+      </label>
       <label className="flex items-start gap-2 text-sm">
         <input type="checkbox" checked={confirmed} disabled={!selected.length || busy}
           onChange={e => setConfirmed(e.target.checked)}/>
-        I confirm these {selected.length} invoice(s) should be emailed to their tenants.
+        I confirm these {selected.length} invoice(s) should be dispatched via the selected channel(s).
       </label>
       <Button disabled={!confirmed || !selected.length || busy} onClick={() => void send()}>
         {busy ? 'Dispatching…' : `Dispatch ${selected.length} invoice(s)`}
       </Button>
-      {result && <p role="status" className="text-sm">SMTP accepted: {result.sent}; failed: {result.failed}; skipped: {result.skipped}. {result.failedInvoiceIds.length ? `Failed invoice IDs: ${result.failedInvoiceIds.join(', ')}` : ''}</p>}
+      {result && <p role="status" className="text-sm">Completed all selected channels: {result.sent}; SMTP accepted: {result.emailAccepted}; in-app notifications: {result.inAppCreated}; failed invoices: {result.failed}; skipped: {result.skipped}. {result.failedInvoiceIds.length ? `Failed invoice IDs: ${result.failedInvoiceIds.join(', ')}` : ''}</p>}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     </CardContent>
   </Card>;
