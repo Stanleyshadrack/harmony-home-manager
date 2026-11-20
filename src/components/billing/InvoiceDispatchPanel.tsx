@@ -12,6 +12,7 @@ export function InvoiceDispatchPanel({ invoices }: { invoices: Invoice[] }) {
   const { user } = useAuth();
   const [selected, setSelected] = useState<number[]>([]);
   const [busy, setBusy] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [channel, setChannel] = useState<Channel>("BOTH");
   const [confirmed, setConfirmed] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
@@ -45,10 +46,11 @@ export function InvoiceDispatchPanel({ invoices }: { invoices: Invoice[] }) {
   };
   if (user?.role !== 'super_admin' && user?.role !== 'landlord') return null;
   return <Card className="mb-5">
-    <CardHeader><CardTitle className="text-base">Dispatch invoices to tenants</CardTitle>
+    <CardHeader className="flex flex-row items-center justify-between gap-3"><div><CardTitle className="text-base">Invoice delivery / resend</CardTitle>
       <p className="text-sm text-muted-foreground">Choose individual invoices or all invoices currently visible under the billing filters. Each recipient is checked by the backend. Email attempts and in-app dispatches appear in My Notification Logs.</p>
-    </CardHeader>
-    <CardContent className="space-y-3">
+    </div><Button type="button" variant="outline" size="sm" aria-expanded={expanded}
+      onClick={() => setExpanded(current => !current)}>{expanded ? "Hide dispatch" : "Send / resend invoices"}</Button></CardHeader>
+    {expanded && <CardContent className="space-y-3">
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={allSelected} disabled={busy || !eligible.length}
           onChange={e => { setSelected(e.target.checked ? eligible.map(i=>i.id) : []); setConfirmed(false); setResult(null); }} />
@@ -80,6 +82,6 @@ export function InvoiceDispatchPanel({ invoices }: { invoices: Invoice[] }) {
       </Button>
       {result && <p role="status" className="text-sm">Completed all selected channels: {result.sent}; SMTP accepted: {result.emailAccepted}; in-app notifications: {result.inAppCreated}; failed invoices: {result.failed}; skipped: {result.skipped}. {result.failedInvoiceIds.length ? `Failed invoice IDs: ${result.failedInvoiceIds.join(', ')}` : ''}</p>}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-    </CardContent>
+    </CardContent>}
   </Card>;
 }
