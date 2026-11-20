@@ -4,7 +4,7 @@ import { useProperties } from '@/hooks/useProperties';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { AlertTriangle, CheckCircle2, FileText } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, FileText, Droplets, Send } from 'lucide-react';
 
 interface Line { type: string; description: string; amount: number; waterReadingId?: number }
 interface Preview {
@@ -12,6 +12,14 @@ interface Preview {
   propertyName: string; year: number; month: number;
   newCharges: number; existingUnpaidBalance: number; totalPayable: number;
   warning?: string; alreadyIssued: boolean; requiresReview: boolean; lines: Line[];
+}
+interface UnitFollowUp {
+  unitId: number; unitNumber: string; propertyName: string;
+  waterPeriod: string; reason: string; employeeUserId: number | null;
+  employeeName: string | null; assignable: boolean;
+}
+interface FollowUpResult {
+  notified: number; alreadyNotifiedToday: number; unassigned: number; unresolved: UnitFollowUp[];
 }
 interface Props { onIssued: () => Promise<void> }
 const currency = (amount:number) => new Intl.NumberFormat('en-KE', {
@@ -28,10 +36,41 @@ export function BillingAutomationPanel({ onIssued }: Props) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirmIssue, setConfirmIssue] = useState(false);
+  const [missing, setMissing] = useState<UnitFollowUp[] | null>(null);
+  const [followUpResult, setFollowUpResult] = useState<FollowUpResult | null>(null);
+  const [followUpError, setFollowUpError] = useState('');
+  const [confirmFollowUp, setConfirmFollowUp] = useState(false);
+  const [followUpBusy, setFollowUpBusy] = useState(false);
   const params = () => {
     const [year, month] = period.split('-').map(Number);
     if (!year || !month || month < 1 || month > 12) throw new Error('Select a valid billing month');
     return `year=${year}&month=${month}${propertyId ? `&propertyId=${encodeURIComponent(propertyId)}` : ''}`;
+  };
+  const reviewMissing = async () => {
+    setFollowUpBusy(true); setFollowUpError(''); setConfirmFollowUp(false); setFollowUpResult(null);
+    try {
+      const rows = await apiRequest<null, UnitFollowUp[]>({
+        path: `/api/billing/water-follow-ups/preview?${params()}`, method: 'GET'
+      });
+      setMissing(rows);
+    } catch (error) {
+      setFollowUpError(error instanceof Error ? error.message : 'Unable to review missing water readings');
+    } finally { setFollowUpBusy(false); }
+  };
+  const dispatchMissing = async () => {
+    if (!confirmFollowUp || !missing?.some(row=>row.assignable)) return;
+    setFollowUpBusy(true); setFollowUpError('');
+    try {
+      const response = await apiRequest<null, FollowUpResult>({
+        path: `/api/billing/water-follow-ups/dispatch?${params()}`, method: 'POST'
+      });
+      setFollowUpResult(response);
+      setConfirmFollowUp(false);
+      await reviewMissing();
+      setFollowUpResult(response);
+    } catch (error) {
+      setFollowUpError(error instanceof Error ? error.message : 'Unable to notify assigned employees');
+    } finally { setFollowUpBusy(false); }
   };
   const load = async () => {
     setBusy(true); setError(''); setConfirmIssue(false);
@@ -69,12 +108,12 @@ export function BillingAutomationPanel({ onIssued }: Props) {
     <CardContent className="space-y-4">
       <div className="flex flex-wrap gap-3">
         <label className="flex min-w-[160px] flex-1 flex-col gap-1 text-sm">Billing month
-          <Input type="month" value={period} onChange={e=>{setPeriod(e.target.value);setPreview(null);}}/>
+          <Input type="month" value={period} onChange={e=>{setPeriod(e.target.value);setPreview(null);setMissing(null);setFollowUpResult(null);setConfirmFollowUp(false);}}/>
         </label>
         <label className="flex min-w-[160px] flex-1 flex-col gap-1 text-sm">Property
           <select className="h-10 rounded-md border bg-background px-3 text-sm" value={propertyId}
             disabled={propertiesLoading || busy}
-            onChange={e=>{setPropertyId(e.target.value);setPreview(null);setConfirmIssue(false);}}>
+            onChange={e=>{setPropertyId(e.target.value);setPreview(null);setConfirmIssue(false);setMissing(null);setFollowUpResult(null);setConfirmFollowUp(false);}}>
             <option value="">All permitted properties</option>
             {properties.map(property=><option key={property.id} value={String(property.id)}>{property.name}</option>)}
           </select>
@@ -82,6 +121,57 @@ export function BillingAutomationPanel({ onIssued }: Props) {
         <Button className="self-end" variant="outline" disabled={busy} onClick={()=>void load()}>
           Preview invoices
         </Button>
+      </div>
+      <div className="space-y-3 rounded-lg border p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-semibold">Missing water reading follow-ups</h3>
+            <p className="text-sm text-muted-foreground">
+              Find units missing approved water for the preceding month and return them to
+              the employee who last submitted that unit's water data.
+            </p>
+          </div>
+          <Button variant="outline" disabled={followUpBusy} onClick={()=>void reviewMissing()}>
+            <Droplets className="mr-2 h-4 w-4"/>Review missing units
+          </Button>
+        </div>
+        {followUpError && <p role="alert" className="text-sm text-destructive">{followUpError}</p>}
+        {missing && <div className="space-y-3">
+          <p className="text-sm font-medium">
+            {missing.length} unresolved unit(s) · {missing.filter(row=>row.assignable).length} assigned to previous employee recorders
+            · {missing.filter(row=>!row.assignable).length} needing manual assignment
+          </p>
+          {missing.length===0 && <p className="text-sm text-muted-foreground">
+            No missing readings found for active, occupied, metered units in the selected scope.
+          </p>}
+          <div className="max-h-60 divide-y overflow-y-auto rounded-md border">
+            {missing.map(row=><div key={row.unitId} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
+              <div><strong>{row.propertyName} / {row.unitNumber}</strong>
+                <p className="text-xs text-muted-foreground">
+                  {row.waterPeriod} · {row.reason === 'PENDING_APPROVAL' ? 'Pending approval' : 'Missing approved reading'}
+                </p>
+              </div>
+              <span className={row.assignable ? 'text-muted-foreground' : 'text-amber-700 dark:text-amber-300'}>
+                {row.assignable ? row.employeeName : 'No verified employee recorder — assign manually'}
+              </span>
+            </div>)}
+          </div>
+          {missing.some(row=>row.assignable) && <>
+            <label className="flex items-start gap-2 text-sm">
+              <input className="mt-1" type="checkbox" checked={confirmFollowUp}
+                onChange={e=>setConfirmFollowUp(e.target.checked)} disabled={followUpBusy}/>
+              Notify these verified employees in-app to confirm/correct their water readings.
+              Repeat requests today will not send duplicate notices.
+            </label>
+            <Button disabled={!confirmFollowUp || followUpBusy} onClick={()=>void dispatchMissing()}>
+              <Send className="mr-2 h-4 w-4"/>Send water confirmation requests
+            </Button>
+          </>}
+        </div>}
+        {followUpResult && <p role="status" className="text-sm">
+          Sent: {followUpResult.notified}; already notified today: {followUpResult.alreadyNotifiedToday};
+          unassigned units requiring review: {followUpResult.unassigned}.
+        </p>}
       </div>
       {error && <p role="status" className="rounded-md border p-3 text-sm break-words">{error}</p>}
       {preview && <div className="space-y-3">
