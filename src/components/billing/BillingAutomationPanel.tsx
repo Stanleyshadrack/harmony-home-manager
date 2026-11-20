@@ -53,7 +53,7 @@ export function BillingAutomationPanel({ onIssued }: Props) {
       setConfirmIssue(false);
       setPreview(null);
       await onIssued();
-      setError(`Issued ${rows.length} consolidated invoice(s). Existing rent invoices were skipped.`);
+      setError(`Issued ${rows.length} consolidated invoice(s). Tenant app notices and email submissions are queued after posting commits; check Notification Logs for failures. Existing rent invoices were skipped.`);
     } catch (e) {setError(e instanceof Error?e.message:'Invoice issue failed');}
     finally {setBusy(false);}
   };
@@ -64,7 +64,7 @@ export function BillingAutomationPanel({ onIssued }: Props) {
     </CardTitle>
     <p className="text-sm text-muted-foreground">
       One invoice per active lease: current-month rent plus approved previous-month water.
-      Existing unpaid invoices remain separate ledger balances to avoid duplicate charges.
+      Existing unpaid invoices remain separate ledger balances to avoid duplicate charges. Successful issuance sends a tenant portal notification and email after database commit.
     </p></CardHeader>
     <CardContent className="space-y-4">
       <div className="flex flex-wrap gap-3">
@@ -107,7 +107,7 @@ export function BillingAutomationPanel({ onIssued }: Props) {
           <label className="flex items-start gap-2 text-sm">
             <input type="checkbox" checked={confirmIssue} onChange={e=>setConfirmIssue(e.target.checked)}
               className="mt-1"/>
-            I have reconciled existing invoices and approved meter readings. Issue these
+            I have reconciled existing invoices and approved meter readings. Issue and notify tenants about these
             new charges to the tenants shown above.
           </label>
           <Button disabled={!confirmIssue || busy} onClick={()=>void issue()}>
