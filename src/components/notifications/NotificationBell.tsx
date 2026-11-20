@@ -25,6 +25,7 @@ const categoryColors: Record<string, string> = {
   lease_expiry: 'bg-warning/10 text-warning',
   task_assigned: 'bg-primary/10 text-primary',
   water_reading_pending: 'bg-warning/10 text-warning',
+  water_reading_follow_up: 'bg-warning/10 text-warning',
   water_reading_approved: 'bg-success/10 text-success',
   water_reading_rejected: 'bg-destructive/10 text-destructive',
   new_message: 'bg-info/10 text-info',
