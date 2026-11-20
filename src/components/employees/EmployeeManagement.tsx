@@ -3,6 +3,7 @@ import { Employee } from '@/hooks/useEmployees';
 import { useProperties } from '@/hooks/useProperties';
 import { useMaintenance } from '@/hooks/useMaintenance';
 import { useAuth } from '@/contexts/AuthContext';
+import { InviteUserDialog } from '@/components/admin/InviteUserDialog';
 import { useInAppNotifications } from '@/hooks/useInAppNotifications';
 import { useNotifications } from '@/hooks/useNotifications';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -95,6 +96,8 @@ export function EmployeeManagement() {
   const { sendQuickNotification } = useNotifications();
   
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showInviteUserDialog, setShowInviteUserDialog] = useState(false);
+  const canInvite = user?.role === 'landlord' || user?.role === 'super_admin';
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
@@ -420,14 +423,19 @@ export function EmployeeManagement() {
                   <CardTitle>Employee Directory</CardTitle>
                   <CardDescription>Manage your property employees and assignments</CardDescription>
                 </div>
-                <div className="relative w-full sm:w-64">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                  {canInvite && <Button onClick={() => setShowInviteUserDialog(true)} className="gap-2">
+                    <UserPlus className="h-4 w-4" />Invite User
+                  </Button>}
+                  <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search employees..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-9"
                   />
+                  </div>
                 </div>
               </div>
             </CardHeader>
@@ -711,6 +719,13 @@ export function EmployeeManagement() {
         </TabsContent>
 
       </Tabs>
+
+      {canInvite && <InviteUserDialog
+        open={showInviteUserDialog}
+        onOpenChange={setShowInviteUserDialog}
+        inviterRole={user?.role || 'landlord'}
+        initialRole="EMPLOYEE"
+      />}
 
       {/* Assign Property Dialog */}
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
