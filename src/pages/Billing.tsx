@@ -20,14 +20,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Droplets, FileText, Filter, Download, CheckCircle, Mail, Loader2, Edit, MoreHorizontal, CreditCard, Settings, LayoutDashboard, ArrowRight, AlertCircle } from 'lucide-react';
+import { Search, Droplets, FileText, Filter, Download, CheckCircle, Mail, Loader2, Edit, MoreHorizontal, CreditCard, Settings, LayoutDashboard, ArrowRight, AlertCircle } from 'lucide-react';
 import { useBilling } from '@/hooks/useBilling';
 import { useAuth } from '@/contexts/AuthContext';
 import { BillingAutomationPanel } from '@/components/billing/BillingAutomationPanel';
 import { InvoiceDispatchPanel } from '@/components/billing/InvoiceDispatchPanel';
 import { DepositManagementPanel } from '@/components/billing/DepositManagementPanel';
 import { InvoicePaymentSettingsPanel } from '@/components/billing/InvoicePaymentSettingsPanel';
-import { BillingStats } from '@/components/billing/BillingStats';
 import { InvoiceCard } from '@/components/billing/InvoiceCard';
 import { InvoiceDetail } from '@/components/billing/InvoiceDetail';
 import { PaymentCard } from '@/components/billing/PaymentCard';
@@ -56,7 +55,6 @@ export default function Billing() {
     recordPayment,
     updateInvoice,
     cancelInvoice,
-    getTotalRevenue,
     getTotalOutstanding,
   } = useBilling();
 
@@ -85,7 +83,7 @@ export default function Billing() {
   });
 
   const unpaidInvoices = invoices.filter(invoice => invoice.status !== 'paid' && invoice.status !== 'cancelled' && invoice.balance > 0);
-  const undeliveredCount = invoices.filter(invoice => invoice.status === 'pending' && invoice.balance > 0).length;
+  const pendingInvoiceCount = invoices.filter(invoice => invoice.status === 'pending' && invoice.balance > 0).length;
 
   const filteredPayments = payments.filter((payment) => {
     return (
@@ -223,13 +221,6 @@ export default function Billing() {
         {loadError && <div role="alert" className="rounded-lg border border-destructive/50 p-3 text-sm text-destructive">
           Billing data could not be loaded: {loadError}
         </div>}
-        {/* Stats */}
-        <BillingStats
-          invoices={invoices}
-          totalRevenue={getTotalRevenue()}
-          totalOutstanding={getTotalOutstanding()}
-        />
-
         {/* One primary billing action; operational search belongs to the relevant tab. */}
         <div className="flex flex-col gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -259,7 +250,7 @@ export default function Billing() {
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Outstanding balance</p><p className="mt-1 text-xl font-semibold">KES {getTotalOutstanding().toLocaleString('en-KE')}</p></CardContent></Card>
               <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Unpaid invoices</p><p className="mt-1 text-xl font-semibold">{unpaidInvoices.length}</p></CardContent></Card>
-              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Pending invoice balances</p><p className="mt-1 text-xl font-semibold">{undeliveredCount}</p><p className="text-xs text-muted-foreground">Not a delivery-status count</p></CardContent></Card>
+              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Pending invoices</p><p className="mt-1 text-xl font-semibold">{pendingInvoiceCount}</p></CardContent></Card>
               <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Recorded payments</p><p className="mt-1 text-xl font-semibold">{payments.length}</p></CardContent></Card>
             </div>
             <Card>
