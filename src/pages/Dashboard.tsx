@@ -72,7 +72,7 @@ export default function Dashboard() {
       icon: Home, color: 'text-success', bgColor: 'bg-success/10', href: '/units',
     },
     {
-      title: t('dashboard.rentCollected'),
+      title: 'Total Collected',
       value: summaryLoading ? '…' : summary ? `KES ${Number(summary.collected).toLocaleString('en-KE')}` : '—',
       icon: DollarSign, color: 'text-warning', bgColor: 'bg-warning/10', href: '/billing',
     },
@@ -114,7 +114,7 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stat.value}</div>
-                <p className="text-xs text-muted-foreground mt-1">Current month, from your accessible properties</p>
+                <p className="text-xs text-muted-foreground mt-1">{stat.title === 'Total Collected' ? 'Current month · confirmed invoice payments + property advance receipts' : 'Current month, from your accessible properties'}</p>
               </CardContent>
             </Card>
           </Link>
