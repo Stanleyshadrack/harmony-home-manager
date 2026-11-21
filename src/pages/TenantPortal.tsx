@@ -75,7 +75,15 @@ export default function TenantPortal() {
   const [maintenanceDetailId, setMaintenanceDetailId] = useState<string | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [pendingCheckout, setPendingCheckout] = useState<{id: string; invoiceId: number} | null>(null);
+  const [pendingCheckout, setPendingCheckout] = useState<{id: string; invoiceId: number | null} | null>(null);
+  const creditQuery = useQuery({
+    queryKey: ['tenant-account-credit', currentTenant?.id],
+    queryFn: () => apiRequest<null, {availableCredit:number;pendingCount:number;transactions:{id:number;receipt:string|null;amount:number;remaining:number;status:string;date:string}[]}>({
+      path: '/api/billing/pay/advance/me', method: 'GET'
+    }),
+    enabled: !!currentTenant?.id,
+    retry: 1,
+  });
   const [paymentNotice, setPaymentNotice] = useState('');
   const [selectedPayInvoiceId, setSelectedPayInvoiceId] = useState<number | null>(null);
 
@@ -160,20 +168,33 @@ export default function TenantPortal() {
   const handlePayment = async (data: {invoiceId:string;amount:number;phoneNumber:string}) => {
     setIsLoading(true);
     try {
-      const invoice = tenantInvoices.find(i => i.id === Number(data.invoiceId));
-      if (!invoice) throw new Error('Invoice is not available in your account. Refresh the invoice list.');
-      if (!Number.isFinite(data.amount) || data.amount <= 0 || data.amount > invoice.balance)
-        throw new Error('Amount must be positive and no greater than the outstanding balance.');
-      const params = new URLSearchParams({
-        invoiceId: String(invoice.id),
-        phone: data.phoneNumber.trim(),
-        amount: String(data.amount),
-      });
-      const response = await apiRequest<null, {checkoutRequestId:string;status:string}>({
-        path: `/api/billing/pay/mpesa?${params.toString()}`, method: 'POST',
-      });
+      const isAdvance = data.invoiceId === 'advance';
+      if (!Number.isInteger(data.amount) || data.amount <= 0)
+        throw new Error('Enter a positive whole KES amount.');
+      let response: {checkoutRequestId:string;status:string};
+      let invoiceId: number | null = null;
+      if (isAdvance) {
+        response = await apiRequest<object, {checkoutRequestId:string;status:string}>({
+          path: '/api/billing/pay/advance', method: 'POST',
+          body: {phone: data.phoneNumber.trim(), amount: data.amount},
+        });
+      } else {
+        const invoice = tenantInvoices.find(i => i.id === Number(data.invoiceId));
+        if (!invoice) throw new Error('Invoice is not available in your account. Refresh the invoice list.');
+        if (data.amount > invoice.balance)
+          throw new Error('Amount must not exceed the outstanding invoice balance.');
+        invoiceId = invoice.id;
+        const params = new URLSearchParams({
+          invoiceId: String(invoice.id),
+          phone: data.phoneNumber.trim(),
+          amount: String(data.amount),
+        });
+        response = await apiRequest<null, {checkoutRequestId:string;status:string}>({
+          path: `/api/billing/pay/mpesa?${params.toString()}`, method: 'POST',
+        });
+      }
       if (!response.checkoutRequestId) throw new Error('The payment provider did not return a tracking ID.');
-      setPendingCheckout({id: response.checkoutRequestId, invoiceId: invoice.id});
+      setPendingCheckout({id: response.checkoutRequestId, invoiceId});
       setPaymentNotice('Payment request submitted. Check your phone and approve the M-Pesa prompt. Payment is not yet confirmed.');
       toast({
         title: 'M-Pesa confirmation requested',
@@ -200,7 +221,9 @@ export default function TenantPortal() {
       if (stopped) return;
       attempts += 1;
       void apiRequest<null, {status: string; method: string; amount?: number}>({
-        path: `/api/billing/payment/status/${encodeURIComponent(pendingCheckout.id)}`,
+        path: pendingCheckout.invoiceId == null
+          ? `/api/billing/pay/advance/status/${encodeURIComponent(pendingCheckout.id)}`
+          : `/api/billing/payment/status/${encodeURIComponent(pendingCheckout.id)}`,
         method: 'GET',
       }).then(async result => {
         if (stopped) return;
@@ -210,7 +233,9 @@ export default function TenantPortal() {
           await reloadInvoices().catch(() => {});
           setPaymentNotice('M-Pesa payment confirmed by the backend. The invoice list has been refreshed.');
           setPendingCheckout(null);
-          toast({title: 'Payment confirmed', description: 'Your invoice payment has been recorded.'});
+          toast({title: 'Payment confirmed', description: pendingCheckout.invoiceId == null
+            ? 'Your account credit is ready for future charges.'
+            : 'Your invoice payment has been recorded.'});
         } else if (result.status === 'failed') {
           stopped = true;
           window.clearInterval(timer);
@@ -230,7 +255,7 @@ export default function TenantPortal() {
       }
     }, 5000);
     return () => { stopped = true; window.clearInterval(timer); };
-  }, [pendingCheckout?.id, pendingCheckout?.invoiceId, reloadInvoices, toast]);
+  }, [pendingCheckout?.id, pendingCheckout?.invoiceId, reloadInvoices, creditQuery.refetch, toast]);
 
   const handleMaintenanceSubmit = async (data: any) => {
     setIsLoading(true);
@@ -586,7 +611,7 @@ export default function TenantPortal() {
             <div>
               <h2 className="text-xl font-semibold">Make a Payment</h2>
               <p className="text-muted-foreground">
-                Pay your invoices securely online
+                Pay an invoice or add credit to your account before the invoice is issued
               </p>
             </div>
 
@@ -597,6 +622,27 @@ export default function TenantPortal() {
               </Button>
               {pendingCheckout && <Badge variant="outline">Waiting for M-Pesa confirmation</Badge>}
             </div>
+            <Card className="max-w-xl">
+              <CardContent className="pt-5">
+                <p className="text-sm text-muted-foreground">Available account credit</p>
+                <p className="text-2xl font-semibold">
+                  {creditQuery.isLoading ? 'Loading…'
+                    : new Intl.NumberFormat('en-KE', {style:'currency', currency:'KES'})
+                        .format(Number(creditQuery.data?.availableCredit || 0))}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Credit is added only after M-Pesa confirms payment. Eligible future invoices can use it automatically.
+                </p>
+                {creditQuery.data?.pendingCount ? <p className="mt-2 text-xs text-amber-700">
+                  {creditQuery.data.pendingCount} payment request(s) awaiting confirmation.
+                </p> : null}
+                {creditQuery.isError && <p role="alert" className="text-sm text-destructive">
+                  Account credit could not be refreshed.
+                </p>}
+                <Button variant="outline" size="sm" className="mt-3"
+                  onClick={() => void creditQuery.refetch()}>Refresh credit</Button>
+              </CardContent>
+            </Card>
             {paymentNotice && <p role="status" className="rounded-md border p-3 text-sm">{paymentNotice}</p>}
             {invoicesError && <p role="alert" className="text-sm text-destructive">
               Unable to load payable invoices: {invoicesError}
