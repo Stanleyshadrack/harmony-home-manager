@@ -643,6 +643,28 @@ export default function TenantPortal() {
                   onClick={() => void creditQuery.refetch()}>Refresh credit</Button>
               </CardContent>
             </Card>
+            {!!creditQuery.data?.transactions.length && (
+              <Card className="max-w-xl">
+                <CardHeader><CardTitle className="text-base">Account-credit history</CardTitle></CardHeader>
+                <CardContent className="space-y-2">
+                  {[...creditQuery.data.transactions].reverse().slice(0, 5).map(item => (
+                    <div key={item.id} className="flex items-center justify-between gap-3 border-b pb-2 text-sm last:border-b-0">
+                      <div>
+                        <p className="font-medium">{item.receipt || 'Awaiting M-Pesa confirmation'}</p>
+                        <p className="text-xs text-muted-foreground">{item.date ? new Date(item.date).toLocaleString() : ''}
+                          {' · '}{item.status}</p>
+                      </div>
+                      <div className="text-right">
+                        <p>KES {Number(item.amount).toLocaleString('en-KE')}</p>
+                        {item.status === 'success' && <p className="text-xs text-muted-foreground">
+                          Remaining: KES {Number(item.remaining).toLocaleString('en-KE')}
+                        </p>}
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
             {paymentNotice && <p role="status" className="rounded-md border p-3 text-sm">{paymentNotice}</p>}
             {invoicesError && <p role="alert" className="text-sm text-destructive">
               Unable to load payable invoices: {invoicesError}
