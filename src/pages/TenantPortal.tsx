@@ -1,4 +1,5 @@
 import { TenantDepositStatement } from '@/components/billing/TenantDepositStatement';
+import { TenantStatementPanel } from '@/components/billing/TenantStatementPanel';
 import { TenantMoveInClearancePanel } from '@/components/tenants/TenantMoveInClearancePanel';
 import { TenantDocumentCorrectionPanel } from '@/components/tenants/TenantDocumentCorrectionPanel';
 import { TenantsApi } from '@/api/service/tenantsApi';
@@ -358,6 +359,10 @@ export default function TenantPortal() {
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">Invoices</span>
             </TabsTrigger>
+            <TabsTrigger value="statement" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              <span>Statement</span>
+            </TabsTrigger>
             <TabsTrigger value="payments" className="flex items-center gap-2">
               <CreditCard className="h-4 w-4" />
               <span className="hidden sm:inline">Pay</span>
@@ -521,6 +526,10 @@ export default function TenantPortal() {
                 </div>
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="statement" className="space-y-4">
+            <TenantStatementPanel tenantId={currentTenant?.id} />
           </TabsContent>
 
           {/* Invoices Tab */}
