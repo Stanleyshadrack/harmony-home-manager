@@ -1,5 +1,6 @@
 import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { apiRequest } from '@/api/https';
 import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -62,6 +63,21 @@ export default function Billing() {
 
 
   const [activeTab, setActiveTab] = useState('overview');
+  const [monthlyCollections, setMonthlyCollections] = useState<number | null>(null);
+  const [collectionError, setCollectionError] = useState('');
+  useEffect(() => {
+    if (!canManageBilling) return;
+    let active = true;
+    const loadCollections = () => {
+      apiRequest<null, {collected:number}>({path:'/api/reports/summary?period=month', method:'GET'})
+        .then(result => {if (active) {setMonthlyCollections(result.collected); setCollectionError('');}})
+        .catch(error => {if (active) {setMonthlyCollections(null);
+          setCollectionError(error instanceof Error ? error.message : 'Collections unavailable');}});
+    };
+    loadCollections();
+    // Refresh when revisiting the overview after recording payments.
+    return () => { active = false; };
+  }, [canManageBilling, payments.length, activeTab]);
   const [statementTenantId, setStatementTenantId] = useState('');
   const [showInvoiceActions, setShowInvoiceActions] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -252,11 +268,12 @@ export default function Billing() {
           </TabsList>
 
           <TabsContent value="overview" className="mt-6 space-y-5">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
               <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Outstanding balance</p><p className="mt-1 text-xl font-semibold">KES {getTotalOutstanding().toLocaleString('en-KE')}</p></CardContent></Card>
               <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Unpaid invoices</p><p className="mt-1 text-xl font-semibold">{unpaidInvoices.length}</p></CardContent></Card>
               <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Pending invoices</p><p className="mt-1 text-xl font-semibold">{pendingInvoiceCount}</p></CardContent></Card>
-              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Recorded payments</p><p className="mt-1 text-xl font-semibold">{payments.length}</p></CardContent></Card>
+              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Collected this month</p><p className="mt-1 text-xl font-semibold">{monthlyCollections == null ? '—' : `KES ${Number(monthlyCollections).toLocaleString('en-KE')}`}</p><p className="mt-1 text-xs text-muted-foreground">Includes confirmed advance payments</p></CardContent></Card>
+              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Invoice payments</p><p className="mt-1 text-xl font-semibold">{payments.length}</p></CardContent></Card>
             </div>
             <Card>
               <CardHeader><CardTitle className="text-base">Monthly billing checklist</CardTitle></CardHeader>
@@ -272,6 +289,7 @@ export default function Billing() {
                 </div>}
               </CardContent>
             </Card>
+            {collectionError && <p role="alert" className="text-sm text-destructive">Collection total unavailable: {collectionError}</p>}
             {loadError && <p role="alert" className="flex items-center gap-2 text-sm text-destructive"><AlertCircle className="h-4 w-4"/>{loadError}</p>}
           </TabsContent>
 
