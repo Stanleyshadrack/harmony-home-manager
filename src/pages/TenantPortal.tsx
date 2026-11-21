@@ -78,7 +78,7 @@ export default function TenantPortal() {
   const [pendingCheckout, setPendingCheckout] = useState<{id: string; invoiceId: number | null} | null>(null);
   const creditQuery = useQuery({
     queryKey: ['tenant-account-credit', currentTenant?.id],
-    queryFn: () => apiRequest<null, {availableCredit:number;pendingCount:number;transactions:{id:number;receipt:string|null;amount:number;remaining:number;status:string;date:string}[]}>({
+    queryFn: () => apiRequest<null, {availableCredit:number;pendingCount:number;transactions:{id:number;receipt:string|null;amount:number;remaining:number;status:string;date:string}[];eligibleProperties:{id:number;name:string}[]}>({
       path: '/api/billing/pay/advance/me', method: 'GET'
     }),
     enabled: !!currentTenant?.id,
@@ -165,7 +165,7 @@ export default function TenantPortal() {
     }
   };
 
-  const handlePayment = async (data: {invoiceId:string;amount:number;phoneNumber:string}) => {
+  const handlePayment = async (data: {invoiceId:string;amount:number;phoneNumber:string;propertyId?:string}) => {
     setIsLoading(true);
     try {
       const isAdvance = data.invoiceId === 'advance';
@@ -176,7 +176,8 @@ export default function TenantPortal() {
       if (isAdvance) {
         response = await apiRequest<object, {checkoutRequestId:string;status:string}>({
           path: '/api/billing/pay/advance', method: 'POST',
-          body: {phone: data.phoneNumber.trim(), amount: data.amount},
+          body: {phone: data.phoneNumber.trim(), amount: data.amount,
+            propertyId: data.propertyId ? Number(data.propertyId) : null},
         });
       } else {
         const invoice = tenantInvoices.find(i => i.id === Number(data.invoiceId));
@@ -681,6 +682,7 @@ export default function TenantPortal() {
                 <CardContent>
                   <TenantPaymentForm
                     invoices={tenantInvoices}
+                    eligibleProperties={creditQuery.data?.eligibleProperties ?? []}
                     selectedInvoiceId={selectedPayInvoiceId}
                     onSubmit={handlePayment}
                     isLoading={isLoading || invoicesLoading || !!pendingCheckout}
