@@ -1,6 +1,6 @@
 import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
 import { useEffect, useState } from 'react';
-import { apiRequest } from '@/api/https';
+import { useFinancialSummary, formatFinancialAmount } from '@/hooks/useFinancialSummary';
 import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -62,25 +62,11 @@ export default function Billing() {
 
 
   const [activeTab, setActiveTab] = useState('overview');
-  type FinancialSummary = {
-    collected: number; outstanding: number; unallocatedCredit: number;
-    creditOffset: number; netOutstanding: number;
-  };
-  const [financialSummary, setFinancialSummary] = useState<FinancialSummary | null>(null);
-  const [collectionError, setCollectionError] = useState('');
+  const {summary: financialSummary, loading: financialLoading, refreshing, refresh, error: collectionError, missingFields} = useFinancialSummary();
+  const [checklistOpen, setChecklistOpen] = useState(false);
   useEffect(() => {
-    if (!canManageBilling) return;
-    let active = true;
-    const loadCollections = () => {
-      apiRequest<null, FinancialSummary>({path:'/api/reports/summary?period=month', method:'GET'})
-        .then(result => {if (active) {setFinancialSummary(result); setCollectionError('');}})
-        .catch(error => {if (active) {setFinancialSummary(null);
-          setCollectionError(error instanceof Error ? error.message : 'Collections unavailable');}});
-    };
-    loadCollections();
-    // Refresh when revisiting the overview after recording payments.
-    return () => { active = false; };
-  }, [canManageBilling, payments.length, activeTab]);
+    if (canManageBilling && activeTab === 'overview') void refresh();
+  }, [canManageBilling, activeTab, invoices, payments, refresh]);
   const [statementTenantId, setStatementTenantId] = useState('');
   const [showInvoiceActions, setShowInvoiceActions] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -271,18 +257,48 @@ export default function Billing() {
           </TabsList>
 
           <TabsContent value="overview" className="mt-6 space-y-5">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Gross outstanding arrears</p><p className="mt-1 text-xl font-semibold">{financialSummary == null ? '—' : `KES ${Number(financialSummary.outstanding).toLocaleString('en-KE')}`}</p></CardContent></Card>
-              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Unallocated tenant credit</p><p className="mt-1 text-xl font-semibold">{financialSummary == null ? '—' : `KES ${Number(financialSummary.unallocatedCredit).toLocaleString('en-KE')}`}</p><p className="mt-1 text-xs text-muted-foreground">Confirmed, unused credit for your properties</p></CardContent></Card>
-              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Net outstanding</p><p className="mt-1 text-xl font-semibold">{financialSummary == null ? '—' : `KES ${Number(financialSummary.netOutstanding).toLocaleString('en-KE')}`}</p><p className="mt-1 text-xs text-muted-foreground">Gross arrears less eligible credit (KES {financialSummary == null ? '—' : Number(financialSummary.creditOffset).toLocaleString('en-KE')})</p></CardContent></Card>
-              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Unpaid invoices</p><p className="mt-1 text-xl font-semibold">{unpaidInvoices.length}</p></CardContent></Card>
-              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Pending invoices</p><p className="mt-1 text-xl font-semibold">{pendingInvoiceCount}</p></CardContent></Card>
-              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Collected this month</p><p className="mt-1 text-xl font-semibold">{financialSummary == null ? '—' : `KES ${Number(financialSummary.collected).toLocaleString('en-KE')}`}</p><p className="mt-1 text-xs text-muted-foreground">Includes confirmed advance payments</p></CardContent></Card>
-              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Invoice payments</p><p className="mt-1 text-xl font-semibold">{payments.length}</p></CardContent></Card>
-            </div>
+            {canManageBilling && <section className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div><h2 className="text-base font-semibold">Financial summary</h2>
+                  <p className="text-xs text-muted-foreground">Current balances across accessible properties; collections for this month.</p></div>
+                <Button variant="outline" size="sm" disabled={refreshing} onClick={() => void refresh()}>
+                  {refreshing ? 'Refreshing…' : 'Refresh figures'}
+                </Button>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
+                {[
+                  {label: 'Gross outstanding arrears', value: financialSummary?.outstanding, detail: 'Unpaid invoice balances before unused credit'},
+                  {label: 'Unallocated tenant credit', value: financialSummary?.unallocatedCredit, detail: 'Confirmed, unused credit'},
+                  {label: 'Net outstanding', value: financialSummary?.netOutstanding, detail: 'Eligible credit deduction: ' + formatFinancialAmount(financialSummary?.creditOffset)},
+                  {label: 'Collected this month', value: financialSummary?.collected, detail: 'Confirmed invoice payments and advances'},
+                ].map(item => <Card key={item.label} className={item.label === 'Net outstanding' ? 'border-primary/40' : undefined}><CardContent className="p-4">
+                  <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
+                  <p className="mt-2 text-xl font-semibold tabular-nums">{financialLoading ? '…' : formatFinancialAmount(item.value)}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{item.detail}</p>
+                </CardContent></Card>)}
+              </div>
+              {(collectionError || missingFields) && <p role="alert" className="rounded-md border p-3 text-sm text-muted-foreground">{collectionError || 'Some financial fields are unavailable. Update and restart the backend, then refresh figures. No missing amount is assumed to be zero.'}</p>}
+            </section>}
+            <section className="space-y-3">
+              <h2 className="text-base font-semibold">Invoice statistics</h2>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {[
+                  {label:'Unpaid invoices', value:unpaidInvoices.length, tab:'invoices'},
+                  {label:'Pending invoices', value:pendingInvoiceCount, tab:'invoices'},
+                  {label:'Invoice payments', value:payments.length, tab:'payments'},
+                ].map(item => <button type="button" key={item.label} className="text-left rounded-lg border bg-card p-4 hover:bg-muted/40 transition-colors" onClick={() => setActiveTab(item.tab)}>
+                  <p className="text-xs text-muted-foreground">{item.label}</p>
+                  <p className="mt-1 text-lg font-semibold tabular-nums">{isLoading ? '…' : loadError ? '—' : item.value}</p>
+                </button>)}
+              </div>
+            </section>
             <Card>
-              <CardHeader><CardTitle className="text-base">Monthly billing checklist</CardTitle></CardHeader>
-              <CardContent className="space-y-3 text-sm">
+              <CardHeader className="pb-3">
+                <Button variant="ghost" className="w-full justify-between px-0 text-base font-semibold" aria-expanded={checklistOpen} aria-controls="monthly-billing-checklist" onClick={() => setChecklistOpen(open => !open)}>
+                  Monthly billing checklist <span className="text-xs text-muted-foreground">{checklistOpen ? 'Hide' : 'Show'}</span>
+                </Button>
+              </CardHeader>
+              {checklistOpen && <CardContent id="monthly-billing-checklist" className="space-y-3 text-sm">
                 <p>1. Record and approve water readings for the preceding month.</p>
                 <p>2. Review balances and unresolved billing warnings.</p>
                 <p>3. Preview and confirm the consolidated monthly invoices.</p>
@@ -292,9 +308,8 @@ export default function Billing() {
                   <Button onClick={() => setActiveTab('monthly')}>Start monthly billing <ArrowRight className="ml-2 h-4 w-4"/></Button>
                   <Button variant="outline" onClick={() => setShowWaterForm(true)}><Droplets className="mr-2 h-4 w-4"/>Record water reading</Button>
                 </div>}
-              </CardContent>
+              </CardContent>}
             </Card>
-            {collectionError && <p role="alert" className="text-sm text-destructive">Collection total unavailable: {collectionError}</p>}
             {loadError && <p role="alert" className="flex items-center gap-2 text-sm text-destructive"><AlertCircle className="h-4 w-4"/>{loadError}</p>}
           </TabsContent>
 
