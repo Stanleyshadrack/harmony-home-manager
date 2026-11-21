@@ -231,7 +231,10 @@ export default function TenantPortal() {
           stopped = true;
           window.clearInterval(timer);
           await reloadInvoices().catch(() => {});
-          setPaymentNotice('M-Pesa payment confirmed by the backend. The invoice list has been refreshed.');
+          await creditQuery.refetch();
+          setPaymentNotice(pendingCheckout.invoiceId == null
+            ? 'M-Pesa confirmed. Your payment is now available as tenant account credit.'
+            : 'M-Pesa payment confirmed. Your invoice balances have been refreshed.');
           setPendingCheckout(null);
           toast({title: 'Payment confirmed', description: pendingCheckout.invoiceId == null
             ? 'Your account credit is ready for future charges.'
@@ -240,6 +243,7 @@ export default function TenantPortal() {
           stopped = true;
           window.clearInterval(timer);
           await reloadInvoices().catch(() => {});
+          await creditQuery.refetch();
           setPaymentNotice('M-Pesa payment was not completed. Check your M-Pesa messages before retrying.');
           setPendingCheckout(null);
           toast({title: 'Payment not completed', variant: 'destructive'});
