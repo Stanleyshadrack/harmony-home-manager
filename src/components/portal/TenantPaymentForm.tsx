@@ -18,19 +18,21 @@ const schema = z.object({
   paymentMethod: z.literal('mpesa'),
   phoneNumber: z.string().min(10, 'Enter a valid M-Pesa phone number'),
   reference: z.string().optional(),
+  propertyId: z.string().optional(),
 });
 type PaymentFormData = z.infer<typeof schema>;
 
-export function TenantPaymentForm({ invoices, onSubmit, isLoading, selectedInvoiceId }: {
+export function TenantPaymentForm({ invoices, onSubmit, isLoading, selectedInvoiceId, eligibleProperties = [] }: {
   invoices: Invoice[];
   onSubmit: (data: PaymentFormData) => void | Promise<void>;
   isLoading?: boolean;
   selectedInvoiceId?: number | null;
+  eligibleProperties?: {id:number;name:string}[];
 }) {
   const unpaid = invoices.filter(i => i.status !== 'paid' && i.status !== 'cancelled' && i.balance > 0);
   const form = useForm<PaymentFormData>({
     resolver: zodResolver(schema),
-    defaultValues: {invoiceId: 'advance', amount: 0, paymentMethod: 'mpesa', phoneNumber: '', reference: ''},
+    defaultValues: {invoiceId: 'advance', amount: 0, paymentMethod: 'mpesa', phoneNumber: '', reference: '', propertyId: ''},
   });
   useEffect(() => {
     if (selectedInvoiceId == null) return;
@@ -79,6 +81,24 @@ export function TenantPaymentForm({ invoices, onSubmit, isLoading, selectedInvoi
         <p className="font-medium">Pay even when no invoice exists</p>
         <p className="mt-1 text-muted-foreground">Once M-Pesa confirms your payment, it becomes available account credit. Future eligible invoices can use this credit. A pending payment is not yet credit.</p>
       </div>}
+      {isAdvance && eligibleProperties.length > 1 &&
+        <FormField control={form.control} name="propertyId" render={({field}) => (
+          <FormItem>
+            <FormLabel>Property receiving the credit</FormLabel>
+            <Select value={field.value || ''} onValueChange={field.onChange}>
+              <FormControl><SelectTrigger><SelectValue placeholder="Choose your property"/></SelectTrigger></FormControl>
+              <SelectContent>
+                {eligibleProperties.map(property =>
+                  <SelectItem key={property.id} value={String(property.id)}>{property.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <FormMessage/>
+          </FormItem>
+        )}/>
+      }
+      {isAdvance && eligibleProperties.length === 0 && <p className="text-xs text-muted-foreground">
+        You can pay before a property is assigned. The credit will remain unallocated until a single eligible property is assigned.
+      </p>}
       {chosen && <Card className="bg-muted/30">
         <CardHeader className="pb-2"><CardTitle className="text-sm">Invoice summary</CardTitle></CardHeader>
         <CardContent className="space-y-1 text-sm">
@@ -99,7 +119,9 @@ export function TenantPaymentForm({ invoices, onSubmit, isLoading, selectedInvoi
           <FormMessage/>
         </FormItem>
       )}/>
-      <Button type="submit" className="w-full" disabled={isLoading || (!isAdvance && !chosen) ||
+      <Button type="submit" className="w-full" disabled={isLoading ||
+          (isAdvance && eligibleProperties.length > 1 && !form.watch('propertyId')) ||
+          (!isAdvance && !chosen) ||
           !Number.isInteger(form.watch('amount')) || form.watch('amount') <= 0 ||
           (!isAdvance && form.watch('amount') > (chosen?.balance ?? 0))}>
         {isLoading ? 'Sending STK request…' : `Request M-Pesa payment · ${money(form.watch('amount') || 0)}`}
