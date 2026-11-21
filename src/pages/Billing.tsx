@@ -26,6 +26,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { BillingAutomationPanel } from '@/components/billing/BillingAutomationPanel';
 import { InvoiceDispatchPanel } from '@/components/billing/InvoiceDispatchPanel';
 import { TenantStatementPanel } from '@/components/billing/TenantStatementPanel';
+import { AdvancePaymentsRegister } from '@/components/billing/AdvancePaymentsRegister';
 import { DepositManagementPanel } from '@/components/billing/DepositManagementPanel';
 import { InvoicePaymentSettingsPanel } from '@/components/billing/InvoicePaymentSettingsPanel';
 import { InvoiceCard } from '@/components/billing/InvoiceCard';
@@ -244,6 +245,7 @@ export default function Billing() {
             {canManageBilling && <TabsTrigger value="monthly" className="gap-2"><FileText className="h-4 w-4"/>Monthly Billing</TabsTrigger>}
             <TabsTrigger value="invoices" className="gap-2"><FileText className="h-4 w-4"/>{t('billing.invoices')} ({invoices.length})</TabsTrigger>
             <TabsTrigger value="statements" className="gap-2"><FileText className="h-4 w-4"/>Statements</TabsTrigger>
+            {canManageBilling && <TabsTrigger value="advances" className="gap-2"><CreditCard className="h-4 w-4"/>Advance Payments</TabsTrigger>}
             <TabsTrigger value="payments" className="gap-2"><CreditCard className="h-4 w-4"/>{t('billing.payments')} ({payments.length})</TabsTrigger>
             <TabsTrigger value="deposits">Deposits</TabsTrigger>
             {canManageBilling && <TabsTrigger value="payment-settings" className="gap-2"><Settings className="h-4 w-4"/>Settings</TabsTrigger>}
@@ -325,6 +327,10 @@ export default function Billing() {
               </div>
             </div>
           )}
+          {canManageBilling && <TabsContent value="advances" className="mt-6">
+            <AdvancePaymentsRegister />
+          </TabsContent>}
+
           <TabsContent value="statements" className="mt-6 space-y-4">
             <Card><CardContent className="p-4 space-y-2">
               <h3 className="font-medium">Tenant account statements</h3>
