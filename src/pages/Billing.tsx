@@ -58,20 +58,23 @@ export default function Billing() {
     recordPayment,
     updateInvoice,
     cancelInvoice,
-    getTotalOutstanding,
   } = useBilling();
 
 
   const [activeTab, setActiveTab] = useState('overview');
-  const [monthlyCollections, setMonthlyCollections] = useState<number | null>(null);
+  type FinancialSummary = {
+    collected: number; outstanding: number; unallocatedCredit: number;
+    creditOffset: number; netOutstanding: number;
+  };
+  const [financialSummary, setFinancialSummary] = useState<FinancialSummary | null>(null);
   const [collectionError, setCollectionError] = useState('');
   useEffect(() => {
     if (!canManageBilling) return;
     let active = true;
     const loadCollections = () => {
-      apiRequest<null, {collected:number}>({path:'/api/reports/summary?period=month', method:'GET'})
-        .then(result => {if (active) {setMonthlyCollections(result.collected); setCollectionError('');}})
-        .catch(error => {if (active) {setMonthlyCollections(null);
+      apiRequest<null, FinancialSummary>({path:'/api/reports/summary?period=month', method:'GET'})
+        .then(result => {if (active) {setFinancialSummary(result); setCollectionError('');}})
+        .catch(error => {if (active) {setFinancialSummary(null);
           setCollectionError(error instanceof Error ? error.message : 'Collections unavailable');}});
     };
     loadCollections();
@@ -268,11 +271,13 @@ export default function Billing() {
           </TabsList>
 
           <TabsContent value="overview" className="mt-6 space-y-5">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Outstanding balance</p><p className="mt-1 text-xl font-semibold">KES {getTotalOutstanding().toLocaleString('en-KE')}</p></CardContent></Card>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Gross outstanding arrears</p><p className="mt-1 text-xl font-semibold">{financialSummary == null ? '—' : `KES ${Number(financialSummary.outstanding).toLocaleString('en-KE')}`}</p></CardContent></Card>
+              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Unallocated tenant credit</p><p className="mt-1 text-xl font-semibold">{financialSummary == null ? '—' : `KES ${Number(financialSummary.unallocatedCredit).toLocaleString('en-KE')}`}</p><p className="mt-1 text-xs text-muted-foreground">Confirmed, unused credit for your properties</p></CardContent></Card>
+              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Net outstanding</p><p className="mt-1 text-xl font-semibold">{financialSummary == null ? '—' : `KES ${Number(financialSummary.netOutstanding).toLocaleString('en-KE')}`}</p><p className="mt-1 text-xs text-muted-foreground">Gross arrears less eligible credit (KES {financialSummary == null ? '—' : Number(financialSummary.creditOffset).toLocaleString('en-KE')})</p></CardContent></Card>
               <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Unpaid invoices</p><p className="mt-1 text-xl font-semibold">{unpaidInvoices.length}</p></CardContent></Card>
               <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Pending invoices</p><p className="mt-1 text-xl font-semibold">{pendingInvoiceCount}</p></CardContent></Card>
-              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Collected this month</p><p className="mt-1 text-xl font-semibold">{monthlyCollections == null ? '—' : `KES ${Number(monthlyCollections).toLocaleString('en-KE')}`}</p><p className="mt-1 text-xs text-muted-foreground">Includes confirmed advance payments</p></CardContent></Card>
+              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Collected this month</p><p className="mt-1 text-xl font-semibold">{financialSummary == null ? '—' : `KES ${Number(financialSummary.collected).toLocaleString('en-KE')}`}</p><p className="mt-1 text-xs text-muted-foreground">Includes confirmed advance payments</p></CardContent></Card>
               <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Invoice payments</p><p className="mt-1 text-xl font-semibold">{payments.length}</p></CardContent></Card>
             </div>
             <Card>
