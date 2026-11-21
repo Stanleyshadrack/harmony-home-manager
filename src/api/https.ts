@@ -105,7 +105,7 @@ export async function apiRequest<TReq, TRes>({
   // An invalid Bearer token must not prevent a fresh login or MFA attempt.
   const publicAuthPaths = [
     "/api/system-maintenance/status",
-    "/api/auth/login", "/api/auth/verify-mfa", "/api/auth/resend-otp",
+    "/api/auth/login", "/api/auth/google", "/api/auth/google/config", "/api/auth/verify-mfa", "/api/auth/resend-otp",
     "/api/auth/refresh", "/api/auth/password-reset/request",
     "/api/auth/password-reset/confirm", "/api/auth/validate",
     "/api/auth/validate-set-password", "/api/auth/onboarding",
@@ -233,7 +233,11 @@ export async function apiRequest<TReq, TRes>({
 
       if (contentType?.includes("application/json")) {
         const errorJson = await res.json();
-        message = errorJson.message ?? message;
+        const code = typeof errorJson.code === 'string' ? errorJson.code : '';
+        const reference = typeof errorJson.requestId === 'string' ? errorJson.requestId
+          : res.headers.get('x-request-id') || '';
+        const friendly = typeof errorJson.message === 'string' ? errorJson.message : message;
+        message = `${friendly}${code ? ` [${code}]` : ''}${reference ? ` (Reference: ${reference})` : ''}`;
       } else {
         message = await res.text();
       }
