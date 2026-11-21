@@ -21,6 +21,7 @@ export function TenantStatementPanel({ tenantId }: { tenantId?: number | string 
   const [statement, setStatement] = useState<Statement | null>(null);
   const [busy, setBusy] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
   const [error, setError] = useState('');
   const params = new URLSearchParams();
   if (from) params.set('from', from);
@@ -71,6 +72,41 @@ export function TenantStatementPanel({ tenantId }: { tenantId?: number | string 
     finally { setDownloading(false); }
   }
 
+  async function downloadPdf() {
+    if (!base) return;
+    setPdfBusy(true);
+    try {
+      const data = statement ?? await apiRequest<null, Statement>({
+        path: url, method: 'GET'
+      });
+      const { jsPDF } = await import('jspdf');
+      const autoTable = (await import('jspdf-autotable')).default;
+      const pdf = new jsPDF({ orientation: 'landscape' });
+      pdf.setFontSize(18);
+      pdf.text('Statement of Account', 14, 18);
+      pdf.setFontSize(10);
+      pdf.text(data.tenantName || 'Tenant', 14, 26);
+      pdf.text(`Period: ${from || 'All dates'} to ${to || 'Present'}`, 14, 33);
+      pdf.text(`Opening balance: ${cash(data.openingBalance)}`, 14, 41);
+      pdf.text(`Charges: ${cash(data.totalDebits)}`, 95, 41);
+      pdf.text(`Payments: ${cash(data.totalCredits)}`, 173, 41);
+      pdf.text(`Closing balance: ${cash(data.closingBalance)}`, 14, 48);
+      autoTable(pdf, {
+        startY: 55,
+        head: [['Date', 'Type', 'Reference', 'Description', 'Debit (KES)', 'Credit (KES)', 'Balance (KES)']],
+        body: data.entries.map(e => [
+          e.date, e.kind, e.reference, e.description,
+          e.debit.toFixed(2), e.credit.toFixed(2), e.balance.toFixed(2)
+        ]),
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [37, 56, 83] }
+      });
+      pdf.save(`tenant-statement-${tenantId}.pdf`);
+      toast.success('PDF statement downloaded');
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'PDF download failed'); }
+    finally { setPdfBusy(false); }
+  }
+
   return <Card>
     <CardHeader><CardTitle>Statement of Account</CardTitle></CardHeader>
     <CardContent className="space-y-4">
@@ -91,6 +127,11 @@ export function TenantStatementPanel({ tenantId }: { tenantId?: number | string 
         <Button onClick={() => void download()} disabled={!base || downloading || busy}>
           {downloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Download className="mr-2 h-4 w-4"/>}
           Download CSV
+        </Button>
+        <Button variant="outline" onClick={() => void downloadPdf()}
+          disabled={!base || pdfBusy || busy}>
+          {pdfBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Download className="mr-2 h-4 w-4"/>}
+          Download PDF
         </Button>
       </div>
       {!base && <p className="text-sm text-muted-foreground">Your account details are loading.</p>}
