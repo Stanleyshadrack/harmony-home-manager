@@ -171,10 +171,10 @@ export default function TenantPortal() {
       const isAdvance = data.invoiceId === 'advance';
       if (!Number.isInteger(data.amount) || data.amount <= 0)
         throw new Error('Enter a positive whole KES amount.');
-      let response: {checkoutRequestId:string;status:string};
+      let response: {checkoutRequestId:string;status:string;message?:string};
       let invoiceId: number | null = null;
       if (isAdvance) {
-        response = await apiRequest<object, {checkoutRequestId:string;status:string}>({
+        response = await apiRequest<object, {checkoutRequestId:string;status:string;message?:string}>({
           path: '/api/billing/pay/advance', method: 'POST',
           body: {phone: data.phoneNumber.trim(), amount: data.amount,
             propertyId: data.propertyId ? Number(data.propertyId) : null},
@@ -190,16 +190,16 @@ export default function TenantPortal() {
           phone: data.phoneNumber.trim(),
           amount: String(data.amount),
         });
-        response = await apiRequest<null, {checkoutRequestId:string;status:string}>({
+        response = await apiRequest<null, {checkoutRequestId:string;status:string;message?:string}>({
           path: `/api/billing/pay/mpesa?${params.toString()}`, method: 'POST',
         });
       }
       if (!response.checkoutRequestId) throw new Error('The payment provider did not return a tracking ID.');
       setPendingCheckout({id: response.checkoutRequestId, invoiceId});
-      setPaymentNotice('Payment request submitted. Check your phone and approve the M-Pesa prompt. Payment is not yet confirmed.');
+      setPaymentNotice(response.message || 'Payment request submitted. Check your phone and approve the M-Pesa prompt. Payment is not yet confirmed.');
       toast({
         title: 'M-Pesa confirmation requested',
-        description: 'Check your phone. We will check the payment outcome; do not pay again while confirmation is pending.',
+        description: response.message || 'Check your phone. We will check the payment outcome; do not pay again while confirmation is pending.',
       });
     } catch (error) {
       toast({
