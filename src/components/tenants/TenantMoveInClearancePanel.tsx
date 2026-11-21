@@ -119,7 +119,7 @@ export function TenantMoveInClearancePanel({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {loading && <p className="text-sm text-muted-foreground" role="status">Checking the tenant journey…</p>}
+        {loading && <p className="text-sm text-muted-foreground" role="status">Checking move-in clearance…</p>}
         {!loading && error && (
           <div role="alert" className="rounded-lg border p-3 text-sm">
             <p className="font-medium">Clearance status unavailable</p>
@@ -138,6 +138,8 @@ export function TenantMoveInClearancePanel({
                   : record.ready ? 'Ready for final confirmation' : 'Checks outstanding'}
               </Badge>
             </div>
+            {!tenantView && (
+              <>
             <section className="space-y-2" aria-label="Tenant onboarding progress">
               <div className="flex items-center justify-between gap-2 text-sm">
                 <span className="font-medium">Journey progress</span>
@@ -171,6 +173,8 @@ export function TenantMoveInClearancePanel({
                 </div>
               ))}
             </div>
+              </>
+            )}
             {record.cleared && record.clearedAt && (
               <p className="text-sm text-emerald-600 dark:text-emerald-400">
                 <CheckCircle2 className="mr-1 inline h-4 w-4" />
