@@ -26,7 +26,8 @@ export default function Dashboard() {
   const { user } = useAuth();
 
   type Summary = {
-    collected: number; units: number; occupiedUnits: number;
+    collected: number; outstanding: number; unallocatedCredit: number; creditOffset: number; netOutstanding: number;
+    units: number; occupiedUnits: number;
     maintenanceByStatus: Record<string, number>;
     properties: Array<{id: number}>;
   };
@@ -77,6 +78,11 @@ export default function Dashboard() {
       icon: DollarSign, color: 'text-warning', bgColor: 'bg-warning/10', href: '/billing',
     },
     {
+      title: 'Net Outstanding',
+      value: summaryLoading ? '…' : summary ? `KES ${Number(summary.netOutstanding).toLocaleString('en-KE')}` : '—',
+      icon: DollarSign, color: 'text-warning', bgColor: 'bg-warning/10', href: '/billing',
+    },
+    {
       title: t('dashboard.maintenanceRequests'),
       value: summaryLoading ? '…' : summary
         ? String(Object.entries(summary.maintenanceByStatus || {})
@@ -100,7 +106,7 @@ export default function Dashboard() {
 
       {summaryError && <p role="alert" className="mb-4 text-sm text-destructive">{summaryError}</p>}
       {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-8">
         {stats.map((stat) => (
           <Link key={stat.title} to={stat.href}>
             <Card className="relative overflow-hidden hover:shadow-md transition-shadow cursor-pointer">
@@ -114,7 +120,7 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stat.value}</div>
-                <p className="text-xs text-muted-foreground mt-1">{stat.title === 'Total Collected' ? 'Current month · confirmed invoice payments + property advance receipts' : 'Current month, from your accessible properties'}</p>
+                <p className="text-xs text-muted-foreground mt-1">{stat.title === 'Total Collected' ? 'Current month · confirmed payments and advances' : stat.title === 'Net Outstanding' ? `Gross KES ${Number(summary?.outstanding ?? 0).toLocaleString('en-KE')} less eligible credit KES ${Number(summary?.creditOffset ?? 0).toLocaleString('en-KE')}` : 'Current month, from your accessible properties'}</p>
               </CardContent>
             </Card>
           </Link>
