@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { apiRequest } from '@/api/https';
+import { useFinancialSummary, formatFinancialAmount } from '@/hooks/useFinancialSummary';
 import { Link } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,21 +26,13 @@ export default function Dashboard() {
   const { t } = useTranslation();
   const { user } = useAuth();
 
-  type Summary = {
-    collected: number; outstanding: number; unallocatedCredit: number; creditOffset: number; netOutstanding: number;
-    units: number; occupiedUnits: number;
-    maintenanceByStatus: Record<string, number>;
-    properties: Array<{id: number}>;
-  };
   type Activity = {
     id: number; action: string; entityType: string;
     entityId: number | null; details: string | null; createdAt: string;
   };
-  const [summary, setSummary] = useState<Summary | null>(null);
+  const {summary, loading: summaryLoading, error: summaryError, missingFields, refreshing, refresh} = useFinancialSummary();
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [summaryLoading, setSummaryLoading] = useState(true);
   const [activityLoading, setActivityLoading] = useState(true);
-  const [summaryError, setSummaryError] = useState('');
   const [activityError, setActivityError] = useState('');
   const canViewFinancials = user?.role === 'super_admin' || user?.role === 'landlord';
 
@@ -51,13 +44,6 @@ export default function Dashboard() {
       .then(data => { if(active) {setActivities(data); setActivityError('');} })
       .catch(e => { if(active) setActivityError(e instanceof Error ? e.message : 'Could not load activities'); })
       .finally(() => { if(active) setActivityLoading(false); });
-    if (user.role === 'super_admin' || user.role === 'landlord') {
-      setSummaryLoading(true);
-      apiRequest<null, Summary>({path:'/api/reports/summary?period=month', method:'GET'})
-        .then(data => { if(active) {setSummary(data); setSummaryError('');} })
-        .catch(e => { if(active) setSummaryError(e instanceof Error ? e.message : 'Could not load summary'); })
-        .finally(() => { if(active) setSummaryLoading(false); });
-    } else { setSummary(null); setSummaryLoading(false); }
     return () => {active=false;};
   }, [user?.id, user?.role]);
 
@@ -74,12 +60,12 @@ export default function Dashboard() {
     },
     {
       title: 'Total Collected',
-      value: summaryLoading ? '…' : summary ? `KES ${Number(summary.collected).toLocaleString('en-KE')}` : '—',
+      value: summaryLoading ? '…' : formatFinancialAmount(summary?.collected),
       icon: DollarSign, color: 'text-warning', bgColor: 'bg-warning/10', href: '/billing',
     },
     {
       title: 'Net Outstanding',
-      value: summaryLoading ? '…' : summary ? `KES ${Number(summary.netOutstanding).toLocaleString('en-KE')}` : '—',
+      value: summaryLoading ? '…' : formatFinancialAmount(summary?.netOutstanding),
       icon: DollarSign, color: 'text-warning', bgColor: 'bg-warning/10', href: '/billing',
     },
     {
@@ -104,9 +90,9 @@ export default function Dashboard() {
         <p className="text-muted-foreground mt-1">{t('dashboard.overview')}</p>
       </div>
 
-      {summaryError && <p role="alert" className="mb-4 text-sm text-destructive">{summaryError}</p>}
+      {canViewFinancials && (summaryError || missingFields) && <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm"><span>{summaryError || "Some financial fields are unavailable. Update and restart the backend, then refresh."}</span><Button variant="outline" size="sm" disabled={refreshing} onClick={() => void refresh()}>Refresh figures</Button></div>}
       {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-8">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5 mb-8">
         {stats.map((stat) => (
           <Link key={stat.title} to={stat.href}>
             <Card className="relative overflow-hidden hover:shadow-md transition-shadow cursor-pointer">
@@ -120,7 +106,7 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stat.value}</div>
-                <p className="text-xs text-muted-foreground mt-1">{stat.title === 'Total Collected' ? 'Current month · confirmed payments and advances' : stat.title === 'Net Outstanding' ? `Gross KES ${Number(summary?.outstanding ?? 0).toLocaleString('en-KE')} less eligible credit KES ${Number(summary?.creditOffset ?? 0).toLocaleString('en-KE')}` : 'Current month, from your accessible properties'}</p>
+                <p className="text-xs text-muted-foreground mt-1">{stat.title === 'Total Collected' ? 'Current month · confirmed payments and advances' : stat.title === 'Net Outstanding' ? 'Current balance after eligible tenant credit' : 'Current month, from your accessible properties'}</p>
               </CardContent>
             </Card>
           </Link>
