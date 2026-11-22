@@ -4,6 +4,7 @@ import {useProtectedMedia} from '@/hooks/useProtectedMedia';
 import {Button} from '@/components/ui/button';
 import {Card,CardContent,CardHeader,CardTitle} from '@/components/ui/card';
 import {useToast} from '@/hooks/use-toast';
+import {ConfirmActionDialog} from '@/components/messages/ConfirmActionDialog';
 import {Image as ImageIcon,Upload,Star,Trash2,RefreshCw} from 'lucide-react';
 
 type Photo={id:number;cover:boolean;path:string};
@@ -33,6 +34,7 @@ export function PropertyServerGallery({propertyId}:{propertyId:string}){
  const [loading,setLoading]=useState(true);
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
+ const [photoToDelete,setPhotoToDelete]=useState<number|null>(null);
  const load=useCallback(async()=>{
     setLoading(true);
     try{
@@ -65,14 +67,13 @@ export function PropertyServerGallery({propertyId}:{propertyId:string}){
   finally{setBusy(false);}
  };
  const remove=async(id:number)=>{
-  if(!window.confirm('Delete this property photo?'))return;
   setBusy(true);try{
    await apiRequest<null,void>({path:`/api/properties/${propertyId}/photos/${id}`,method:'DELETE'});
    await load();
-  }catch(e){setError(e instanceof Error?e.message:'Unable to delete photo');}
+  }catch(e){setError(e instanceof Error?e.message:'Unable to delete photo');throw e;}
   finally{setBusy(false);}
  };
- return <Card><CardHeader className="flex flex-row items-center justify-between gap-2">
+ return <><Card><CardHeader className="flex flex-row items-center justify-between gap-2">
    <CardTitle>Property photos ({photos.length})</CardTitle>
    <div className="flex gap-2"><Button variant="outline" size="sm" onClick={()=>void load()} disabled={busy||loading}>
     <RefreshCw className="h-4 w-4"/></Button>
@@ -85,7 +86,17 @@ export function PropertyServerGallery({propertyId}:{propertyId:string}){
    {error&&<p role="alert" className="mb-3 text-sm text-destructive">{error}</p>}
    {loading?<p className="text-sm text-muted-foreground">Loading photos…</p>:
     photos.length?<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{photos.map(photo=>
-      <PhotoTile key={photo.id} photo={photo} busy={busy} onCover={id=>void cover(id)} onDelete={id=>void remove(id)}/>)}</div>
+      <PhotoTile key={photo.id} photo={photo} busy={busy} onCover={id=>void cover(id)} onDelete={id=>setPhotoToDelete(id)}/>)}</div>
     :<p className="text-sm text-muted-foreground">No property photos uploaded yet.</p>}
- </CardContent></Card>;
+ </CardContent></Card>
+ <ConfirmActionDialog
+   open={photoToDelete!==null}
+   onOpenChange={open=>{if(!open)setPhotoToDelete(null);}}
+   title="Delete property photo?"
+   description="This photo will be permanently removed from this property. This action cannot be undone."
+   confirmLabel="Delete photo"
+   destructive
+   onConfirm={async()=>{if(photoToDelete!==null)await remove(photoToDelete);}}
+ />
+ </>;
 }
