@@ -1,5 +1,7 @@
 import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
 import { useEffect, useState } from 'react';
+import { useQueries } from '@tanstack/react-query';
+import { PropertyApi } from '@/api/service/add.apartments.service.api';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -70,6 +72,20 @@ const filteredProperties = properties.filter((property) => {
 
 
   });
+
+  // Use the same authoritative property-statistics endpoint and React Query cache as
+  // PropertyCard. List view must never interpret missing DTO counters as zero.
+  const propertyStats = useQueries({
+    queries: filteredProperties.map(property=>({
+      queryKey: ['propertyStats',property.id],
+      queryFn:()=>PropertyApi.fetchStats(Number(property.id)),
+      staleTime: 30_000,
+      retry: false,
+    })),
+  });
+  const propertyStatsById = new Map(filteredProperties.map((property,index)=>[
+    property.id,propertyStats[index]
+  ] as const));
 
 
   const handleUpdateProperty = async (data: PropertyFormData) => {
@@ -157,10 +173,20 @@ const filteredProperties = properties.filter((property) => {
             columns={[
               {key:'name',header:'Property',render:property=><span className="font-medium">{property.name}</span>},
               {key:'address',header:'Address',render:property=>property.address||'—'},
+              {key:'postal',header:'Postal Code',render:property=>property.postalCode||'—'},
               {key:'location',header:'City / Country',render:property=>[property.city,property.country].filter(Boolean).join(', ')||'—'},
               {key:'type',header:'Type',render:property=>property.propertyType},
               {key:'company',header:'Company',render:property=>property.companyName||'—'},
-              {key:'units',header:'Units',render:property=>property.totalUnits??'—'},
+              {key:'units',header:'Units',render:property=>{
+                const result=propertyStatsById.get(property.id);
+                if(!result||result.isPending)return <span className="text-muted-foreground">Loading…</span>;
+                if(result.isError)return <span className="text-destructive" title="Unable to load unit statistics">Unavailable</span>;
+                return result.data?.totalUnits??'—';
+              }},
+              {key:'occupied',header:'Occupied',render:property=>{
+                const result=propertyStatsById.get(property.id);
+                return result?.isSuccess?result.data?.occupiedUnits??'—':'—';
+              }},
             ]}
             actions={property=>[
               {label:'View details',onSelect:()=>navigate(`/properties/${property.id}`)},
