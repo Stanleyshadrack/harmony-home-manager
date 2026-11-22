@@ -4,6 +4,8 @@ import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PropertyCard } from '@/components/properties/PropertyCard';
+import { RecordListTable } from '@/components/ui/record-list-table';
+import { useNavigate } from 'react-router-dom';
 import { PropertyForm } from '@/components/properties/PropertyForm';
 import { useLandlords } from "@/hooks/useLandlords";
 import { useProperties } from '@/hooks/useProperties';
@@ -33,6 +35,7 @@ import { toast } from 'sonner';
 export default function Properties() {
   const [viewMode, setViewMode] = useViewMode('properties');
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const { properties, isLoading, loadError, addProperty, updateProperty, deleteProperty } = useProperties();
   
@@ -147,31 +150,35 @@ const filteredProperties = properties.filter((property) => {
       ) : loadError ? (
         <div role="alert" className="py-16 text-center text-destructive">Unable to display properties until the backend connection is restored.</div>
       ) : filteredProperties.length > 0 ? (
-        <div className={viewMode === 'grid' ? "grid gap-4 md:grid-cols-2 lg:grid-cols-3" : "grid grid-cols-1 gap-3"}>
-          {filteredProperties.map((property) => {
-  const landlord = getLandlordById(Number(property.landlordId));
-
-  return (
-    <PropertyCard
-      key={property.id}
-      property={property}
-      owner={
-        landlord
-          ? {
-              firstName: landlord.firstName,
-              lastName: landlord.lastName,
-              email: landlord.email,
-              phone: landlord.phone,
-            }
-          : undefined
-      }
-      onEdit={handleEdit}
-      onDelete={setDeletingProperty}
-    />
-  );
-})}
-
-        </div>
+        viewMode === 'list' ? (
+          <RecordListTable
+            records={filteredProperties}
+            getKey={property=>property.id}
+            columns={[
+              {key:'name',header:'Property',render:property=><span className="font-medium">{property.name}</span>},
+              {key:'address',header:'Address',render:property=>property.address||'—'},
+              {key:'location',header:'City / Country',render:property=>[property.city,property.country].filter(Boolean).join(', ')||'—'},
+              {key:'type',header:'Type',render:property=>property.propertyType},
+              {key:'company',header:'Company',render:property=>property.companyName||'—'},
+              {key:'units',header:'Units',render:property=>property.totalUnits??'—'},
+            ]}
+            actions={property=>[
+              {label:'View details',onSelect:()=>navigate(`/properties/${property.id}`)},
+              {label:'Manage units',onSelect:()=>navigate(`/units?property=${property.id}`)},
+              {label:'Edit property',onSelect:()=>handleEdit(property)},
+              {label:'Delete property',destructive:true,separatorBefore:true,onSelect:()=>setDeletingProperty(property)}
+            ]}
+          />
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {filteredProperties.map(property=>{
+              const landlord=getLandlordById(Number(property.landlordId));
+              return <PropertyCard key={property.id} property={property}
+                owner={landlord?{firstName:landlord.firstName,lastName:landlord.lastName,email:landlord.email,phone:landlord.phone}:undefined}
+                onEdit={handleEdit} onDelete={setDeletingProperty}/>;
+            })}
+          </div>
+        )
       ) : (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="p-4 bg-muted rounded-full mb-4">
