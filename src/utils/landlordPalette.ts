@@ -9,18 +9,6 @@ export const palettes: {id: Exclude<Palette, 'custom'>; label: string; hex: stri
   {id:'rose',label:'Rose',hex:'#be185d',hsl:'333 78% 42%',dark:'330 81% 60%'},
 ];
 
-// Distinct, accessible starting points in a hue-and-shade color grid.
-// Users can choose any other color with the custom picker or hex field.
-export const customColorGrid = [
-  ['#991B1B','#B91C1C','#DC2626','#EF4444','#F87171','#FB7185','#E11D48','#BE123C'],
-  ['#9A3412','#C2410C','#EA580C','#F97316','#FB923C','#D97706','#F59E0B','#FBBF24'],
-  ['#3F6212','#4D7C0F','#65A30D','#84CC16','#A3E635','#15803D','#16A34A','#22C55E'],
-  ['#115E59','#0F766E','#0D9488','#14B8A6','#2DD4BF','#155E75','#0891B2','#06B6D4'],
-  ['#1E40AF','#1D4ED8','#2563EB','#3B82F6','#60A5FA','#4338CA','#4F46E5','#6366F1'],
-  ['#581C87','#6B21A8','#7E22CE','#9333EA','#A855F7','#86198F','#C026D3','#D946EF'],
-  ['#9D174D','#BE185D','#DB2777','#EC4899','#F472B6','#334155','#475569','#64748B'],
-];
-
 export function validHex(value: string | null | undefined): value is string {
   return typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value);
 }
