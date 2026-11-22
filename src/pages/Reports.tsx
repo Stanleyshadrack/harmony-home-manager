@@ -1,5 +1,8 @@
 import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
 import { ResponsiveTableView } from '@/components/ui/responsive-table-view';
+import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuTrigger} from '@/components/ui/dropdown-menu';
+import {useNavigate} from 'react-router-dom';
+import {MoreHorizontal} from 'lucide-react';
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -57,6 +60,7 @@ function csvCell(value: string | number) {
 }
 
 export default function Reports() {
+  const navigate = useNavigate();
   const [viewMode, setViewMode] = useViewMode('reports', 'list');
   const { t } = useTranslation();
   const [period, setPeriod] = useState("year");
@@ -184,10 +188,19 @@ export default function Reports() {
                 <div className="flex justify-end mb-3"><ViewModeToggle value={viewMode} onChange={setViewMode} /></div>
               <ResponsiveTableView mode={viewMode}>
                 <table className="w-full text-sm">
-                  <thead><tr className="border-b text-left"><th className="py-3">Property</th><th>Units</th><th>Occupied</th><th>Collected</th><th>Outstanding</th></tr></thead>
+                  <thead><tr className="border-b text-left"><th className="py-3">Property</th><th>Units</th><th>Occupied</th><th>Collected</th><th>Outstanding</th><th className="text-right">Actions</th></tr></thead>
                   <tbody>{summary.properties.map(p => <tr key={p.id} className="border-b last:border-0">
                     <td className="py-3 font-medium">{p.name}</td><td>{p.units}</td><td>{p.occupied}</td>
-                    <td>{money(p.collected)}</td><td>{money(p.outstanding)}</td></tr>)}</tbody>
+                    <td>{money(p.collected)}</td><td>{money(p.outstanding)}</td>
+                    <td className="text-right">
+                      <DropdownMenu><DropdownMenuTrigger asChild>
+                        <Button size="icon" variant="ghost" aria-label={`Actions for property ${p.name}`}>
+                          <MoreHorizontal className="h-4 w-4"/>
+                        </Button>
+                      </DropdownMenuTrigger><DropdownMenuContent align="end">
+                        <DropdownMenuItem onSelect={()=>navigate(`/properties/${p.id}`)}>View property</DropdownMenuItem>
+                      </DropdownMenuContent></DropdownMenu>
+                    </td></tr>)}</tbody>
                 </table>
                 </ResponsiveTableView>
                 {!summary.properties.length && <p className="py-5 text-muted-foreground">No properties assigned.</p>}
