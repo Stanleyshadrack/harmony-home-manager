@@ -33,7 +33,7 @@ export function ConfirmActionDialog({
 }: ConfirmActionDialogProps) {
   const [busy, setBusy] = useState(false);
 
-  const confirm = async () => {
+  const handleConfirm = async () => {
     if (busy) return;
     setBusy(true);
     try {
@@ -64,7 +64,7 @@ export function ConfirmActionDialog({
             type="button"
             variant={destructive ? 'destructive' : 'default'}
             disabled={busy}
-            onClick={() => void confirm()}
+            onClick={() => void handleConfirm()}
             className="min-h-11"
           >
             {busy ? 'Working…' : confirmLabel}
