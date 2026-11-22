@@ -240,7 +240,7 @@ const landlord = property?.landlordId
     </Button>
 
     <Button asChild variant="outline">
-      <Link to={`/properties/edit/${property.id}`}>
+      <Link to={`/properties?edit=${property.id}`}>
         <Edit className="mr-2 h-4 w-4" />
         Edit Property
       </Link>
