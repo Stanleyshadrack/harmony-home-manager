@@ -62,7 +62,7 @@ export function TenantMoveInClearancePanel({
   const depositIncluded = record?.checklist.some(step => step.key === 'DEPOSIT_INVOICED' && step.complete);
 
   const issueFirstRent = async () => {
-    if (!tenantId || tenantView || !leaseApproved || (firstRentIssued && depositIncluded) || busy) return;
+    if (!tenantId || tenantView || !leaseApproved || (firstRentIssued && depositIncluded) || busy) return false;
     setBusy(true);
     try {
       const result = await apiRequest<null, MoveInClearance>({
@@ -71,18 +71,20 @@ export function TenantMoveInClearancePanel({
       setRecord(result);
       toast({title: 'First invoice updated',
         description: 'The bill now itemizes rent and refundable deposit. Confirm actual payment through Billing before clearing move-in.'});
+      return true;
     } catch (e) {
       toast({title: 'Could not issue first rent',
         description: e instanceof Error ? e.message : 'Please review the lease and existing invoices.',
         variant: 'destructive'});
       await refresh();
+      return false;
     } finally {
       setBusy(false);
     }
   };
 
-  const confirm = async () => {
-    if (!record || !record.ready || record.cleared || busy || !tenantId) return;
+  const confirmClearance = async () => {
+    if (!record || !record.ready || record.cleared || busy || !tenantId) return false;
     setBusy(true);
     try {
       const result = await apiRequest<null, MoveInClearance>({
@@ -92,6 +94,7 @@ export function TenantMoveInClearancePanel({
       setRecord(result);
       toast({title: 'Move-in clearance recorded',
         description: `Unit ${result.unitNumber} is now occupied and the clearance timestamp has been saved.`});
+      return true;
     } catch (e) {
       toast({title: 'Clearance blocked',
         description: e instanceof Error ? e.message : 'Required checks are incomplete',
@@ -116,8 +119,9 @@ export function TenantMoveInClearancePanel({
         confirmLabel={pendingConfirmation==='firstRent'?'Issue invoice':'Confirm clearance'}
         destructive={false}
         onConfirm={async()=>{
-          if(pendingConfirmation==='firstRent')await issueFirstRent();
-          else if(pendingConfirmation==='clearance')await confirm();
+          if(pendingConfirmation==='firstRent')return await issueFirstRent();
+          return false;
+          else if(pendingConfirmation==='clearance')return await confirmClearance();
         }}
       />
       <CardHeader className="pb-3">
