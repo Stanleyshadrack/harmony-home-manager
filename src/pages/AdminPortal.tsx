@@ -604,32 +604,25 @@ const [approvalLoading, setApprovalLoading] = useState(false);
                 </TableCell>
 
                 <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button
-  size="sm"
-  variant="outline"
-  onClick={() => {
-    setSelectedApproval(approval);
-    setShowApprovalDetails(true);
-  }}
->
-  <Eye className="h-4 w-4 mr-1" />
-  View
-</Button>
-
-                  <Button
-  size="sm"
-  variant="outline"
-  className="text-destructive"
-  onClick={() => {
-    setSelectedApproval(approval);
-    setRejectionReason("");   // reset old reason
-    setShowRejectDialog(true);
-  }}
->
-  Reject
-</Button>
-                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="icon" variant="ghost" aria-label={`Actions for approval ${approval.id}`}>
+                        <MoreHorizontal className="h-4 w-4"/>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onSelect={()=>{
+                        setSelectedApproval(approval);
+                        setShowApprovalDetails(true);
+                      }}>View approval details</DropdownMenuItem>
+                      <DropdownMenuItem className="text-destructive focus:text-destructive"
+                        onSelect={()=>{
+                          setSelectedApproval(approval);
+                          setRejectionReason('');
+                          setShowRejectDialog(true);
+                        }}>Reject approval</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TableCell>
               </TableRow>
           ))}
