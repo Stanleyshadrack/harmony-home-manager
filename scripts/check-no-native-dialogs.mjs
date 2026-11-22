@@ -1,11 +1,11 @@
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
+import ts from 'typescript';
 
 /**
  * Prevent browser-native confirmation / alert / prompt windows from being
  * reintroduced. Use the application's accessible Dialog / AlertDialog instead.
  */
-const forbidden = /(?:\b(?:window|globalThis)\s*\.\s*)?\b(?:confirm|alert|prompt)\s*\(/g;
 const extensions = /\.(?:js|jsx|ts|tsx|mjs)$/;
 const paths = ['src'];
 const violations = [];
@@ -18,7 +18,6 @@ async function scan(folder) {
     const source = await readFile(file,'utf8');
     // TS/JS parser instead of regex-only text searching avoids false alarms
     // from documentation strings or method names on unrelated objects.
-    const ts = await import('typescript');
     const sf = ts.createSourceFile(file,source,ts.ScriptTarget.Latest,true,
       /\.tsx?$/.test(file)?ts.ScriptKind.TSX:ts.ScriptKind.JSX);
     function visit(node) {
