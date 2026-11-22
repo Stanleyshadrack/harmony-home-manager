@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
+import { ConfirmActionDialog } from '@/components/messages/ConfirmActionDialog';
 
 interface Movement {
   type:string; amount:number; reason?:string; evidenceReference?:string;
@@ -29,6 +30,7 @@ export function DepositManagementPanel() {
   const [reference,setReference]=useState('');
   const [busy,setBusy]=useState(false);
   const [notice,setNotice]=useState('');
+  const [showInitializeConfirm,setShowInitializeConfirm]=useState(false);
   const load=async()=>{
     try{
       const data=await apiRequest<null,Deposit[]>({path:'/api/deposits',method:'GET'});
@@ -69,8 +71,15 @@ export function DepositManagementPanel() {
       </p>
     </CardHeader>
     <CardContent className="space-y-4">
-      {canManage && <Button variant="outline" disabled={busy} onClick={async()=>{
-        if(!window.confirm('Initialize missing deposit accounts for active leases? Existing deposits are NOT marked as paid.'))return;
+      {canManage && <Button variant="outline" disabled={busy} onClick={()=>setShowInitializeConfirm(true)}>Initialize Existing Lease Deposits (unpaid until verified)</Button>}
+      <ConfirmActionDialog
+        open={showInitializeConfirm}
+        onOpenChange={setShowInitializeConfirm}
+        title="Initialize missing deposit accounts?"
+        description="Create deposit accounts for existing active leases. Existing deposits will NOT be marked as paid. Verify historical receipts separately."
+        confirmLabel="Initialize accounts"
+        destructive={false}
+        onConfirm={async()=>{
         setBusy(true);setNotice('');
         try{
           const result=await apiRequest<null,{created:number}>({
@@ -78,9 +87,10 @@ export function DepositManagementPanel() {
           });
           await load();
           setNotice(`Initialized ${result.created} lease deposit account(s). Verify historical receipts separately.`);
-        }catch(e){setNotice(e instanceof Error?e.message:'Unable to initialize leases');}
+        }catch(e){setNotice(e instanceof Error?e.message:'Unable to initialize leases');throw e;}
         finally{setBusy(false);}
-      }}>Initialize Existing Lease Deposits (unpaid until verified)</Button>}
+      }}
+      />
       {accounts.length===0 && <p className="text-sm text-muted-foreground">
         No deposit accounts yet. New approved leases receive an account automatically.
         Existing leases can be initialized without assuming their deposits were paid.
