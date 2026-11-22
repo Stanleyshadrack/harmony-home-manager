@@ -34,6 +34,7 @@ import {
 import { useTenants } from '@/hooks/useTenants';
 import { useAuth } from '@/contexts/AuthContext';
 import { TenantCard } from '@/components/tenants/TenantCard';
+import { RecordListTable } from '@/components/ui/record-list-table';
 import { TenantWorkflowApprovals } from '@/components/tenants/TenantWorkflowApprovals';
 import { Tenant } from '@/types/tenant';
 import { useToast } from '@/hooks/use-toast';
@@ -196,17 +197,30 @@ const filteredTenants = tenants.filter((tenant) => {
           ) : isLoading ? (
             <div className="flex justify-center py-12">Loading…</div>
           ) : filteredTenants.length ? (
-            <div className={viewMode === 'grid' ? "grid md:grid-cols-2 lg:grid-cols-3 gap-4" : "grid grid-cols-1 gap-3"}>
-              {filteredTenants.map((tenant) => (
-                <TenantCard
-                  key={tenant.id}
-                  tenant={tenant}
-                  onView={setSelectedTenant}
-                  onEdit={setEditingTenant}
-                  onDelete={setDeletingTenant}
-                />
-              ))}
-            </div>
+            viewMode === 'list' ? (
+              <RecordListTable records={filteredTenants} getKey={tenant=>tenant.id}
+                columns={[
+                  {key:'name',header:'Tenant',render:tenant=><span className="font-medium">{tenant.firstName} {tenant.lastName}</span>},
+                  {key:'email',header:'Email',render:tenant=>tenant.email},
+                  {key:'phone',header:'Phone',render:tenant=>tenant.phone||'—'},
+                  {key:'property',header:'Property',render:tenant=>tenant.propertyName||'—'},
+                  {key:'unit',header:'Unit',render:tenant=>tenant.unitNumber||'—'},
+                  {key:'status',header:'Status',render:tenant=>tenant.status.replaceAll('_',' ')},
+                ]}
+                actions={tenant=>[
+                  {label:'View tenant',onSelect:()=>setSelectedTenant(tenant)},
+                  ...(isLandlordOrAdmin?[
+                    {label:'Edit tenant',onSelect:()=>setEditingTenant(tenant)},
+                    {label:'Delete tenant',separatorBefore:true,destructive:true,onSelect:()=>setDeletingTenant(tenant)}
+                  ]:[])
+                ]}
+              />
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredTenants.map(tenant=><TenantCard key={tenant.id} tenant={tenant}
+                  onView={setSelectedTenant} onEdit={setEditingTenant} onDelete={setDeletingTenant}/>)}
+              </div>
+            )
           ) : (
             <Card>
               <CardContent className="py-12 text-center">
