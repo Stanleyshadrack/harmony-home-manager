@@ -78,8 +78,10 @@ export function LandlordColorPreferences(){
       applyLandlordPalette(result);
       toast({title:'System colors saved',description:'Your custom theme is saved to your landlord account.'});
     }catch(e){
+      setDraft(saved);
+      setHexInput(saved.customColor||DEFAULT_CUSTOM);
+      applyLandlordPalette(saved);
       setError(e instanceof Error?e.message:'Unable to save system colors');
-      reset();
     }finally{setSaving(false);}
   };
 
