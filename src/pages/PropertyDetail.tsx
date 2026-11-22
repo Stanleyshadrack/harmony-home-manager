@@ -29,7 +29,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 
-import { PropertyPhotoGallery } from "@/components/properties/PropertyPhotoGallery";
+import { PropertyServerGallery } from "@/components/properties/PropertyServerGallery";
 
 import {
   Building2,
@@ -71,8 +71,6 @@ export default function PropertyDetail() {
   const { units, isLoading: unitsLoading, loadError: unitsError } = useUnits();
 
   const [property, setProperty] = useState<Property | null>(null);
-  const [propertyPhotos, setPropertyPhotos] = useState<string[]>([]);
-  const [featuredPhotoIndex, setFeaturedPhotoIndex] = useState(0);
   const [propertyStats, setPropertyStats] = useState<{totalUnits:number;occupiedUnits:number;vacantUnits:number;maintenanceUnits:number}|null>(null);
   const [reportedPerformance, setReportedPerformance] = useState<{collected:number;outstanding:number;unallocatedCredit:number;netOutstanding:number}|null>(null);
   const [detailsError, setDetailsError] = useState('');
@@ -109,11 +107,7 @@ const landlord = property?.landlordId
       const found = properties.find((p) => String(p.id) === id) ?? null;
       setProperty(found);
 
-      if (found) {
-        // Only expose server-backed photo metadata; browser-local photos are not portable.
-        setPropertyPhotos(found.photos ?? []);
-        setFeaturedPhotoIndex(0);
-      }
+
     }
   }, [properties, propertiesLoading, id]);
 
@@ -328,7 +322,7 @@ const landlord = property?.landlordId
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="photos">
             <Image className="h-4 w-4 mr-1" />
-            Photos ({propertyPhotos.length})
+            Photos
           </TabsTrigger>
           <TabsTrigger value="units">Units ({totalUnits})</TabsTrigger>
           <TabsTrigger value="amenities">Amenities</TabsTrigger>
@@ -380,18 +374,7 @@ const landlord = property?.landlordId
 
         <TabsContent value="photos">
 
-          <PropertyPhotoGallery
-            propertyId={property.id}
-            photos={propertyPhotos}
-            featuredPhotoIndex={featuredPhotoIndex}
-            onPhotosChange={(photos, index) => {
-              setPropertyPhotos(photos);
-              if (index !== undefined) setFeaturedPhotoIndex(index);
-            }}
-            editable={false}
-          />
-          <p className="mt-2 text-sm text-muted-foreground">Property photos are read-only here until secure, server-backed gallery uploads are available. Browser-only uploads are intentionally disabled to avoid losing photos across devices.</p>
-
+          <PropertyServerGallery propertyId={property.id} />
         </TabsContent>
 
         {/* Units */}
