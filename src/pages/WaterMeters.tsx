@@ -1,10 +1,12 @@
 import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
 import { ResponsiveTableView } from '@/components/ui/responsive-table-view';
+import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuSeparator,DropdownMenuTrigger} from '@/components/ui/dropdown-menu';
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import {
   Gauge,
+  MoreHorizontal,
   Plus,
   Search,
   Filter,
@@ -461,7 +463,7 @@ export default function WaterMeters() {
                 <TableHead>Type</TableHead>
                 <TableHead>Last Reading</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -510,37 +512,24 @@ export default function WaterMeters() {
                       )}
                     </TableCell>
                     <TableCell>{getStatusBadge(meter.status)}</TableCell>
-                    <TableCell>
-                    <div className="flex items-center gap-2">
-
-  {!meter.unitNumber && (
-    <Button
-      size="sm"
-  variant="secondary"
-      onClick={() => {
-        setSelectedMeter(meter);
-        setShowAssignDialog(true);
-      }}
-    >
-      Assign
-    </Button>
-  )}
-
-  {meter.unitNumber && <Button size="sm" variant="outline" onClick={() => setUnassignTarget(meter)}>Unassign</Button>}
-  <Button variant="ghost" size="icon" onClick={() => openEditDialog(meter)}>
-    <Edit className="h-4 w-4" />
-  </Button>
-
-  <Button
-    variant="ghost"
-    size="icon"
-    className="text-destructive"
-    onClick={() => openDeleteDialog(meter)}
-  >
-    <Trash2 className="h-4 w-4" />
-  </Button>
-
-</div>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" aria-label={`Actions for meter ${meter.meterName}`}>
+                            <MoreHorizontal className="h-4 w-4"/>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {!meter.unitNumber?<DropdownMenuItem onSelect={()=>{
+                            setSelectedMeter(meter);setShowAssignDialog(true);
+                          }}>Assign meter</DropdownMenuItem>:
+                          <DropdownMenuItem onSelect={()=>setUnassignTarget(meter)}>Unassign meter</DropdownMenuItem>}
+                          <DropdownMenuItem onSelect={()=>openEditDialog(meter)}>Edit meter</DropdownMenuItem>
+                          <DropdownMenuSeparator/>
+                          <DropdownMenuItem className="text-destructive focus:text-destructive"
+                            onSelect={()=>openDeleteDialog(meter)}>Delete meter</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))
