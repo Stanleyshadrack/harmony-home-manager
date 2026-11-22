@@ -1,5 +1,7 @@
 import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
 import { ResponsiveTableView } from '@/components/ui/responsive-table-view';
+import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuTrigger} from '@/components/ui/dropdown-menu';
+import {MoreHorizontal} from 'lucide-react';
 import { useEffect, useMemo, useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -130,7 +132,7 @@ export default function NotificationLogs() {
               <ResponsiveTableView mode={viewMode}>
                 <table className="w-full text-sm">
                 <thead><tr className="border-b text-left"><th className="py-3 pr-3">Date</th><th className="pr-3">Recipient</th>
-                  <th className="pr-3">Channel</th><th className="pr-3">Type</th><th className="pr-3">Subject / message</th><th>Status</th></tr></thead>
+                  <th className="pr-3">Channel</th><th className="pr-3">Type</th><th className="pr-3">Subject / message</th><th>Status</th><th className="text-right">Actions</th></tr></thead>
                 <tbody>{filtered.map(log => <tr key={log.id} className="border-b last:border-0">
                   <td className="py-3 pr-3 whitespace-nowrap">{log.timestamp ? new Date(log.timestamp).toLocaleString() : "—"}</td>
                   <td className="pr-3">{log.recipient}</td>
@@ -139,6 +141,17 @@ export default function NotificationLogs() {
                   <td className="pr-3 max-w-xs"><strong>{log.title || "Notification"}</strong>
                     <p className="text-muted-foreground truncate" title={log.message}>{log.message}</p></td>
                   <td className="capitalize">{log.status === "accepted" ? "SMTP accepted" : log.status === "recorded" ? "Legacy / unverified" : log.status.replace("_", " ")}</td>
+                  <td className="text-right">
+                    <DropdownMenu><DropdownMenuTrigger asChild>
+                      <Button size="icon" variant="ghost" aria-label={`Actions for notification log ${log.id}`}>
+                        <MoreHorizontal className="h-4 w-4"/>
+                      </Button>
+                    </DropdownMenuTrigger><DropdownMenuContent align="end">
+                      <DropdownMenuItem onSelect={()=>void navigator.clipboard.writeText(
+                        [log.timestamp,log.recipient,log.channel,log.type,log.title,log.message,log.status].join(' | ')
+                      )}>Copy notification log</DropdownMenuItem>
+                    </DropdownMenuContent></DropdownMenu>
+                  </td>
                 </tr>)}</tbody>
               </table>
                 </ResponsiveTableView>
