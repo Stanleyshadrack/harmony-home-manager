@@ -120,8 +120,8 @@ export function TenantMoveInClearancePanel({
         destructive={false}
         onConfirm={async()=>{
           if(pendingConfirmation==='firstRent')return await issueFirstRent();
+          if(pendingConfirmation==='clearance')return await confirmClearance();
           return false;
-          else if(pendingConfirmation==='clearance')return await confirmClearance();
         }}
       />
       <CardHeader className="pb-3">
