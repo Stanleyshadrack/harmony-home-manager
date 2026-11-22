@@ -471,7 +471,7 @@ export default function Billing() {
                     }},
                     {label:'Download receipt',onSelect:()=>{
                       const invoice=invoices.find(i=>i.id===payment.invoiceId);
-                      if(invoice)void downloadPaymentReceiptPDF(payment,invoice);
+                      if(invoice)downloadPaymentReceiptPDF({payment,invoice,propertyName:invoice.propertyName,propertyAddress:invoice.propertyName,landlordName:invoice.propertyName,landlordPhone:'',landlordEmail:''});
                       else toast({title:'Invoice unavailable',description:'Cannot generate receipt without its invoice.',variant:'destructive'});
                     }}
                   ]}
