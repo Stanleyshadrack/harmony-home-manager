@@ -6,7 +6,7 @@ import {Input} from '@/components/ui/input';
 import {Card,CardContent,CardHeader,CardTitle,CardDescription} from '@/components/ui/card';
 import {useToast} from '@/hooks/use-toast';
 import {
-  applyLandlordPalette, ColorPreference, customColorGrid,
+  applyLandlordPalette, ColorPreference,
   Palette, palettes, validHex
 } from '@/utils/landlordPalette';
 
@@ -104,24 +104,10 @@ export function LandlordColorPreferences(){
         </div>
       </section>
 
-      <section className="space-y-3" aria-label="Custom color grid">
+      <section className="space-y-3" aria-label="Custom color picker">
         <div>
-          <h3 className="text-sm font-semibold">Custom color grid</h3>
-          <p className="mt-1 text-xs text-muted-foreground">Select a shade, use the color picker, or enter your exact HEX color.</p>
-        </div>
-        <div className="w-full max-w-xl space-y-1 rounded-xl border bg-muted/20 p-3" role="group" aria-label="Choose a custom color">
-          {customColorGrid.map((row,index)=>
-            <div key={index} className="grid grid-cols-8 gap-1.5">
-              {row.map(hex=><button key={hex} type="button"
-                aria-label={`Choose color ${hex}`}
-                aria-pressed={draft.palette==='custom'&&draft.customColor?.toUpperCase()===hex}
-                title={hex}
-                disabled={loading||saving}
-                className={`aspect-square min-h-8 rounded-md border border-black/10 transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${draft.palette==='custom'&&draft.customColor?.toUpperCase()===hex?'ring-2 ring-primary ring-offset-2 ring-offset-background':''}`}
-                style={{backgroundColor:hex}}
-                onClick={()=>selectCustom(hex)}
-              />)}
-            </div>)}
+          <h3 className="text-sm font-semibold">Custom color</h3>
+          <p className="mt-1 text-xs text-muted-foreground">Use the color picker or enter an exact HEX color.</p>
         </div>
         <div className="flex flex-wrap items-end gap-4">
           <label className="flex flex-col gap-1.5 text-sm font-medium" htmlFor="custom-color-picker">
