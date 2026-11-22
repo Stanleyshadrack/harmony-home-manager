@@ -15,7 +15,8 @@ import {
   Clock,
   Plus,
   User,
-  History
+  History,
+  MoreHorizontal
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -24,6 +25,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuSeparator,DropdownMenuTrigger} from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -506,7 +508,7 @@ export default function WaterData() {
                         <TableHead className="whitespace-nowrap px-2 text-right">Consumption</TableHead>
                         <TableHead className="whitespace-nowrap px-2 text-right">Total amount</TableHead>
                         <TableHead className="px-3">Status</TableHead>
-                        <TableHead className="px-3">Actions</TableHead>
+                        <TableHead className="px-3 text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -524,16 +526,23 @@ export default function WaterData() {
                           <TableCell className="whitespace-nowrap px-2 py-3 text-right tabular-nums">{Number(reading.consumption).toLocaleString('en-KE', {maximumFractionDigits: 3})} m³</TableCell>
                           <TableCell className="whitespace-nowrap px-2 py-3 text-right font-semibold tabular-nums">{formatCurrency(Number(reading.amount))}</TableCell>
                           <TableCell className="whitespace-nowrap px-3 py-3">{getStatusBadge(reading.status)}</TableCell>
-                          <TableCell className="px-3 py-3">
-                            <div className="flex items-center gap-1">
-                              <Button size="sm" variant="outline" className="h-8 gap-1 whitespace-nowrap px-2" onClick={() => setComparisonReading(reading)} aria-label={`Compare history for unit ${reading.unitNumber}`}>
-                                <History className="h-3.5 w-3.5" /> Compare
-                              </Button>
-                              {canApprove && reading.status === 'PENDING' && <>
-                                <Button size="icon" variant="ghost" className="h-8 w-8 text-success" onClick={() => handleApprove(reading)} disabled={actionBusy} aria-label={`Approve unit ${reading.unitNumber}`}><Check className="h-4 w-4" /></Button>
-                                <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => openRejectDialog(reading)} disabled={actionBusy} aria-label={`Reject unit ${reading.unitNumber}`}><X className="h-4 w-4" /></Button>
-                              </>}
-                            </div>
+                          <TableCell className="px-3 py-3 text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button size="icon" variant="ghost" aria-label={`Actions for unit ${reading.unitNumber} reading`}>
+                                  <MoreHorizontal className="h-4 w-4"/>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onSelect={()=>setComparisonReading(reading)}>Compare history</DropdownMenuItem>
+                                {canApprove&&reading.status==='PENDING'&&<>
+                                  <DropdownMenuSeparator/>
+                                  <DropdownMenuItem disabled={actionBusy} onSelect={()=>void handleApprove(reading)}>Approve reading</DropdownMenuItem>
+                                  <DropdownMenuItem disabled={actionBusy} className="text-destructive focus:text-destructive"
+                                    onSelect={()=>openRejectDialog(reading)}>Reject reading</DropdownMenuItem>
+                                </>}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableCell>
                         </TableRow>
                       ))}
