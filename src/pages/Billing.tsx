@@ -31,6 +31,7 @@ import { AdvancePaymentsRegister } from '@/components/billing/AdvancePaymentsReg
 import { DepositManagementPanel } from '@/components/billing/DepositManagementPanel';
 import { InvoicePaymentSettingsPanel } from '@/components/billing/InvoicePaymentSettingsPanel';
 import { InvoiceCard } from '@/components/billing/InvoiceCard';
+import { RecordListTable } from '@/components/ui/record-list-table';
 import { InvoiceDetail } from '@/components/billing/InvoiceDetail';
 import { PaymentCard } from '@/components/billing/PaymentCard';
 import { InvoiceForm } from '@/components/billing/InvoiceForm';
@@ -405,16 +406,30 @@ export default function Billing() {
                 </CardContent>
               </Card>
             ) : (
-              <div className={viewMode === 'grid' ? "grid gap-4 md:grid-cols-2 lg:grid-cols-3" : "grid grid-cols-1 gap-3"}>
-                {filteredInvoices.map((invoice) => (
-                  <InvoiceCard
-                    key={invoice.id}
-                    invoice={invoice}
-                    onView={handleViewInvoice}
-                    onRecordPayment={handleRecordPaymentClick}
-                  />
-                ))}
-              </div>
+              viewMode === 'list' ? (
+                <RecordListTable records={filteredInvoices} getKey={invoice=>invoice.id}
+                  columns={[
+                    {key:'invoice',header:'Invoice',render:i=><span className="font-medium">{i.invoiceNumber}</span>},
+                    {key:'tenant',header:'Tenant',render:i=>i.tenantName},
+                    {key:'property',header:'Property / Unit',render:i=>`${i.propertyName} / ${i.unitNumber}`},
+                    {key:'type',header:'Type',render:i=><span className="capitalize">{i.type.replaceAll('_',' ')}</span>},
+                    {key:'amount',header:'Amount',render:i=>formatFinancialAmount(i.amount)},
+                    {key:'balance',header:'Balance',render:i=>formatFinancialAmount(i.balance)},
+                    {key:'due',header:'Due Date',render:i=>i.dueDate||'—'},
+                    {key:'status',header:'Status',render:i=><span className="capitalize">{i.status}</span>},
+                  ]}
+                  actions={invoice=>[
+                    {label:'View invoice',onSelect:()=>handleViewInvoice(invoice)},
+                    ...(canManageBilling&&invoice.balance>0&&invoice.status!=='cancelled'?
+                      [{label:'Record payment',onSelect:()=>handleRecordPaymentClick(invoice)}]:[]),
+                  ]}
+                />
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {filteredInvoices.map(invoice=><InvoiceCard key={invoice.id} invoice={invoice}
+                    onView={handleViewInvoice} onRecordPayment={handleRecordPaymentClick}/>)}
+                </div>
+              )
             )}
           </TabsContent>
 
@@ -438,11 +453,34 @@ export default function Billing() {
                 </CardContent>
               </Card>
             ) : (
-              <div className={viewMode === 'grid' ? "grid gap-4 md:grid-cols-2 lg:grid-cols-3" : "grid grid-cols-1 gap-3"}>
-                {filteredPayments.map((payment) => (
-                  <PaymentCard key={payment.id} payment={payment} />
-                ))}
-              </div>
+              viewMode === 'list' ? (
+                <RecordListTable records={filteredPayments} getKey={payment=>payment.id}
+                  columns={[
+                    {key:'reference',header:'Transaction Reference',render:p=><span className="font-medium">{p.transactionRef}</span>},
+                    {key:'invoice',header:'Invoice',render:p=>p.invoiceNumber},
+                    {key:'tenant',header:'Tenant',render:p=>p.tenantName},
+                    {key:'amount',header:'Amount',render:p=>formatFinancialAmount(p.amount)},
+                    {key:'method',header:'Method',render:p=><span className="capitalize">{p.paymentMethod}</span>},
+                    {key:'date',header:'Payment Date',render:p=>p.paymentDate},
+                  ]}
+                  actions={payment=>[
+                    {label:'View invoice',onSelect:()=>{
+                      const invoice=invoices.find(i=>i.id===payment.invoiceId);
+                      if(invoice)handleViewInvoice(invoice);
+                      else toast({title:'Invoice unavailable',description:'The linked invoice is not accessible.',variant:'destructive'});
+                    }},
+                    {label:'Download receipt',onSelect:()=>{
+                      const invoice=invoices.find(i=>i.id===payment.invoiceId);
+                      if(invoice)void downloadPaymentReceiptPDF(payment,invoice);
+                      else toast({title:'Invoice unavailable',description:'Cannot generate receipt without its invoice.',variant:'destructive'});
+                    }}
+                  ]}
+                />
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {filteredPayments.map(payment=><PaymentCard key={payment.id} payment={payment}/>)}
+                </div>
+              )
             )}
           </TabsContent>
         </Tabs>
