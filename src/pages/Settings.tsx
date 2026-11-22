@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { User, Mail, Phone, Camera, Save, Loader2 } from 'lucide-react';
 import { NotificationPreferences } from '@/components/settings/NotificationPreferences';
+import { LandlordColorPreferences } from '@/components/settings/LandlordColorPreferences';
 import { MaintenanceControl } from '@/components/settings/MaintenanceControl';
 import { IdleLockPreferences } from '@/components/settings/IdleLockPreferences';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -156,6 +157,7 @@ export default function Settings() {
       <Tabs defaultValue="account" className="space-y-5">
         <TabsList className="h-auto flex flex-wrap justify-start gap-1">
           <TabsTrigger value="account" className="gap-2"><UserRound className="h-4 w-4" />Profile & Account</TabsTrigger>
+          {user?.role === 'landlord' && <TabsTrigger value="colors">System Colors</TabsTrigger>}
           <TabsTrigger value="security" className="gap-2"><ShieldCheck className="h-4 w-4" />Security</TabsTrigger>
           <TabsTrigger value="notifications" className="gap-2"><Bell className="h-4 w-4" />Notifications & Sounds</TabsTrigger>
           {user?.role === 'super_admin' && <TabsTrigger value="maintenance">System Maintenance</TabsTrigger>}
@@ -314,6 +316,7 @@ export default function Settings() {
         </Card>
 
         </TabsContent>
+        {user?.role === "landlord" && <TabsContent value="colors" className="max-w-4xl"><LandlordColorPreferences /></TabsContent>}
         <TabsContent value="security" className="space-y-5">
         <IdleLockPreferences />
         <Card><CardHeader><CardTitle>Account security</CardTitle>
