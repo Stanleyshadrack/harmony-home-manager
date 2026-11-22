@@ -45,6 +45,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { ConfirmActionDialog } from '@/components/messages/ConfirmActionDialog';
 import { useMeters } from "@/hooks/useMeters";
 import { WaterMeter } from "@/api/dto/WaterMeterDTO";
 import { MeterForm } from '@/types/MeterForm';
@@ -66,6 +67,7 @@ export default function WaterMeters() {
   const { properties } = useProperties();
   const { units } = useUnits();
   const [selectedMeter, setSelectedMeter] = useState<WaterMeter | null>(null);
+  const [unassignTarget, setUnassignTarget] = useState<WaterMeter | null>(null);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [assignUnitId, setAssignUnitId] = useState<string>("");
   const [formData, setFormData] = useState<MeterForm>({
@@ -321,6 +323,18 @@ export default function WaterMeters() {
         { label: 'Water Meters' },
       ]}
     >
+      <ConfirmActionDialog
+        open={unassignTarget!==null}
+        onOpenChange={open=>{if(!open)setUnassignTarget(null);}}
+        title="Unassign water meter?"
+        description={`Unassign ${unassignTarget?.meterName||'this meter'} from its unit? Reading history will be retained and the meter will be marked inactive.`}
+        confirmLabel="Unassign meter"
+        onConfirm={async()=>{
+          if(!unassignTarget)return false;
+          const result=await unassignMeter(Number(unassignTarget.id));
+          return Boolean(result);
+        }}
+      />
       <div className="space-y-6">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -512,10 +526,7 @@ export default function WaterMeters() {
     </Button>
   )}
 
-  {meter.unitNumber && <Button size="sm" variant="outline" onClick={async () => {
-    if (window.confirm('Unassign meter, retain its reading history, and mark it inactive?'))
-      await unassignMeter(Number(meter.id));
-  }}>Unassign</Button>}
+  {meter.unitNumber && <Button size="sm" variant="outline" onClick={() => setUnassignTarget(meter)}>Unassign</Button>}
   <Button variant="ghost" size="icon" onClick={() => openEditDialog(meter)}>
     <Edit className="h-4 w-4" />
   </Button>
