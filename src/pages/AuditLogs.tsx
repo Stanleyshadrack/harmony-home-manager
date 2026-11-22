@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ResponsiveTableView } from '@/components/ui/responsive-table-view';
+import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuTrigger} from '@/components/ui/dropdown-menu';
+import {MoreHorizontal} from 'lucide-react';
 import { Download, RefreshCw, Shield } from 'lucide-react';
 import { apiRequest } from '@/api/https';
 import { useAuth } from '@/contexts/AuthContext';
@@ -98,7 +100,7 @@ export default function AuditLogs() {
             <TableHeader><TableRow>
               <TableHead>Date</TableHead><TableHead>Actor</TableHead>
               <TableHead>Action</TableHead><TableHead>Severity</TableHead>
-              <TableHead>Entity</TableHead><TableHead>Details</TableHead>
+              <TableHead>Entity</TableHead><TableHead>Details</TableHead><TableHead className="text-right">Actions</TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {filtered.map(log=><TableRow key={log.id}>
@@ -110,6 +112,20 @@ export default function AuditLogs() {
                 </Badge></TableCell>
                 <TableCell>{log.entityType}{log.entityId==null?'':` #${log.entityId}`}</TableCell>
                 <TableCell className="break-words">{log.details || '—'}</TableCell>
+                <TableCell className="text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" aria-label={`Actions for audit event ${log.id}`}>
+                        <MoreHorizontal className="h-4 w-4"/>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onSelect={()=>void navigator.clipboard.writeText(
+                        [log.createdAt,log.userEmail||'System',log.action,log.entityType,log.entityId??'',log.details||''].join(' | ')
+                      )}>Copy audit entry</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
               </TableRow>)}
             </TableBody>
           </Table>
