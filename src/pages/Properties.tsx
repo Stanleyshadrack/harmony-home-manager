@@ -1,5 +1,6 @@
 import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PropertyCard } from '@/components/properties/PropertyCard';
@@ -31,6 +32,7 @@ import { toast } from 'sonner';
 
 export default function Properties() {
   const [viewMode, setViewMode] = useViewMode('properties');
+  const [searchParams, setSearchParams] = useSearchParams();
   const { t } = useTranslation();
   const { properties, isLoading, loadError, addProperty, updateProperty, deleteProperty } = useProperties();
   
@@ -40,6 +42,14 @@ export default function Properties() {
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [deletingProperty, setDeletingProperty] = useState<Property | null>(null);
   const { getLandlordById } = useLandlords();
+  useEffect(()=>{
+    const editId=searchParams.get('edit');
+    if(!editId || isLoading || loadError)return;
+    const selected=properties.find(p=>p.id===editId);
+    if(selected){setEditingProperty(selected);setIsFormOpen(true);}
+    else toast.error('Property could not be found or is not accessible.');
+    setSearchParams(current=>{const next=new URLSearchParams(current);next.delete('edit');return next;},{replace:true});
+  },[searchParams,properties,isLoading,loadError,setSearchParams]);
   
 
   const q = searchQuery.toLowerCase();
