@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { UnitCard } from '@/components/units/UnitCard';
+import { RecordListTable } from '@/components/ui/record-list-table';
 import { UnitForm } from '@/components/units/UnitForm';
 import { useProperties, useUnits } from '@/hooks/useProperties';
 import { Unit, UnitFormData } from '@/types/property';
@@ -182,17 +183,28 @@ export default function Units() {
       <div className="flex justify-end mb-3"><ViewModeToggle value={viewMode} onChange={setViewMode} /></div>
       {/* Units Grid */}
       {filteredUnits.length > 0 ? (
-        <div className={viewMode === 'grid' ? "grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "grid grid-cols-1 gap-3"}>
-          {filteredUnits.map((unit) => (
-            <UnitCard
-              key={unit.id}
-              unit={unit}
-              propertyName={getPropertyName(unit.propertyId).toString()}
-              onEdit={handleEdit}
-              onDelete={setDeletingUnit}
-            />
-          ))}
-        </div>
+        viewMode === 'list' ? (
+          <RecordListTable records={filteredUnits} getKey={unit=>unit.id}
+            columns={[
+              {key:'number',header:'Unit',render:unit=><span className="font-medium">{unit.unitNumber}</span>},
+              {key:'property',header:'Property',render:unit=>getPropertyName(unit.propertyId)},
+              {key:'type',header:'Type',render:unit=>unit.unitType},
+              {key:'rent',header:'Monthly Rent',render:unit=>`KES ${(Number(unit.monthlyRent)||0).toLocaleString('en-KE')}`},
+              {key:'deposit',header:'Deposit',render:unit=>`KES ${(Number(unit.deposit)||0).toLocaleString('en-KE')}`},
+              {key:'status',header:'Status',render:unit=><span className="capitalize">{unit.status.replaceAll('_',' ')}</span>},
+              {key:'meter',header:'Meter',render:unit=>unit.meterName||unit.meterId||'—'},
+            ]}
+            actions={unit=>[
+              {label:'Edit unit',onSelect:()=>handleEdit(unit)},
+              {label:'Delete unit',separatorBefore:true,destructive:true,onSelect:()=>setDeletingUnit(unit)}
+            ]}
+          />
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {filteredUnits.map(unit=><UnitCard key={unit.id} unit={unit}
+              propertyName={getPropertyName(unit.propertyId)} onEdit={handleEdit} onDelete={setDeletingUnit}/>)}
+          </div>
+        )
       ) : (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="p-4 bg-muted rounded-full mb-4">
