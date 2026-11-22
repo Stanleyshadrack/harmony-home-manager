@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { apiRequest } from "@/api/https";
+import { formatFinancialAmount } from "@/hooks/useFinancialSummary";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -65,12 +67,31 @@ export default function PropertyDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const { properties, isLoading: propertiesLoading } = useProperties();
-  const { units, isLoading: unitsLoading } = useUnits();
+  const { properties, isLoading: propertiesLoading, loadError: propertiesError } = useProperties();
+  const { units, isLoading: unitsLoading, loadError: unitsError } = useUnits();
 
   const [property, setProperty] = useState<Property | null>(null);
   const [propertyPhotos, setPropertyPhotos] = useState<string[]>([]);
   const [featuredPhotoIndex, setFeaturedPhotoIndex] = useState(0);
+  const [propertyStats, setPropertyStats] = useState<{totalUnits:number;occupiedUnits:number;vacantUnits:number;maintenanceUnits:number}|null>(null);
+  const [reportedPerformance, setReportedPerformance] = useState<{collected:number;outstanding:number;unallocatedCredit:number;netOutstanding:number}|null>(null);
+  const [detailsError, setDetailsError] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
+  useEffect(() => {
+    if (!id || !Number.isSafeInteger(Number(id)) || Number(id)<=0)return;
+    let mounted = true;
+    Promise.all([
+      apiRequest<null,{totalUnits:number;occupiedUnits:number;vacantUnits:number;maintenanceUnits:number}>({path:`/api/properties/${id}/stats`,method:'GET'}),
+      apiRequest<null,{properties:Array<{id:number;collected:number;outstanding:number;unallocatedCredit:number;netOutstanding:number}>}>({path:'/api/reports/summary?period=month',method:'GET'}),
+    ]).then(([stats,report])=>{
+      if(!mounted)return;
+      setPropertyStats(stats);
+      const found=report.properties.find(p=>String(p.id)===id);
+      setReportedPerformance(found ?? null);
+      setDetailsError(found ? '' : 'Property reporting data was not returned by the server.');
+    }).catch(err=>{if(mounted){setDetailsError(err instanceof Error?err.message:'Unable to load property figures');setPropertyStats(null);setReportedPerformance(null);}});
+    return()=>{mounted=false;};
+  },[id,refreshKey]);
 
   const { getLandlordById } = useLandlords();
 
@@ -89,18 +110,9 @@ const landlord = property?.landlordId
       setProperty(found);
 
       if (found) {
-        const storedPhotos = localStorage.getItem(`property_photos_${id}`);
-        const storedFeatured = localStorage.getItem(
-          `property_featured_photo_${id}`
-        );
-
-        setPropertyPhotos(
-          storedPhotos ? JSON.parse(storedPhotos) : found.photos ?? []
-        );
-
-        if (storedFeatured) {
-          setFeaturedPhotoIndex(Number(storedFeatured));
-        }
+        // Only expose server-backed photo metadata; browser-local photos are not portable.
+        setPropertyPhotos(found.photos ?? []);
+        setFeaturedPhotoIndex(0);
       }
     }
   }, [properties, propertiesLoading, id]);
@@ -118,10 +130,10 @@ const landlord = property?.landlordId
      Derived stats
   ========================= */
 
-  const totalUnits = propertyUnits.length;
-  const occupiedUnits = propertyUnits.filter((u) => u.status === "occupied").length;
-  const vacantUnits = propertyUnits.filter((u) => u.status === "vacant").length;
-  const maintenanceUnits = propertyUnits.filter(
+  const totalUnits = propertyStats?.totalUnits ?? propertyUnits.length;
+  const occupiedUnits = propertyStats?.occupiedUnits ?? propertyUnits.filter((u) => u.status === "occupied").length;
+  const vacantUnits = propertyStats?.vacantUnits ?? propertyUnits.filter((u) => u.status === "vacant").length;
+  const maintenanceUnits = propertyStats?.maintenanceUnits ?? propertyUnits.filter(
     (u) => u.status === "maintenance"
   ).length;
 
@@ -169,7 +181,7 @@ const landlord = property?.landlordId
       <DashboardLayout title="Property Not Found">
         <div className="text-center py-16">
           <Building2 className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
-          <p className="mb-4">Property not found</p>
+          <p className="mb-4">{propertiesError || unitsError || "Property not found or access denied"}</p>
 
           <Button asChild>
             <Link to="/properties">
@@ -191,6 +203,7 @@ const landlord = property?.landlordId
         { label: property.name },
       ]}
     >
+      {(detailsError || unitsError) && <div className="mb-4 flex items-center justify-between rounded-lg border p-3 text-sm" role="alert"><span>{detailsError || unitsError}</span><Button size="sm" variant="outline" onClick={()=>setRefreshKey(n=>n+1)}>Retry</Button></div>}
       {/* Header */}
 
       <div className="flex justify-between flex-wrap gap-4 mb-6">
@@ -199,12 +212,13 @@ const landlord = property?.landlordId
   <div className="space-y-1">
 
     {/* Property Code */}
-    {property.country && (
+    {(property.postalCode || property.address) && (
       <p className="text-sm text-muted-foreground">
-        Postal Code: {property.address}
+        Postal Code: {property.postalCode || "Not provided"}
       </p>
     )}
 
+    {property.address && <p className="text-sm text-muted-foreground">{property.address}</p>}
     {/* Location */}
     <div className="flex items-center gap-1 text-muted-foreground">
       <MapPin className="h-4 w-4" />
@@ -257,7 +271,7 @@ const landlord = property?.landlordId
         <Stat
           title="Total Units"
           value={totalUnits}
-          subtitle={`${occupiedUnits} occupied, ${vacantUnits} vacant`}
+          subtitle={`${occupiedUnits} occupied, ${vacantUnits} vacant, ${maintenanceUnits} maintenance`}
           icon={<Home />}
         />
 
@@ -269,9 +283,9 @@ const landlord = property?.landlordId
         />
 
         <Stat
-          title="Potential Income"
+          title="Potential Monthly Rent"
           value={`KES ${totalMonthlyRent.toLocaleString()}`}
-          subtitle={`Current: KES ${currentIncome.toLocaleString()}`}
+          subtitle={`Occupied-unit scheduled rent: KES ${currentIncome.toLocaleString()}`}
           icon={<DollarSign />}
         />
 
@@ -284,68 +298,27 @@ const landlord = property?.landlordId
 
       </div>
 
-      {/* Property Performance */}
-
+      {/* Property-specific, backend-backed financial performance. */}
       <Card className="mb-6">
-  <CardHeader>
-    <CardTitle>Property Performance</CardTitle>
-  </CardHeader>
-
-  <CardContent className="grid md:grid-cols-3 gap-6">
-
-    {/* Potential Rent */}
-    <div className="p-4 rounded-lg bg-muted/40 border flex items-center gap-3">
-      <div className="p-2 rounded-md bg-primary/10 text-primary">
-        <DollarSign className="h-4 w-4" />
-      </div>
-
-      <div>
-        <p className="text-sm text-muted-foreground">
-          Potential Monthly Rent
-        </p>
-        <p className="text-xl font-semibold">
-          KES {totalMonthlyRent.toLocaleString()}
-        </p>
-      </div>
-    </div>
-
-    {/* Collected Rent */}
-    <div className="p-4 rounded-lg bg-green-50 border border-green-100 flex items-center gap-3">
-      <div className="p-2 rounded-md bg-green-100 text-green-600">
-        <DollarSign className="h-4 w-4" />
-      </div>
-
-      <div>
-        <p className="text-sm text-green-700">
-          Collected Rent
-        </p>
-        <p className="text-xl font-semibold text-green-700">
-          KES {currentIncome.toLocaleString()}
-        </p>
-      </div>
-    </div>
-
-    {/* Lost Revenue */}
-    <div className="p-4 rounded-lg bg-red-50 border border-red-100 flex items-center gap-3">
-      <div className="p-2 rounded-md bg-red-100 text-red-600">
-        <DollarSign className="h-4 w-4" />
-      </div>
-
-      <div>
-        <p className="text-sm text-red-700">
-          Lost Revenue
-        </p>
-        <p className="text-xl font-semibold text-red-700">
-          KES {(totalMonthlyRent - currentIncome).toLocaleString()}
-        </p>
-      </div>
-    </div>
-
-  </CardContent>
-</Card>
-
-
-   
+        <CardHeader className="flex flex-row items-center justify-between gap-2">
+          <div><CardTitle>Property Performance</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">Monthly cash collections and current balances come from the server; projected rent is based on unit rates.</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={()=>setRefreshKey(n=>n+1)}>Refresh</Button>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            {label:'Potential Monthly Rent',value:totalMonthlyRent,description:'Sum of current unit rent rates'},
+            {label:'Collected This Month',value:reportedPerformance?.collected,description:'Confirmed payments and property advances'},
+            {label:'Gross Outstanding',value:reportedPerformance?.outstanding,description:'Unpaid invoice balances'},
+            {label:'Net Outstanding',value:reportedPerformance?.netOutstanding,description:'After eligible tenant credit offsets'},
+          ].map(item=><div className="rounded-lg border p-4" key={item.label}>
+            <p className="text-xs text-muted-foreground">{item.label}</p>
+            <p className="mt-2 text-xl font-semibold">{item.value == null ? '—' : formatFinancialAmount(item.value)}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>
+          </div>)}
+        </CardContent>
+      </Card>
 
       {/* Tabs */}
 
@@ -377,6 +350,8 @@ const landlord = property?.landlordId
               <Info label="City" value={property.city} />
               <Info label="Country" value={property.country} />
               <Info label="Address" value={property.address} />
+              <Info label="Postal Code" value={property.postalCode} />
+              <Info label="Company" value={property.companyName || "Not linked"} />
 
             </CardContent>
 
@@ -413,8 +388,9 @@ const landlord = property?.landlordId
               setPropertyPhotos(photos);
               if (index !== undefined) setFeaturedPhotoIndex(index);
             }}
-            editable
+            editable={false}
           />
+          <p className="mt-2 text-sm text-muted-foreground">Property photos are read-only here until secure, server-backed gallery uploads are available. Browser-only uploads are intentionally disabled to avoid losing photos across devices.</p>
 
         </TabsContent>
 
@@ -449,14 +425,14 @@ const landlord = property?.landlordId
 
             <CardContent>
 
-              {property.amenities.length === 0 ? (
+              {(property.amenities ?? []).length === 0 ? (
                 <p className="text-muted-foreground text-center py-8">
                   No amenities listed.
                 </p>
               ) : (
                 <div className="grid gap-3 md:grid-cols-3">
 
-                  {property.amenities.map((a) => (
+                  {(property.amenities ?? []).map((a) => (
                     <div
                       key={a}
                       className="flex items-center gap-2 p-3 bg-muted/50 rounded"
