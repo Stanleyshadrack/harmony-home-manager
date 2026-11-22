@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import SubscriptionPlans from "./pages/SubscriptionPlans";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { PersonalPaletteSync } from "@/components/settings/PersonalPaletteSync";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { RBACProvider } from "@/contexts/RBACContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -50,6 +51,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
       <AuthProvider>
+        <PersonalPaletteSync />
         <RBACProvider>
           <TooltipProvider>
             <Toaster />
