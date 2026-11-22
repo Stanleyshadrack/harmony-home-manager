@@ -1,4 +1,5 @@
 import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
+import { RecordListTable } from '@/components/ui/record-list-table';
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { Bell, Check, Trash2, Filter, Search } from 'lucide-react';
@@ -130,7 +131,23 @@ export default function UserNotifications() {
             </CardContent>
           </Card>
         ) : (
-          <div className={viewMode === 'grid' ? 'grid gap-3 md:grid-cols-2 xl:grid-cols-3' : 'space-y-3'}>
+          viewMode === 'list' ? (
+            <RecordListTable records={filteredNotifications} getKey={notification=>notification.id}
+              columns={[
+                {key:'title',header:'Notification',render:n=><span className="font-medium">{n.title}</span>},
+                {key:'message',header:'Message',render:n=><span className="block max-w-lg whitespace-normal">{n.message}</span>},
+                {key:'category',header:'Category',render:n=>formatCategory(n.category)},
+                {key:'date',header:'Received',render:n=>format(new Date(n.createdAt),'MMM d, yyyy h:mm a')},
+                {key:'status',header:'Status',render:n=>n.read?'Read':'Unread'}
+              ]}
+              actions={n=>[
+                ...(!n.read?[{label:'Mark as read',onSelect:()=>void markAsRead(n.id).catch(()=>{})}]:[]),
+                {label:'Delete notification',destructive:true,separatorBefore:!n.read,
+                  onSelect:()=>void deleteNotification(n.id).catch(()=>{})}
+              ]}
+            />
+          ) : (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {filteredNotifications.map((notification) => (
               <Card
                 key={notification.id}
@@ -179,6 +196,7 @@ export default function UserNotifications() {
               </Card>
             ))}
           </div>
+          )
         )}
       </div>
     </DashboardLayout>
