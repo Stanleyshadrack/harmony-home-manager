@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { ConfirmActionDialog } from '@/components/messages/ConfirmActionDialog';
 
 export type MoveInStep = { key: string; label: string; complete: boolean; detail: string };
 export type MoveInClearance = {
@@ -30,6 +31,7 @@ export function TenantMoveInClearancePanel({
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [pendingConfirmation, setPendingConfirmation] = useState<'firstRent'|'clearance'|null>(null);
   const endpoint = tenantView
     ? '/api/tenants/me/move-in-clearance'
     : `/api/tenants/${tenantId}/move-in-clearance`;
@@ -61,9 +63,6 @@ export function TenantMoveInClearancePanel({
 
   const issueFirstRent = async () => {
     if (!tenantId || tenantView || !leaseApproved || (firstRentIssued && depositIncluded) || busy) return;
-    if (!window.confirm(firstRentIssued
-      ? 'Add the missing refundable deposit to this existing unpaid first-rent invoice? This preserves its invoice number and requires no prior payment activity.'
-      : 'Create one first invoice showing monthly rent and refundable deposit separately?')) return;
     setBusy(true);
     try {
       const result = await apiRequest<null, MoveInClearance>({
@@ -84,9 +83,6 @@ export function TenantMoveInClearancePanel({
 
   const confirm = async () => {
     if (!record || !record.ready || record.cleared || busy || !tenantId) return;
-    if (!window.confirm(
-      `Confirm move-in clearance for Unit ${record.unitNumber}? This will mark the unit occupied. Confirm documents, deposit and first rent are settled.`
-    )) return;
     setBusy(true);
     try {
       const result = await apiRequest<null, MoveInClearance>({
@@ -108,6 +104,22 @@ export function TenantMoveInClearancePanel({
 
   return (
     <Card className="min-w-0">
+      <ConfirmActionDialog
+        open={pendingConfirmation!==null}
+        onOpenChange={open=>{if(!open)setPendingConfirmation(null);}}
+        title={pendingConfirmation==='firstRent'?'Issue first invoice?':'Confirm move-in clearance?'}
+        description={pendingConfirmation==='firstRent'
+          ? (firstRentIssued
+            ? 'Add the missing refundable deposit to the existing unpaid first-rent invoice, preserving its invoice number. This requires no prior payment activity.'
+            : 'Create a first invoice showing monthly rent and refundable deposit separately?')
+          : `Confirm move-in clearance for Unit ${record?.unitNumber||''}? The unit will be marked occupied. Ensure documents, deposit and first rent are settled.`}
+        confirmLabel={pendingConfirmation==='firstRent'?'Issue invoice':'Confirm clearance'}
+        destructive={false}
+        onConfirm={async()=>{
+          if(pendingConfirmation==='firstRent')await issueFirstRent();
+          else if(pendingConfirmation==='clearance')await confirm();
+        }}
+      />
       <CardHeader className="pb-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-base">
@@ -189,12 +201,12 @@ export function TenantMoveInClearancePanel({
             ) : (
               <div className="space-y-2">
                 {leaseApproved && (!firstRentIssued || !depositIncluded) && !record.cleared && (
-                  <Button className="w-full" variant="outline" onClick={issueFirstRent}
+                  <Button className="w-full" variant="outline" onClick={()=>setPendingConfirmation("firstRent")}
                     disabled={busy}>
                     {busy ? 'Saving…' : firstRentIssued ? 'Add missing deposit to first invoice' : 'Issue rent + deposit invoice'}
                   </Button>
                 )}
-                <Button className="w-full" onClick={confirm}
+                <Button className="w-full" onClick={()=>setPendingConfirmation("clearance")}
                   disabled={!record.ready || record.cleared || busy}>
                   <ShieldCheck className="mr-2 h-4 w-4" />
                   {record.cleared ? 'Move-in already cleared' :
