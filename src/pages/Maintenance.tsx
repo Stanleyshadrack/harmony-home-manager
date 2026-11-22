@@ -32,6 +32,7 @@ import { useMaintenance } from '@/hooks/useMaintenance';
 import { useAuth } from '@/contexts/AuthContext';
 import { MaintenanceStats } from '@/components/maintenance/MaintenanceStats';
 import { MaintenanceCard } from '@/components/maintenance/MaintenanceCard';
+import { RecordListTable } from '@/components/ui/record-list-table';
 import { MaintenanceForm } from '@/components/maintenance/MaintenanceForm';
 import { AssignmentForm } from '@/components/maintenance/AssignmentForm';
 import { MaintenanceDetail } from '@/components/maintenance/MaintenanceDetail';
@@ -283,17 +284,34 @@ export default function Maintenance() {
                 </CardContent>
               </Card>
             ) : (
-              <div className={viewMode === 'grid' ? "grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-2 2xl:grid-cols-3" : "grid min-w-0 grid-cols-1 gap-3"}>
-                {filteredRequests.map((request) => (
-                  <MaintenanceCard
-                    key={request.id}
-                    request={request}
+              viewMode === 'list' ? (
+                <RecordListTable records={filteredRequests} getKey={request=>request.id}
+                  columns={[
+                    {key:'ticket',header:'Ticket',render:r=><span className="font-medium">{r.ticketNumber}</span>},
+                    {key:'title',header:'Issue',render:r=>r.title},
+                    {key:'property',header:'Property / Unit',render:r=>`${r.propertyName} / ${r.unitNumber}`},
+                    {key:'tenant',header:'Tenant',render:r=>r.tenantName},
+                    {key:'priority',header:'Priority',render:r=><span className="capitalize">{r.priority}</span>},
+                    {key:'status',header:'Status',render:r=><span className="capitalize">{r.status.replaceAll('_',' ')}</span>},
+                    {key:'assigned',header:'Assigned To',render:r=>r.assignedToName||'Unassigned'},
+                  ]}
+                  actions={request=>[
+                    {label:'View request',onSelect:()=>handleViewRequest(request)},
+                    ...(canAssign?[{label:'Assign employee',onSelect:()=>void handleAssignClick(request)}]:[]),
+                    ...((canAssign&& !busy)?[
+                      {label:'Mark in progress',onSelect:()=>void handleUpdateStatus(request,'in_progress' as MaintenanceStatus),disabled:request.status==='in_progress'},
+                      {label:'Mark resolved',onSelect:()=>void handleUpdateStatus(request,'resolved' as MaintenanceStatus),disabled:request.status==='resolved'||request.status==='confirmed'}
+                    ]:[]),
+                  ]}
+                />
+              ) : (
+                <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-2 2xl:grid-cols-3">
+                  {filteredRequests.map(request=><MaintenanceCard key={request.id} request={request}
                     onView={handleViewRequest}
-                    onAssign={canAssign ? handleAssignClick : undefined}
-                    onUpdateStatus={busy ? undefined : (request, status) => { void handleUpdateStatus(request, status); }}
-                  />
-                ))}
-              </div>
+                    onAssign={canAssign?handleAssignClick:undefined}
+                    onUpdateStatus={busy?undefined:(r,status)=>{void handleUpdateStatus(r,status);}}/>)}
+                </div>
+              )
             )}
           </TabsContent>
         </Tabs>
