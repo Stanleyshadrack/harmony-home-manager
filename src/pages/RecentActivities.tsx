@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { apiRequest } from '@/api/https';
 import { formatDistanceToNow } from 'date-fns';
 import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
+import { RecordListTable } from '@/components/ui/record-list-table';
 
 type Event = {
   id: number; action: string; entityType: string;
@@ -61,19 +62,33 @@ export default function RecentActivities() {
       {loading && <p role="status" className="text-sm text-muted-foreground">Loading recent activity…</p>}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {!loading && !error && filtered.length === 0 && <p className="text-sm text-muted-foreground">No recorded activity yet.</p>}
-      <div className={mode === 'grid' ? 'grid gap-3 md:grid-cols-2 xl:grid-cols-3' : 'space-y-3'}>
-        {filtered.map(item => <Card key={item.id}><CardContent className="flex items-start gap-3 p-4">
-          <Activity className="mt-0.5 h-4 w-4 shrink-0 text-primary"/>
-          <div className="min-w-0 space-y-1">
-            <p className="font-medium">{item.action.replace(/_/g, ' ')}</p>
-            <p className="text-sm text-muted-foreground">{item.entityType}{item.entityId == null ? '' : ` #${item.entityId}`}</p>
-            {item.details && <p className="text-sm break-words">{item.details}</p>}
-            <p className="text-xs text-muted-foreground">
-              {formatDistanceToNow(new Date(item.createdAt), {addSuffix:true})}
-            </p>
-          </div>
-        </CardContent></Card>)}
-      </div>
+      {mode==='list' ? (
+        <RecordListTable records={filtered} getKey={item=>item.id}
+          columns={[
+            {key:'action',header:'Action',render:item=><span className="font-medium">{item.action.replaceAll('_',' ')}</span>},
+            {key:'entity',header:'Module',render:item=>item.entityType},
+            {key:'entityId',header:'Record ID',render:item=>item.entityId??'—'},
+            {key:'details',header:'Details',render:item=><span className="block max-w-xl whitespace-normal">{item.details||'—'}</span>},
+            {key:'when',header:'Time',render:item=>formatDistanceToNow(new Date(item.createdAt),{addSuffix:true})},
+          ]}
+          actions={item=>[{label:'Copy details',onSelect:()=>void navigator.clipboard.writeText(
+            [item.action,item.entityType,item.entityId??'',item.details??'',item.createdAt].join(' | ')
+          )}]}
+        />
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {filtered.map(item=><Card key={item.id}><CardContent className="flex items-start gap-3 p-4">
+            <Activity className="mt-0.5 h-4 w-4 shrink-0 text-primary"/>
+            <div className="min-w-0 space-y-1">
+              <p className="font-medium">{item.action.replace(/_/g,' ')}</p>
+              <p className="text-sm text-muted-foreground">{item.entityType}{item.entityId==null?'':` #${item.entityId}`}</p>
+              {item.details&&<p className="break-words text-sm">{item.details}</p>}
+              <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(item.createdAt),{addSuffix:true})}</p>
+            </div>
+          </CardContent></Card>)}
+        </div>
+      )}
+
       {hasMore && <div className="flex justify-center">
         <Button variant="outline" disabled={loading} onClick={() => void load(page + 1)}>
           {loading ? 'Loading…' : 'Load earlier activity'}
