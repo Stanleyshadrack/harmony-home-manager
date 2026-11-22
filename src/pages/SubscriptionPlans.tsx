@@ -8,6 +8,7 @@ import { apiRequest } from '@/api/https';
 import { useAuth } from '@/contexts/AuthContext';
 import { SUBSCRIPTION_PLANS } from '@/components/Plans';
 import { ViewModeToggle, useViewMode } from '@/components/ui/view-mode-toggle';
+import { RecordListTable } from '@/components/ui/record-list-table';
 
 type CompanySubscription = {
   companyId: number;
@@ -71,23 +72,39 @@ export default function SubscriptionPlans() {
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         {!loading && !error && allCompanies.length===0 &&
           <p className="text-sm text-muted-foreground">No company subscriptions recorded.</p>}
-        <div className={mode === 'grid' ? 'grid gap-3 lg:grid-cols-2' : 'space-y-3'}>
-          {allCompanies.map(company => <Card key={company.companyId}>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between gap-3">
+        {mode==='list'?(
+          <RecordListTable records={allCompanies} getKey={company=>company.companyId}
+            columns={[
+              {key:'company',header:'Company',render:c=><span className="font-medium">{c.companyName}</span>},
+              {key:'plan',header:'Plan',render:c=>c.plan},
+              {key:'cycle',header:'Billing Cycle',render:c=>c.billingCycle||'—'},
+              {key:'status',header:'Status',render:c=><Badge variant={c.status==='ACTIVE'?'secondary':'destructive'}>{c.status}</Badge>},
+              {key:'properties',header:'Properties',render:c=>`${c.currentProperties??0} / ${c.maxProperties}`},
+              {key:'units',header:'Units',render:c=>`${c.currentUnits??0} / ${c.maxUnits}`},
+              {key:'expires',header:'Expiry Date',render:c=>c.endDate||'—'},
+              {key:'remaining',header:'Days Left',render:c=>c.daysRemaining??'—'}
+            ]}
+            actions={c=>[{label:'Copy company summary',onSelect:()=>void navigator.clipboard.writeText(
+              [c.companyName,c.plan,c.status,c.endDate||''].join(' | ')
+            )}]}
+          />
+        ):(
+          <div className="grid gap-3 lg:grid-cols-2">
+            {allCompanies.map(company=><Card key={company.companyId}>
+              <CardHeader><CardTitle className="flex items-center justify-between gap-3">
                 <span className="truncate">{company.companyName}</span>
-                <Badge variant={company.status === 'ACTIVE' ? 'secondary':'destructive'}>{company.status}</Badge>
+                <Badge variant={company.status==='ACTIVE'?'secondary':'destructive'}>{company.status}</Badge>
               </CardTitle>
-              <CardDescription>Company #{company.companyId} · {company.plan} · {company.billingCycle ?? 'Unspecified cycle'}</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-2 text-sm sm:grid-cols-2">
-              <div>Properties: <strong>{company.currentProperties ?? 0} / {company.maxProperties}</strong></div>
-              <div>Units: <strong>{company.currentUnits ?? 0} / {company.maxUnits}</strong></div>
-              <div>Expires: <strong>{company.endDate || 'Not set'}</strong></div>
-              <div>Days remaining: <strong>{company.daysRemaining ?? '—'}</strong></div>
-            </CardContent>
-          </Card>)}
-        </div>
+              <CardDescription>Company #{company.companyId} · {company.plan} · {company.billingCycle??'Unspecified cycle'}</CardDescription></CardHeader>
+              <CardContent className="grid gap-2 text-sm sm:grid-cols-2">
+                <div>Properties: <strong>{company.currentProperties??0} / {company.maxProperties}</strong></div>
+                <div>Units: <strong>{company.currentUnits??0} / {company.maxUnits}</strong></div>
+                <div>Expires: <strong>{company.endDate||'Not set'}</strong></div>
+                <div>Days remaining: <strong>{company.daysRemaining??'—'}</strong></div>
+              </CardContent></Card>)}
+          </div>
+        )}
+
         <p className="text-sm text-muted-foreground">
           Paid upgrades and renewals are disabled until verified payments are linked to their company.
           This overview does not create invoices or claim payments have been received.
